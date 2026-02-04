@@ -1,0 +1,488 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  name        String?
+  password    String
+  role        String   @default("user") // Mantido para compatibilidade simples
+  roleId      String?  // ID da categoria de equipe/permissões
+  categoria   CategoriaEquipe? @relation(fields: [roleId], references: [id])
+  
+  departamento String?
+  telefone     String?
+  isAtivo     Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CategoriaEquipe {
+  id              String   @id @default(uuid())
+  nome            String   @unique // Ex: Admin, Comercial, Financeiro
+  
+  // Permissões
+  canAccessFinanceiro Boolean @default(false)
+  canAccessLogistica  Boolean @default(false)
+  canAccessFaturamento Boolean @default(false)
+  canAccessComercial  Boolean @default(true)
+  canAccessOperacao   Boolean @default(false)
+  canAccessRH         Boolean @default(false)
+  canAccessEstoque    Boolean @default(false)
+  
+  users           User[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Cliente {
+  id                  String   @id @default(uuid())
+  codigo              String?  @unique // Código interno opcional
+  nome                String   // Nome curto ou Razão Social resumida
+  razaoSocial         String?
+  nomeFantasia        String?
+  documento           String   @unique // CPF ou CNPJ
+  inscricaoEstadual   String?
+  inscricaoMunicipal  String?
+  tipo                String   @default("PJ") // PF ou PJ
+  
+  segmento            String?  // Segmento principal
+  
+  // Endereço
+  endereco            String?
+  numero              String?
+  complemento         String?
+  bairro              String?
+  cidade              String?
+  estado              String?
+  cep                 String?
+  uf                  String?
+  pontoReferencia     String?
+
+  // Contato
+  email               String?
+  telefone            String?
+  celular             String?
+  fax                 String?
+  
+  // Faturamento e Comercial
+  aniversarioReajuste DateTime?
+  tipoFaturamento     String?
+  vendedorResponsavel String?
+  empresaFaturamento  String?
+  aceitaCTe           Boolean  @default(false)
+  porcentagemRL       Decimal? @db.Decimal(5, 2)
+  diasVencimentoRL    Int?
+  bloquearCliente     Boolean  @default(false)
+  orientacoesFatura   String?  @db.Text
+  observacoesGerais   String?  @db.Text
+  
+  // Portal do Cliente
+  linkPortal          String?
+  usuarioPortal       String?
+  senhaPortal         String?
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  propostas     Proposta[]
+  ordensServico OrdemServico[]
+  escalas       Escala[]
+}
+
+model Proposta {
+  id              String   @id @default(uuid())
+  codigo          String   @unique // PROP-2024-XXX
+  numero          Int      @default(autoincrement())
+  revisada        Boolean  @default(false)
+  
+  clienteId       String
+  cliente         Cliente  @relation(fields: [clienteId], references: [id])
+  
+  vendedor        String?
+  empresa         String?
+  contato         String?
+  cc              String?
+  naoEnviarAoCliente Boolean @default(false)
+  
+  dataProposta    DateTime @default(now())
+  dataValidade    DateTime
+  validadeDias    Int      @default(30)
+  
+  introducao      String?  @db.Text
+  objetivo        String?  @db.Text
+  
+  // Listas Dinâmicas
+  itens           PropostaItem[]
+  acessorios      PropostaAcessorio[]
+  responsabilidades PropostaResponsabilidade[]
+  equipe          PropostaEquipe[]
+  
+  descricaoValores   String? @db.Text
+  descricaoGarantia  String? @db.Text
+  condicoesPagamento String? @db.Text
+  
+  pRL               Decimal? @db.Decimal(5, 2)
+  cTe               String?
+  pagamentoAntecipado String?
+  
+  valorTotal        Decimal  @db.Decimal(10, 2)
+  status            String   @default("RASCUNHO") // RASCUNHO, ENVIADA, ACEITA, RECUSADA
+  
+  observacoes       String?  @db.Text
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  ordensServico     OrdemServico[]
+}
+
+model PropostaItem {
+  id              String   @id @default(uuid())
+  propostaId      String
+  proposta        Proposta @relation(fields: [propostaId], references: [id])
+  
+  equipamento     String
+  quantidade      Int      @default(1)
+  area            String?
+  tipoCobranca    String?
+  valorAcobrar    Decimal  @db.Decimal(10, 2)
+  horasPorDia     Int?
+  usoPrevisto     String?
+  mobilizacao     Decimal? @db.Decimal(10, 2)
+  valorTotal      Decimal  @db.Decimal(10, 2)
+}
+
+model PropostaAcessorio {
+  id              String   @id @default(uuid())
+  propostaId      String
+  proposta        Proposta @relation(fields: [propostaId], references: [id])
+  
+  acessorio       String
+  quantidade      Int      @default(1)
+  valor           Decimal? @db.Decimal(10, 2)
+}
+
+model PropostaResponsabilidade {
+  id              String   @id @default(uuid())
+  propostaId      String
+  proposta        Proposta @relation(fields: [propostaId], references: [id])
+  
+  tipo            String   // CONTRATANTE, CONTRATADO
+  descricao       String
+}
+
+model PropostaEquipe {
+  id              String   @id @default(uuid())
+  propostaId      String
+  proposta        Proposta @relation(fields: [propostaId], references: [id])
+  
+  nome            String
+  cargo           String?
+}
+
+model OrdemServico {
+  id              String   @id @default(uuid())
+  codigo          String   @unique // Ex: 2943/1
+  
+  // Relacionamentos
+  clienteId       String
+  cliente         Cliente  @relation(fields: [clienteId], references: [id])
+  propostaId      String?
+  proposta        Proposta? @relation(fields: [propostaId], references: [id])
+  
+  // Cabeçalho (Abertura de OS)
+  dataInicial     DateTime @default(now())
+  horaInicial     String?
+  tipoCobranca    String?
+  empresa         String   @default("NACIONAL HIDROSANEAMENTO EIRELI EPP")
+  diasSemana      String?
+  quantidadeDia   String?
+  
+  // Contexto
+  contato         String?
+  acompanhante    String?
+  
+  // Detalhamento
+  servicos        ServicoOS[]
+  
+  // Medição / Efetuar Baixa
+  minimoHoras     Int?
+  entrada         DateTime?
+  saida           DateTime?
+  almoco          DateTime?
+  horasTotais     Decimal? @db.Decimal(10, 2)
+  horasAdicionais Decimal? @db.Decimal(10, 2)
+  
+  // Status e Controle
+  prioridade      String   @default("MEDIA") // BAIXA, MEDIA, ALTA, CRITICA
+  status          String   @default("ABERTA") // ABERTA, EM_EXECUCAO, AGUARDANDO_PECA, CONCLUIDA, CANCELADA
+  
+  observacoes     String?  @db.Text
+  tecnicos        String?  // Nomes dos técnicos responsáveis
+  materiais       Json?    // Materiais utilizados (legado)
+  
+  manutencao      Manutencao?
+  logistica       Logistica?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ServicoOS {
+  id              String   @id @default(uuid())
+  osId            String
+  os              OrdemServico @relation(fields: [osId], references: [id])
+  
+  equipamento     String
+  descricao       String?
+}
+
+model Produto {
+  id              String   @id @default(uuid())
+  nome            String
+  descricao       String?
+  sku             String?  @unique
+  precoCusto      Decimal  @db.Decimal(10, 2)
+  precoVenda      Decimal  @db.Decimal(10, 2)
+  estoqueAtual    Int      @default(0)
+  estoqueMinimo   Int      @default(0)
+  unidadeMedida   String   @default("UN") // UN, KG, M, L
+  
+  movimentacoes   MovimentacaoEstoque[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model MovimentacaoEstoque {
+  id              String   @id @default(uuid())
+  produtoId       String
+  produto         Produto  @relation(fields: [produtoId], references: [id])
+  quantidade      Int
+  tipo            String   // ENTRADA, SAIDA
+  motivo          String?  // COMPRA, VENDA, USO_EM_OS, AJUSTE
+  createdAt       DateTime @default(now())
+}
+
+model TransacaoFinanceira {
+  id              String   @id @default(uuid())
+  descricao       String
+  valor           Decimal  @db.Decimal(10, 2)
+  data            DateTime @default(now())
+  tipo            String   // RECEITA, DESPESA
+  categoria       String?  // ALUGUEL, SALARIO, VENDA, MANUTENCAO
+  status          String   @default("PENDENTE") // PENDENTE, PAGO, CANCELADO
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Funcionario {
+  id              String   @id @default(uuid())
+  nome            String
+  cargo           String
+  departamento    String
+  salario         Decimal  @db.Decimal(10, 2)
+  dataAdmissao    DateTime
+  cpf             String   @unique
+  email           String?
+  ativo           Boolean  @default(true)
+  
+  // Dados Pessoais
+  rg              String?
+  dataNascimento  DateTime?
+  estadoCivil     String?
+  nacionalidade   String?  @default("Brasileira")
+  nomeMae         String?
+  nomePai         String?
+  
+  // Contratual
+  tipoContrato    String   @default("CLT") // CLT, PJ, ESTAGIO, TEMPORARIO
+  matricula       String?  @unique
+  ctps            String?
+  serieCtps       String?
+  pis             String?
+  
+  // Endereço
+  cep             String?
+  endereco        String?
+  numero          String?
+  complemento     String?
+  bairro          String?
+  cidade          String?
+  estado          String?
+  
+  // Financeiro / Bancário
+  banco           String?
+  agencia         String?
+  conta           String?
+  tipoConta       String? // CORRENTE, POUPANCA
+  chavePix        String?
+  
+  // Extras
+  dependentes     Json?    // Array de dependentes
+  documentos      Json?    // Array de links/paths
+  observacoes     String?  @db.Text
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Manutencao {
+  id              String   @id @default(uuid())
+  osId            String?  @unique
+  os              OrdemServico? @relation(fields: [osId], references: [id])
+  
+  veiculoId       String?
+  veiculo         Veiculo? @relation(fields: [veiculoId], references: [id])
+  
+  equipamento     String?
+  descricao       String?
+  prioridade      String   @default("MEDIA") // BAIXA, MEDIA, ALTA, CRITICA
+  status          String   @default("PENDENTE") // PENDENTE, EM_EXECUCAO, CONCLUIDA
+  
+  // Custos e Financeiro
+  custoPecas      Decimal? @db.Decimal(10, 2)
+  custoMaoObra    Decimal? @db.Decimal(10, 2)
+  valorTotal      Decimal? @db.Decimal(10, 2)
+  dataPagamento   DateTime?
+  statusFinanceiro String   @default("PENDENTE") // PENDENTE, PAGO
+  
+  ultimaRevisao   DateTime?
+  proximaRevisao  DateTime?
+  historico       String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Logistica {
+  id              String   @id @default(uuid())
+  osId            String?  @unique
+  os              OrdemServico? @relation(fields: [osId], references: [id])
+  
+  statusEnvio     String   @default("PREPARANDO") // PREPARANDO, EM_TRANSITO, ENTREGUE
+  codigoRastreio  String?
+  transportadora  String?
+  dataSaida       DateTime?
+  dataEntrega     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Veiculo {
+  id              String   @id @default(uuid())
+  placa           String   @unique
+  modelo          String
+  marca           String?
+  ano             Int?
+  kmAtual         Int      @default(0)
+  nivelCombustivel Decimal   @default(100.0) @db.Decimal(5, 2)
+  status          String   @default("DISPONIVEL") // DISPONIVEL, EM_USO, MANUTENCAO
+  tipo            String   @default("CAMINHAO") // CAMINHAO, UTILITARIO, CARRO
+  
+  escalas         Escala[]
+  manutencoes     Manutencao[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Escala {
+  id              String   @id @default(uuid())
+  codigoOS        String?
+  data            DateTime
+  hora            String?
+  empresa         String   @default("NACIONAL HIDROSANEAMENTO EIRELI EPP")
+  
+  clienteId       String?
+  cliente         Cliente? @relation(fields: [clienteId], references: [id])
+  
+  veiculoId       String?
+  veiculo         Veiculo? @relation(fields: [veiculoId], references: [id])
+  
+  equipamento     String?
+  funcionarios    Json?    // Lista de nomes ou IDs de funcionários
+  status          String   @default("AGENDADO") // AGENDADO, EM_ANDAMENTO, CONCLUIDO, CANCELADO
+  observacoes     String?  @db.Text
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Equipamento {
+  id              String   @id @default(uuid())
+  nome            String
+  descricao       String?  @db.Text
+  ativo           Boolean  @default(true)
+  imagem          String?  // URL ou Base64
+  
+  // Listas Dinâmicas (conforme solicitado na UI)
+  responsabilidades Json?  // Array de { responsabilidade: string, responsavel: string }
+  acessorios        Json?  // Array de strings
+  veiculos          Json?  // Array de { id: string, nome: string } ou apenas strings
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Configuracao {
+  id              String   @id @default("default") // Singleton pattern
+  
+  // Identification
+  nomeEmpresa     String   @default("Minha Empresa") // Legacy
+  razaoSocial     String?
+  nomeFantasia    String?
+  cnpj            String?
+  inscricaoEstadual String?
+  inscricaoMunicipal String?
+  dataAbertura    DateTime?
+
+  // Address
+  cep             String?
+  logradouro      String?
+  numero          String?
+  complemento     String?
+  bairro          String?
+  cidade          String?
+  estado          String?
+  endereco        String? // Legacy
+
+  // Contato
+  emailComercial  String?
+  emailFiscal     String?
+  emailFinanceiro String?
+  telefone        String?
+
+  // Fiscal
+  regimeTributario String?
+  cnaePrincipal    String?
+  listaServicos    String?
+  aliquotaIss      Decimal? @db.Decimal(5, 2)
+  incentivadorCultural Boolean @default(false)
+  optanteSimples   Boolean @default(true)
+  naturezaOperacao String?
+  tributacaoMunicipio String?
+  responsavelTributario String?
+
+  // Integrações - NF-e
+  certificadoA1   String?  // Base64 ou Path
+  senhaCertificado String?
+  ambienteNFe     String   @default("HOMOLOGACAO") // HOMOLOGACAO, PRODUCAO
+
+  // Integrações - WhatsApp (Evolution API)
+  whatsappUrl          String?
+  whatsappApiKey       String?
+  whatsappInstanceName String?
+  
+  // Web API / Webhooks
+  webhookUrl      String?
+  apiKey          String?
+  
+  updatedAt       DateTime @updatedAt
+}
