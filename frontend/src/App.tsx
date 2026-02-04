@@ -7,7 +7,7 @@ import Clientes from './pages/Clientes';
 import OS from './pages/OS';
 import EstoqueEquipamentos from './pages/EstoqueEquipamentos';
 import Logistica from './pages/Logistica';
-import Relatorios from './pages/Relatorios';
+
 import Manutencao from './pages/Manutencao';
 import Propostas from './pages/Propostas';
 import Financeiro from './pages/Financeiro';
@@ -38,7 +38,7 @@ function App() {
         <Route path="/propostas" element={<ProtectedRoute><Propostas /></ProtectedRoute>} />
         <Route path="/financeiro" element={<ProtectedRoute><Financeiro /></ProtectedRoute>} />
         <Route path="/rh" element={<ProtectedRoute><RH /></ProtectedRoute>} />
-        <Route path="/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
+
         <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
         <Route path="/usuarios" element={<ProtectedRoute><Usuarios /></ProtectedRoute>} />
         <Route path="/monitor" element={<ProtectedRoute><Monitor /></ProtectedRoute>} />

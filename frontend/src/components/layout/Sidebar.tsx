@@ -25,7 +25,7 @@ const menuItems = [
   { icon: DollarSign, label: 'Financeiro', path: '/financeiro' },
   { icon: Users, label: 'RH', path: '/rh' },
   { icon: Shield, label: 'Equipe & Permissões', path: '/usuarios' },
-  { icon: BarChart3, label: 'Relatórios', path: '/relatorios' },
+
   { icon: Activity, label: 'Monitoramento', path: '/monitor' },
   { icon: Settings, label: 'Configurações', path: '/configuracoes' },
 ];
