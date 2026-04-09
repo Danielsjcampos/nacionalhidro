@@ -1,0 +1,1536 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://neondb_owner:npg_QzkomiupH0Z1@ep-calm-breeze-aciek47r.sa-east-1.aws.neon.tech/neondb?sslmode=require"
+}
+
+model User {
+  id            String           @id @default(uuid())
+  email         String           @unique
+  name          String?
+  password      String
+  role          String           @default("user")
+  roleId        String?
+  departamento  String?
+  isAtivo       Boolean          @default(true)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  telefone      String?
+  signatureUrl  String?
+  pedidosCompra PedidoCompra[]   @relation("SolicitantePedidoCompra")
+  categoria     CategoriaEquipe? @relation(fields: [roleId], references: [id])
+}
+
+model CategoriaEquipe {
+  id                     String   @id @default(uuid())
+  nome                   String   @unique
+  canAccessFinanceiro    Boolean  @default(false)
+  canAccessLogistica     Boolean  @default(false)
+  canAccessFaturamento   Boolean  @default(false)
+  canAccessComercial     Boolean  @default(true)
+  canAccessOperacao      Boolean  @default(false)
+  canAccessRH            Boolean  @default(false)
+  canAccessEstoque       Boolean  @default(false)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  canAccessCobranca      Boolean  @default(false)
+  canAccessContasPagar   Boolean  @default(false)
+  canAccessContasReceber Boolean  @default(false)
+  canAccessDP            Boolean  @default(false)
+  canAccessFrota         Boolean  @default(false)
+  canAccessManutencao    Boolean  @default(false)
+  canAccessMedicoes      Boolean  @default(false)
+  users                  User[]
+}
+
+model Cliente {
+  id                  String              @id @default(uuid())
+  codigo              String?             @unique
+  nome                String
+  razaoSocial         String?
+  nomeFantasia        String?
+  documento           String              @unique
+  inscricaoEstadual   String?
+  inscricaoMunicipal  String?
+  tipo                String              @default("PJ")
+  segmento            String?
+  endereco            String?
+  numero              String?
+  complemento         String?
+  bairro              String?
+  cidade              String?
+  estado              String?
+  cep                 String?
+  uf                  String?
+  pontoReferencia     String?
+  email               String?
+  telefone            String?
+  celular             String?
+  fax                 String?
+  aniversarioReajuste DateTime?
+  tipoFaturamento     String?
+  vendedorResponsavel String?
+  empresaFaturamento  String?
+  aceitaCTe           Boolean             @default(false)
+  porcentagemRL       Decimal?            @db.Decimal(5, 2)
+  diasVencimentoRL    Int?
+  bloquearCliente     Boolean             @default(false)
+  orientacoesFatura   String?
+  observacoesGerais   String?
+  linkPortal          String?
+  usuarioPortal       String?
+  senhaPortal         String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  centrosCusto        Json?
+  matrizId            String?
+  tipoCliente         String              @default("PADRAO")
+  integracoesExigidas Json?
+  agendamentos        Agendamento[]
+  matriz              Cliente?            @relation("ClienteHierarquia", fields: [matrizId], references: [id])
+  filiais             Cliente[]           @relation("ClienteHierarquia")
+  contasPagar         ContaPagar[]        @relation("ClienteContasPagar")
+  contasReceber       ContaReceber[]
+  contratos           Contrato[]
+  escalas             Escala[]
+  faturamentos        Faturamento[]
+  integracoes         IntegracaoCliente[]
+  medicoes            Medicao[]
+  ordensServico       OrdemServico[]
+  propostas           Proposta[]
+}
+
+model Contrato {
+  id                  String   @id @default(uuid())
+  codigo              String   @unique
+  clienteId           String
+  status              String   @default("ATIVO")
+  objeto              String
+  valorMensal         Decimal  @db.Decimal(12, 2)
+  valorTotal          Decimal? @db.Decimal(12, 2)
+  dataInicio          DateTime
+  dataVencimento      DateTime
+  renovacaoAutomatica Boolean  @default(false)
+  diaVencimentoFatura Int      @default(10)
+  observacoes         String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  cliente             Cliente  @relation(fields: [clienteId], references: [id])
+}
+
+model Proposta {
+  id                    String                     @id @default(uuid())
+  codigo                String                     @unique
+  numero                Int                        @default(autoincrement())
+  revisada              Boolean                    @default(false)
+  clienteId             String
+  vendedor              String?
+  empresa               String?
+  contato               String?
+  cc                    String?
+  naoEnviarAoCliente    Boolean                    @default(false)
+  dataProposta          DateTime                   @default(now())
+  dataValidade          DateTime
+  validadeDias          Int                        @default(30)
+  introducao            String?
+  objetivo              String?
+  descricaoValores      String?
+  descricaoGarantia     String?
+  condicoesPagamento    String?
+  pRL                   Decimal?                   @db.Decimal(5, 2)
+  cTe                   String?
+  pagamentoAntecipado   String?
+  valorTotal            Decimal                    @db.Decimal(10, 2)
+  status                String                     @default("RASCUNHO")
+  observacoes           String?
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+  tipo                  String                     @default("INDIVIDUAL")
+  propostaGlobalId      String?
+  unidadeNome           String?
+  unidadeCNPJ           String?
+  unidadeEndereco       String?
+  unidadeContato        String?
+  vigente               Boolean                    @default(true)
+  tipoProposta          String                     @default("COMERCIAL")
+  escopoTecnico         String?
+  dimensionamentoEquipe String?
+  qtdEquipamentos       String?
+  diasTrabalho          String?
+  propostaComercialId   String?
+  dataAprovacao         DateTime?
+  percentualLocacao     Float?                     @default(90.0)
+  percentualServico     Float?                     @default(10.0)
+  adicionalFimSemana    Decimal?                   @default(50.0) @db.Decimal(10, 2)
+  adicionalHoraExtra    Decimal?                   @default(35.0) @db.Decimal(10, 2)
+  adicionalNoturno      Decimal?                   @default(35.0) @db.Decimal(10, 2)
+  dataCancelamento      DateTime?
+  franquiaHoras         Decimal?                   @default(8.0) @db.Decimal(10, 2)
+  minimoHorasChamado    Decimal?                   @default(0) @db.Decimal(10, 2)
+  motivoCancelamento    String?
+  motivoReprovacao      String?
+  agendamentos          Agendamento[]
+  ordensServico         OrdemServico[]
+  cliente               Cliente                    @relation(fields: [clienteId], references: [id])
+  propostaGlobal        Proposta?                  @relation("PropostaUnidades", fields: [propostaGlobalId], references: [id])
+  unidades              Proposta[]                 @relation("PropostaUnidades")
+  acessorios            PropostaAcessorio[]
+  equipe                PropostaEquipe[]
+  itens                 PropostaItem[]
+  responsabilidades     PropostaResponsabilidade[]
+}
+
+model PropostaItem {
+  id            String   @id @default(uuid())
+  propostaId    String
+  equipamento   String
+  quantidade    Int      @default(1)
+  area          String?
+  tipoCobranca  String?
+  valorAcobrar  Decimal  @db.Decimal(10, 2)
+  horasPorDia   Int?
+  usoPrevisto   String?
+  mobilizacao   Decimal? @db.Decimal(10, 2)
+  valorTotal    Decimal  @db.Decimal(10, 2)
+  horaAdicional Decimal? @db.Decimal(10, 2)
+  proposta      Proposta @relation(fields: [propostaId], references: [id], onDelete: Cascade)
+}
+
+model PropostaAcessorio {
+  id         String   @id @default(uuid())
+  propostaId String
+  acessorio  String
+  quantidade Int      @default(1)
+  valor      Decimal? @db.Decimal(10, 2)
+  proposta   Proposta @relation(fields: [propostaId], references: [id])
+}
+
+model PropostaResponsabilidade {
+  id         String   @id @default(uuid())
+  propostaId String
+  tipo       String
+  descricao  String
+  proposta   Proposta @relation(fields: [propostaId], references: [id])
+}
+
+model PropostaEquipe {
+  id          String   @id @default(uuid())
+  propostaId  String
+  nome        String?
+  cargo       String?
+  equipamento String?
+  funcao      String?
+  quantidade  Int      @default(1)
+  proposta    Proposta @relation(fields: [propostaId], references: [id])
+}
+
+model OrdemServico {
+  id                        String         @id @default(uuid())
+  codigo                    String         @unique
+  clienteId                 String
+  propostaId                String?
+  prioridade                String         @default("MEDIA")
+  status                    String         @default("ABERTA")
+  tecnicos                  String?
+  materiais                 Json?
+  createdAt                 DateTime       @default(now())
+  updatedAt                 DateTime       @updatedAt
+  acompanhante              String?
+  almoco                    DateTime?
+  contato                   String?
+  dataInicial               DateTime       @default(now())
+  diasSemana                String?
+  empresa                   String         @default("NACIONAL HIDROSANEAMENTO EIRELI EPP")
+  entrada                   DateTime?
+  horaInicial               String?
+  horasAdicionais           Decimal?       @db.Decimal(10, 2)
+  horasTotais               Decimal?       @db.Decimal(10, 2)
+  minimoHoras               Int?
+  observacoes               String?
+  quantidadeDia             String?
+  saida                     DateTime?
+  tipoCobranca              String?
+  medicaoId                 String?
+  dataBaixa                 DateTime?
+  valorPrecificado          Decimal?       @db.Decimal(10, 2)
+  statusPrecificacao        String?
+  assinaturaCliente         String?
+  justificativaFalha        String?
+  qtdBicos                  Int?           @default(1)
+  qtdPessoas                Int?
+  turnos                    String?        @default("DIURNO")
+  checkpoints               Json?
+  justificativaCancelamento String?
+  agendamentos              Agendamento[]
+  itensCobranca             ItemCobranca[]
+  logistica                 Logistica?
+  manutencao                Manutencao?
+  materiaisUtilizados       MaterialOS[]
+  cliente                   Cliente        @relation(fields: [clienteId], references: [id])
+  medicao                   Medicao?       @relation(fields: [medicaoId], references: [id])
+  proposta                  Proposta?      @relation(fields: [propostaId], references: [id])
+  rdos                      RDO[]
+  servicos                  ServicoOS[]
+}
+
+model ItemCobranca {
+  id                  String       @id @default(uuid())
+  osId                String
+  descricao           String
+  quantidade          Decimal      @db.Decimal(10, 2)
+  valorUnitario       Decimal      @db.Decimal(10, 2)
+  percentualAdicional Decimal?     @db.Decimal(5, 2)
+  valorTotal          Decimal      @db.Decimal(10, 2)
+  createdAt           DateTime     @default(now())
+  os                  OrdemServico @relation(fields: [osId], references: [id])
+}
+
+model Medicao {
+  id                        String          @id @default(uuid())
+  codigo                    String          @unique
+  clienteId                 String
+  periodo                   String?
+  valorTotal                Decimal         @db.Decimal(10, 2)
+  valorRL                   Decimal?        @db.Decimal(10, 2)
+  valorNFSe                 Decimal?        @db.Decimal(10, 2)
+  status                    String          @default("EM_ABERTO")
+  observacoes               String?
+  createdAt                 DateTime        @default(now())
+  updatedAt                 DateTime        @updatedAt
+  valorAprovado             Decimal?        @db.Decimal(10, 2)
+  percentualAprovado        Decimal?        @db.Decimal(5, 2)
+  motivoContestacao         String?
+  contestadaEm              DateTime?
+  aprovadaEm                DateTime?
+  aprovadaPor               String?
+  medicaoContestadaId       String?
+  justificativaCancelamento String?
+  cnpjFaturamento           String?
+  emailDestinatario         String?
+  subitens                  Json?
+  adicional                 Decimal?        @db.Decimal(10, 2)
+  cte                       Boolean         @default(false)
+  desconto                  Decimal?        @db.Decimal(10, 2)
+  porcentagemRL             Decimal?        @db.Decimal(5, 2)
+  revisao                   Int             @default(0)
+  solicitante               String?
+  totalHora                 Decimal?        @db.Decimal(10, 2)
+  totalServico              Decimal?        @db.Decimal(10, 2)
+  vendedorId                String?
+  dataCobranca              DateTime?
+  cobrancasEmail            CobrancaEmail[]
+  cliente                   Cliente         @relation(fields: [clienteId], references: [id])
+  ordensServico             OrdemServico[]
+}
+
+model ServicoOS {
+  id          String       @id @default(uuid())
+  osId        String
+  equipamento String
+  descricao   String?
+  os          OrdemServico @relation(fields: [osId], references: [id])
+}
+
+model CobrancaEmail {
+  id           String   @id @default(uuid())
+  medicaoId    String
+  destinatario String
+  assunto      String
+  corpo        String
+  statusEnvio  String   @default("ENVIADO")
+  dataEnvio    DateTime @default(now())
+  erro         String?
+  medicao      Medicao  @relation(fields: [medicaoId], references: [id])
+}
+
+model Produto {
+  id            String                @id @default(uuid())
+  nome          String
+  descricao     String?
+  sku           String?               @unique
+  precoCusto    Decimal               @db.Decimal(10, 2)
+  precoVenda    Decimal               @db.Decimal(10, 2)
+  estoqueAtual  Int                   @default(0)
+  estoqueMinimo Int                   @default(0)
+  unidadeMedida String                @default("UN")
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  movimentacoes MovimentacaoEstoque[]
+}
+
+model MovimentacaoEstoque {
+  id         String   @id @default(uuid())
+  produtoId  String
+  quantidade Int
+  tipo       String
+  motivo     String?
+  createdAt  DateTime @default(now())
+  produto    Produto  @relation(fields: [produtoId], references: [id])
+}
+
+model TransacaoFinanceira {
+  id        String   @id @default(uuid())
+  descricao String
+  valor     Decimal  @db.Decimal(10, 2)
+  data      DateTime @default(now())
+  tipo      String
+  categoria String?
+  status    String   @default("PENDENTE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Funcionario {
+  id                             String                 @id @default(uuid())
+  nome                           String
+  cargo                          String
+  departamento                   String
+  salario                        Decimal                @db.Decimal(10, 2)
+  dataAdmissao                   DateTime
+  cpf                            String                 @unique
+  email                          String?
+  ativo                          Boolean                @default(true)
+  createdAt                      DateTime               @default(now())
+  updatedAt                      DateTime               @updatedAt
+  agencia                        String?
+  bairro                         String?
+  banco                          String?
+  cep                            String?
+  chavePix                       String?
+  cidade                         String?
+  complemento                    String?
+  conta                          String?
+  ctps                           String?
+  dataNascimento                 DateTime?
+  dependentes                    Json?
+  documentos                     Json?
+  endereco                       String?
+  estado                         String?
+  estadoCivil                    String?
+  matricula                      String?                @unique
+  nacionalidade                  String?                @default("Brasileira")
+  nomeMae                        String?
+  nomePai                        String?
+  numero                         String?
+  observacoes                    String?
+  pis                            String?
+  rg                             String?
+  serieCtps                      String?
+  tipoConta                      String?
+  tipoContrato                   String                 @default("CLT")
+  status                         String                 @default("ATIVO")
+  feriasInicio                   DateTime?
+  feriasFim                      DateTime?
+  motivoAfastamento              String?
+  dataDesligamento               DateTime?
+  categoria                      String?
+  categoriaCNH                   String?
+  cnh                            String?
+  dataVencimentoCNH              DateTime?
+  dataVencimentoMOPP             DateTime?
+  mopp                           Boolean                @default(false)
+  telefone                       String?
+  temRefeicao                    Boolean                @default(false)
+  temValeTransporte              Boolean                @default(false)
+  tipoRefeicao                   String?
+  valorValeTransporte            Decimal?               @db.Decimal(10, 2)
+  alocacaoAtividade              String?
+  convenioMedico                 String?
+  dataFeedback45                 DateTime?
+  dataFeedback90                 DateTime?
+  premioAssiduidade              String?
+  regimeRefeicao                 String?
+  seguroVidaAtivo                Boolean                @default(false)
+  statusExperiencia45            String?
+  statusExperiencia90            String?
+  valeAlimentacao                String?
+  valorJantar                    Decimal?               @db.Decimal(10, 2)
+  valorRefeicao                  Decimal?               @db.Decimal(10, 2)
+  /// { "emailCriado": true, "emailAcesso": "...", "acessosSistemas": true, "celularCorporativo": false, "beneficiosSolicitados": true }
+  dadosOnboarding                Json?
+  onboardingConcluido            Boolean                @default(false)
+  anotacoesReferentesExperiencia Json?
+  /// { "contratoEntregue": true, "sindicatoMapeado": true, "observacoes": "" }
+  dadosEfetivacao                Json?
+  efetivacaoConcluida            Boolean                @default(false)
+  armarioVestiario               String?
+  codESocial                     String?
+  equipamentosAdministrativos    String?
+  linkPastaDocumentos            String?
+  previsaoRetornoINSS            DateTime?
+  statusAsoDemissional           String?
+  asosControle                   ASOControle[]
+  admissoes                      Admissao[]
+  afastamentos                   Afastamento[]
+  controlesFerias                ControleFerias[]
+  desligamentos                  Desligamento[]
+  episEntregues                  EPIEntregue[]
+  integracoes                    IntegracaoCliente[]
+  treinamentos                   TreinamentoRealizado[]
+}
+
+model EPI {
+  id           String        @id @default(uuid())
+  nome         String
+  descricao    String?
+  ca           String?
+  validadeDias Int?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  entregas     EPIEntregue[]
+}
+
+model EPIEntregue {
+  id            String      @id @default(uuid())
+  funcionarioId String
+  epiId         String
+  dataEntrega   DateTime
+  quantidade    Int         @default(1)
+  tamanho       String?
+  devolvido     Boolean     @default(false)
+  dataDevolucao DateTime?
+  observacoes   String?
+  createdAt     DateTime    @default(now())
+  epi           EPI         @relation(fields: [epiId], references: [id])
+  funcionario   Funcionario @relation(fields: [funcionarioId], references: [id])
+}
+
+model Treinamento {
+  id            String                 @id @default(uuid())
+  nome          String
+  descricao     String?
+  validadeMeses Int?
+  obrigatorio   Boolean                @default(true)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  realizacoes   TreinamentoRealizado[]
+}
+
+model TreinamentoRealizado {
+  id             String      @id @default(uuid())
+  funcionarioId  String
+  treinamentoId  String
+  dataRealizacao DateTime
+  dataVencimento DateTime?
+  certificadoUrl String?
+  observacoes    String?
+  createdAt      DateTime    @default(now())
+  funcionario    Funcionario @relation(fields: [funcionarioId], references: [id])
+  treinamento    Treinamento @relation(fields: [treinamentoId], references: [id])
+}
+
+model Afastamento {
+  id            String      @id @default(uuid())
+  funcionarioId String
+  tipo          String
+  dataInicio    DateTime
+  dataFim       DateTime
+  motivo        String?
+  createdAt     DateTime    @default(now())
+  funcionario   Funcionario @relation(fields: [funcionarioId], references: [id])
+}
+
+model IntegracaoCliente {
+  id             String      @id @default(uuid())
+  funcionarioId  String
+  clienteId      String
+  nome           String
+  dataEmissao    DateTime
+  dataVencimento DateTime
+  observacoes    String?
+  createdAt      DateTime    @default(now())
+  arquivoUrl     String?
+  cliente        Cliente     @relation(fields: [clienteId], references: [id])
+  funcionario    Funcionario @relation(fields: [funcionarioId], references: [id])
+}
+
+model Manutencao {
+  id               String           @id @default(uuid())
+  osId             String?          @unique
+  equipamento      String?
+  ultimaRevisao    DateTime?
+  proximaRevisao   DateTime?
+  historico        String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  descricao        String?
+  prioridade       String           @default("MEDIA")
+  status           String           @default("PENDENTE")
+  veiculoId        String?
+  custoMaoObra     Decimal?         @db.Decimal(10, 2)
+  custoPecas       Decimal?         @db.Decimal(10, 2)
+  dataPagamento    DateTime?
+  statusFinanceiro String           @default("PENDENTE")
+  valorTotal       Decimal?         @db.Decimal(10, 2)
+  os               OrdemServico?    @relation(fields: [osId], references: [id])
+  veiculo          Veiculo?         @relation(fields: [veiculoId], references: [id])
+  pecasUtilizadas  PecaManutencao[]
+}
+
+model MaterialOS {
+  id              String       @id @default(uuid())
+  osId            String
+  produtoId       String
+  descricao       String
+  quantidade      Decimal      @db.Decimal(10, 2)
+  unidade         String?      @default("UN")
+  darBaixaEstoque Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  os              OrdemServico @relation(fields: [osId], references: [id], onDelete: Cascade)
+}
+
+model PecaManutencao {
+  id            String     @id @default(uuid())
+  manutencaoId  String
+  produtoId     String
+  descricao     String
+  quantidade    Decimal    @db.Decimal(10, 2)
+  valorUnitario Decimal    @db.Decimal(10, 2)
+  valorTotal    Decimal    @db.Decimal(10, 2)
+  unidade       String?    @default("UN")
+  createdAt     DateTime   @default(now())
+  manutencao    Manutencao @relation(fields: [manutencaoId], references: [id], onDelete: Cascade)
+}
+
+model Logistica {
+  id             String        @id @default(uuid())
+  osId           String?       @unique
+  statusEnvio    String        @default("PREPARANDO")
+  codigoRastreio String?
+  transportadora String?
+  dataSaida      DateTime?
+  dataEntrega    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  os             OrdemServico? @relation(fields: [osId], references: [id])
+}
+
+model Veiculo {
+  id                             String       @id @default(uuid())
+  placa                          String       @unique
+  modelo                         String
+  marca                          String?
+  ano                            Int?
+  kmAtual                        Int          @default(0)
+  status                         String       @default("DISPONIVEL")
+  tipo                           String       @default("CAMINHAO")
+  createdAt                      DateTime     @default(now())
+  updatedAt                      DateTime     @updatedAt
+  nivelCombustivel               Decimal      @default(100.0) @db.Decimal(5, 2)
+  exibirNoHistograma             Boolean      @default(true)
+  tipoEquipamento                String?
+  anttVencimento                 DateTime?
+  crlvVencimento                 DateTime?
+  seguroVencimento               DateTime?
+  tacografoVencimento            DateTime?
+  certificacaoLiquidosVencimento DateTime?
+  escalas                        Escala[]
+  manutencoes                    Manutencao[]
+}
+
+model Escala {
+  id                  String    @id @default(uuid())
+  codigoOS            String?
+  data                DateTime
+  hora                String?
+  empresa             String    @default("NACIONAL HIDROSANEAMENTO EIRELI EPP")
+  clienteId           String?
+  veiculoId           String?
+  equipamento         String?
+  funcionarios        Json?
+  status              String    @default("AGENDADO")
+  observacoes         String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  dataFim             DateTime?
+  tipoAgendamento     String    @default("CONFIRMADO")
+  cor                 String?
+  qtdBicos            Int?      @default(1)
+  qtdPessoas          Int?
+  solicitanteNome     String?
+  solicitanteTelefone String?
+  turnos              String?   @default("DIURNO")
+  cliente             Cliente?  @relation(fields: [clienteId], references: [id])
+  veiculo             Veiculo?  @relation(fields: [veiculoId], references: [id])
+}
+
+model Equipamento {
+  id                String   @id @default(uuid())
+  nome              String
+  descricao         String?
+  ativo             Boolean  @default(true)
+  imagem            String?
+  responsabilidades Json?
+  acessorios        Json?
+  veiculos          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Configuracao {
+  id                    String    @id @default("default")
+  nomeEmpresa           String    @default("Minha Empresa")
+  razaoSocial           String?
+  nomeFantasia          String?
+  cnpj                  String?
+  inscricaoEstadual     String?
+  inscricaoMunicipal    String?
+  dataAbertura          DateTime?
+  cep                   String?
+  logradouro            String?
+  numero                String?
+  complemento           String?
+  bairro                String?
+  cidade                String?
+  estado                String?
+  endereco              String?
+  emailComercial        String?
+  emailFiscal           String?
+  emailFinanceiro       String?
+  telefone              String?
+  regimeTributario      String?
+  cnaePrincipal         String?
+  listaServicos         String?
+  aliquotaIss           Decimal?  @db.Decimal(5, 2)
+  incentivadorCultural  Boolean   @default(false)
+  optanteSimples        Boolean   @default(true)
+  naturezaOperacao      String?
+  tributacaoMunicipio   String?
+  responsavelTributario String?
+  certificadoA1         String?
+  senhaCertificado      String?
+  ambienteNFe           String    @default("HOMOLOGACAO")
+  whatsappUrl           String?
+  whatsappApiKey        String?
+  whatsappInstanceName  String?
+  webhookUrl            String?
+  apiKey                String?
+  updatedAt             DateTime  @updatedAt
+  favicon               String?
+  logo                  String?
+}
+
+model Lead {
+  id            String   @id @default(uuid())
+  nome          String
+  email         String?
+  telefone      String?
+  empresa       String?
+  status        String   @default("NOVO_LEAD")
+  origem        String?
+  dispositivo   String?
+  paginaOrigem  String?
+  observacoes   String?
+  valorEstimado Decimal? @db.Decimal(10, 2)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model WebhookLog {
+  id         String   @id @default(uuid())
+  provider   String?
+  url        String?
+  method     String   @default("POST")
+  payload    Json
+  response   Json?
+  statusCode Int?
+  duration   Int?
+  status     String   @default("PENDENTE")
+  createdAt  DateTime @default(now())
+}
+
+model LogAlteracao {
+  id            String   @id @default(uuid())
+  entidade      String
+  entidadeId    String
+  acao          String
+  campo         String?
+  valorAnterior String?
+  valorNovo     String?
+  descricao     String?
+  usuarioId     String?
+  usuarioNome   String?
+  ip            String?
+  createdAt     DateTime @default(now())
+}
+
+model Vaga {
+  id              String      @id @default(uuid())
+  cargo           String
+  departamento    String
+  area            String?
+  solicitanteNome String
+  descricao       String?
+  requisitos      String?
+  quantidade      Int         @default(1)
+  prioridade      String      @default("MEDIA")
+  status          String      @default("ABERTA")
+  prazo           DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  candidatos      Candidato[]
+}
+
+model Candidato {
+  id                       String    @id @default(uuid())
+  nome                     String
+  email                    String?
+  telefone                 String?
+  whatsapp                 String?
+  curriculo                String?
+  vagaId                   String
+  etapa                    String    @default("TRIAGEM")
+  dataEntrevista           DateTime?
+  avaliacao                Int?
+  observacoes              String?
+  motivoReprovacao         String?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+  cidade                   String?
+  cnh                      String?
+  consultaJusbrasil        String?
+  fonte                    String?
+  jornada                  String?
+  pipefyCardId             String?
+  possuiMOPP               Boolean?
+  salarioPretendido        Decimal?  @db.Decimal(10, 2)
+  avaliacaoIA              String?
+  scoreIA                  Int?
+  aceitouTermos            Boolean   @default(false)
+  aplicadorTeste           String?
+  aprovadoGestor           Boolean?
+  comentariosGestor        String?
+  conhecimentoTecnico      String?
+  cpf                      String?
+  dataAplicacaoTeste       DateTime?
+  dataNascimento           DateTime?
+  dataSegundaEntrevista    DateTime?
+  dependentes              String?
+  endereco                 String?
+  estadoCivil              String?
+  gestorVaga               String?
+  grauInstrucao            String?
+  idade                    Int?
+  indicacao                Boolean?
+  passouTestePratico       Boolean?
+  previsaoRetornoCandidato DateTime?
+  propostaAceita           Boolean?
+  quemIndicou              String?
+  rg                       String?
+  sexo                     String?
+  tipoTeste                String?
+  veiculoProprio           Boolean?
+  entrevistador            String?
+  aprovadoRH               Boolean?
+  comentariosRH            String?
+  dataEntrevistaRH         DateTime?
+  nivelTecnico             String?
+  pretensaoSalarial        Decimal?  @db.Decimal(10, 2)
+  admissao                 Admissao?
+  vaga                     Vaga      @relation(fields: [vagaId], references: [id])
+}
+
+model RDO {
+  id                   String       @id @default(uuid())
+  osId                 String
+  data                 DateTime
+  turno                String       @default("DIURNO")
+  equipamento          String?
+  operador             String?
+  entrada              String?
+  saida                String?
+  almoco               String?
+  horasTrabalhadas     Decimal?     @db.Decimal(10, 2)
+  horasExtras          Decimal?     @db.Decimal(10, 2)
+  horasNoturnas        Decimal?     @db.Decimal(10, 2)
+  atividadesRealizadas String?
+  condicoesClimaticas  String?
+  observacoes          String?
+  assinadoPor          String?
+  assinadoEm           DateTime?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  os                   OrdemServico @relation(fields: [osId], references: [id])
+}
+
+model Faturamento {
+  id                String    @id @default(uuid())
+  medicaoId         String?
+  osId              String?
+  clienteId         String
+  tipo              String    @default("RL")
+  numero            String?
+  pedidoCompras     String?
+  dataEmissao       DateTime  @default(now())
+  dataVencimento    DateTime?
+  centroCusto       String?
+  valorBruto        Decimal   @default(0) @db.Decimal(12, 2)
+  percentualINSS    Decimal?  @default(3.5) @db.Decimal(5, 2)
+  valorINSS         Decimal?  @default(0) @db.Decimal(12, 2)
+  valorISS          Decimal?  @default(0) @db.Decimal(12, 2)
+  valorIR           Decimal?  @default(0) @db.Decimal(12, 2)
+  valorCSLL         Decimal?  @default(0) @db.Decimal(12, 2)
+  valorPIS          Decimal?  @default(0) @db.Decimal(12, 2)
+  valorCOFINS       Decimal?  @default(0) @db.Decimal(12, 2)
+  valorLiquido      Decimal   @default(0) @db.Decimal(12, 2)
+  cnpjFaturamento   String?
+  status            String    @default("EMITIDA")
+  observacoes       String?
+  emailEnviadoEm    DateTime?
+  emailDestinatario String?
+  dataPagamento     DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  focusRef          String?   @unique
+  focusStatus       String?
+  focusUrl          String?
+  nfseCodVerificacao String?
+  cliente           Cliente   @relation(fields: [clienteId], references: [id])
+}
+
+model EmpresaCNPJ {
+  id                 String   @id @default(uuid())
+  nome               String
+  cnpj               String   @unique
+  razaoSocial        String?
+  limiteMenusal      Decimal? @default(500000) @db.Decimal(12, 2)
+  alertaPercentual   Decimal? @default(80) @db.Decimal(5, 2)
+  ativa              Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  bairro             String?
+  cep                String?
+  cnae               String?
+  codigoMunicipio    String?
+  endereco           String?
+  focusToken         String?
+  inscricaoEstadual  String?
+  inscricaoMunicipal String?
+  logradouro         String?
+  municipio          String?
+  naturezaOperacao   String?
+  numero             String?
+  regimeTributario   Int?
+  rntrc              String?
+  telefone           String?
+  uf                 String?
+  // Configurações NFS-e Campinas
+  nfseAtiva          Boolean  @default(false)
+  nfseAmbient        String   @default("HOMOLOGACAO")
+  nfseCertificate    String?  @db.Text
+  nfsePrivateKey     String?  @db.Text
+  nfsePassphrase     String?
+}
+
+model Fornecedor {
+  id            String         @id @default(uuid())
+  nome          String
+  razaoSocial   String?
+  documento     String?        @unique
+  tipo          String         @default("PJ")
+  segmento      String?
+  endereco      String?
+  cidade        String?
+  estado        String?
+  cep           String?
+  email         String?
+  telefone      String?
+  contato       String?
+  banco         String?
+  agencia       String?
+  conta         String?
+  chavePix      String?
+  observacoes   String?
+  ativo         Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  contasPagar   ContaPagar[]
+  pedidosCompra PedidoCompra[]
+}
+
+model ContaBancaria {
+  id           String   @id @default(uuid())
+  nome         String
+  banco        String?
+  agencia      String?
+  conta        String?
+  tipo         String   @default("CORRENTE")
+  saldoInicial Decimal? @default(0) @db.Decimal(12, 2)
+  ativa        Boolean  @default(true)
+  empresa      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model PedidoCompra {
+  id                     String             @id @default(uuid())
+  numero                 Int                @default(autoincrement())
+  solicitanteId          String
+  fornecedorId           String
+  dataEmissao            DateTime           @default(now())
+  dataVencimentoPrevisto DateTime?
+  status                 String             @default("PENDENTE")
+  observacoes            String?
+  valorTotal             Decimal            @default(0) @db.Decimal(12, 2)
+  contaPagarId           String?            @unique
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  itens                  ItemPedidoCompra[]
+  contaPagar             ContaPagar?        @relation(fields: [contaPagarId], references: [id])
+  fornecedor             Fornecedor         @relation(fields: [fornecedorId], references: [id])
+  solicitante            User               @relation("SolicitantePedidoCompra", fields: [solicitanteId], references: [id])
+}
+
+model ItemPedidoCompra {
+  id            String       @id @default(uuid())
+  pedidoId      String
+  descricao     String
+  quantidade    Int          @default(1)
+  valorUnitario Decimal      @default(0) @db.Decimal(12, 2)
+  valorTotal    Decimal      @default(0) @db.Decimal(12, 2)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  pedido        PedidoCompra @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+}
+
+model ContaPagar {
+  id                 String        @id @default(uuid())
+  descricao          String
+  fornecedorId       String?
+  categoria          String        @default("OUTROS")
+  valorOriginal      Decimal       @db.Decimal(12, 2)
+  valorPago          Decimal?      @db.Decimal(12, 2)
+  dataVencimento     DateTime
+  dataPagamento      DateTime?
+  formaPagamento     String?
+  numeroParcela      Int           @default(1)
+  totalParcelas      Int           @default(1)
+  centroCusto        String?
+  status             String        @default("ABERTO")
+  observacoes        String?
+  comprovante        String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  agencia            String?
+  banco              String?
+  conta              String?
+  dataBaixa          DateTime?
+  dataEmissao        DateTime      @default(now())
+  faturaRef          String?
+  naturezaFinanceira String?
+  notaFiscal         String?
+  parcelaRef         String?
+  prefixo            String?
+  saldoDevedor       Decimal?      @db.Decimal(12, 2)
+  serieNF            String?
+  tipoBaixa          String?
+  valorDesconto      Decimal?      @default(0) @db.Decimal(12, 2)
+  valorJuros         Decimal?      @default(0) @db.Decimal(12, 2)
+  valorMulta         Decimal?      @default(0) @db.Decimal(12, 2)
+  valorTotal         Decimal?      @db.Decimal(12, 2)
+  contaBancariaId    String?
+  planoContasId      String?
+  anexoUrl           String?
+  centroCustoId      String?
+  codigoBarras       String?
+  impostoCofins      Decimal?      @db.Decimal(12, 2)
+  impostoCsll        Decimal?      @db.Decimal(12, 2)
+  impostoIpi         Decimal?      @db.Decimal(12, 2)
+  impostoIr          Decimal?      @db.Decimal(12, 2)
+  impostoPis         Decimal?      @db.Decimal(12, 2)
+  ncm                String?
+  clienteId          String?
+  dataEntrada        DateTime      @default(now())
+  empresa            String?       @default("NACIONAL")
+  usuarioCriador     String?
+  centroCustoRef     CentroCusto?  @relation(fields: [centroCustoId], references: [id])
+  clienteRef         Cliente?      @relation("ClienteContasPagar", fields: [clienteId], references: [id])
+  fornecedor         Fornecedor?   @relation(fields: [fornecedorId], references: [id])
+  pedidoCompra       PedidoCompra?
+}
+
+model ContaReceber {
+  id                 String              @id @default(uuid())
+  descricao          String
+  clienteId          String?
+  faturamentoId      String?
+  valorOriginal      Decimal             @db.Decimal(12, 2)
+  valorRecebido      Decimal?            @db.Decimal(12, 2)
+  dataVencimento     DateTime
+  dataRecebimento    DateTime?
+  formaPagamento     String?
+  status             String              @default("PENDENTE")
+  observacoes        String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  chavePix           String?
+  codigoBarras       String?
+  dataEmissao        DateTime            @default(now())
+  diasAtraso         Int                 @default(0)
+  linkPagamento      String?
+  notaFiscal         String?
+  numeroParcela      Int                 @default(1)
+  saldoDevedor       Decimal?            @db.Decimal(12, 2)
+  totalCobrancas     Int                 @default(0)
+  totalParcelas      Int                 @default(1)
+  ultimaCobranca     DateTime?
+  valorCorrecao      Decimal?            @default(0) @db.Decimal(12, 2)
+  valorDesconto      Decimal?            @default(0) @db.Decimal(12, 2)
+  valorJuros         Decimal?            @default(0) @db.Decimal(12, 2)
+  valorMulta         Decimal?            @default(0) @db.Decimal(12, 2)
+  valorTotal         Decimal?            @db.Decimal(12, 2)
+  contaBancariaId    String?
+  planoContasId      String?
+  centroCustoId      String?
+  dataEntrada        DateTime            @default(now())
+  empresa            String?             @default("NACIONAL")
+  naturezaFinanceira String?
+  usuarioCriador     String?
+  centroCustoRef     CentroCusto?        @relation("CentroCustoContasReceber", fields: [centroCustoId], references: [id])
+  cliente            Cliente?            @relation(fields: [clienteId], references: [id])
+  historicoCobranca  HistoricoCobranca[]
+  negociacoes        NegociacaoDivida[]
+}
+
+model NegociacaoDivida {
+  id                   String              @id @default(uuid())
+  contaReceberId       String
+  valorOriginalDivida  Decimal             @db.Decimal(12, 2)
+  valorNegociado       Decimal             @db.Decimal(12, 2)
+  descontoAplicado     Decimal?            @default(0) @db.Decimal(12, 2)
+  qtdParcelas          Int                 @default(1)
+  jurosMensalNegociado Decimal?            @default(0) @db.Decimal(5, 2)
+  observacoes          String?
+  assinaturaDigital    String?
+  status               String              @default("EM_ANDAMENTO")
+  criadoPor            String?
+  criadoEm             DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  contaReceber         ContaReceber        @relation(fields: [contaReceberId], references: [id], onDelete: Cascade)
+  parcelas             ParcelaNegociacao[]
+}
+
+model ParcelaNegociacao {
+  id             String           @id @default(uuid())
+  negociacaoId   String
+  numero         Int
+  valor          Decimal          @db.Decimal(12, 2)
+  dataVencimento DateTime
+  dataPagamento  DateTime?
+  valorPago      Decimal?         @db.Decimal(12, 2)
+  formaPagamento String?
+  status         String           @default("PENDENTE")
+  createdAt      DateTime         @default(now())
+  negociacao     NegociacaoDivida @relation(fields: [negociacaoId], references: [id], onDelete: Cascade)
+}
+
+model HistoricoCobranca {
+  id                String       @id @default(uuid())
+  contaReceberId    String
+  tipo              String
+  canal             String?
+  mensagem          String
+  destinatario      String?
+  enviadoPor        String?
+  enviadoEm         DateTime     @default(now())
+  sucesso           Boolean      @default(true)
+  erro              String?
+  promessaPagamento Boolean      @default(false)
+  dataPromessa      DateTime?
+  valorPromessa     Decimal?     @db.Decimal(12, 2)
+  createdAt         DateTime     @default(now())
+  contaReceber      ContaReceber @relation(fields: [contaReceberId], references: [id], onDelete: Cascade)
+}
+
+model Hospedagem {
+  id             String    @id @default(uuid())
+  funcionarioId  String?
+  osId           String?
+  hotel          String
+  cidade         String?
+  dataCheckin    DateTime
+  dataCheckout   DateTime?
+  diarias        Int?      @default(1)
+  valorDiaria    Decimal?  @db.Decimal(10, 2)
+  valorTotal     Decimal?  @db.Decimal(10, 2)
+  status         String    @default("RESERVADO")
+  observacoes    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  almoco         Boolean   @default(false)
+  cafeDaManha    Boolean   @default(true)
+  fornecedorId   String?
+  lavanderia     Boolean   @default(false)
+  tipoAcomodacao String    @default("INDIVIDUAL")
+}
+
+model Passagem {
+  id            String    @id @default(uuid())
+  funcionarioId String?
+  osId          String?
+  tipo          String    @default("AEREA")
+  origem        String
+  destino       String
+  dataIda       DateTime
+  dataVolta     DateTime?
+  companhia     String?
+  localizador   String?
+  valor         Decimal?  @db.Decimal(10, 2)
+  status        String    @default("RESERVADA")
+  observacoes   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model PlanoContas {
+  id          String            @id @default(uuid())
+  codigo      String
+  descricao   String
+  tipo        String            @default("ANALITICA")
+  natureza    String            @default("DESPESA")
+  nivel       Int               @default(1)
+  parentId    String?
+  empresa     String?
+  ativo       Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  lancamentos LancamentoCusto[]
+  parent      PlanoContas?      @relation("PlanoContasHierarchy", fields: [parentId], references: [id])
+  children    PlanoContas[]     @relation("PlanoContasHierarchy")
+}
+
+model CentroCusto {
+  id              String            @id @default(uuid())
+  nome            String
+  codigo          String?
+  tipo            String            @default("EQUIPAMENTO")
+  equipamentoTipo String?
+  ativo           Boolean           @default(true)
+  orcamentoMensal Decimal?          @db.Decimal(12, 2)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  contasPagar     ContaPagar[]
+  contasReceber   ContaReceber[]    @relation("CentroCustoContasReceber")
+  lancamentos     LancamentoCusto[]
+}
+
+model LancamentoCusto {
+  id            String       @id @default(uuid())
+  centroCustoId String
+  descricao     String
+  valor         Decimal      @db.Decimal(12, 2)
+  data          DateTime     @default(now())
+  tipo          String       @default("DESPESA")
+  categoria     String?
+  osId          String?
+  createdAt     DateTime     @default(now())
+  planoContasId String?
+  centroCusto   CentroCusto  @relation(fields: [centroCustoId], references: [id], onDelete: Cascade)
+  planoConta    PlanoContas? @relation(fields: [planoContasId], references: [id])
+}
+
+model Automacao {
+  id           String   @id @default(uuid())
+  nome         String
+  trigger      String
+  canal        String   @default("WHATSAPP")
+  template     String?
+  destinatario String?
+  ativo        Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model NotificacaoLog {
+  id           String   @id @default(uuid())
+  automacaoId  String?
+  canal        String   @default("WHATSAPP")
+  destinatario String
+  mensagem     String
+  status       String   @default("ENVIADO")
+  erro         String?
+  createdAt    DateTime @default(now())
+}
+
+model PontoEletronico {
+  id               String   @id @default(uuid())
+  funcionarioId    String
+  data             DateTime @db.Date
+  entrada1         String?
+  saida1           String?
+  entrada2         String?
+  saida2           String?
+  horasTrabalhadas Decimal? @db.Decimal(5, 2)
+  horasExtras      Decimal? @db.Decimal(5, 2)
+  status           String   @default("NORMAL")
+  observacoes      String?
+  fonte            String?  @default("MANUAL")
+  createdAt        DateTime @default(now())
+}
+
+model Acessorio {
+  id        String   @id @default(uuid())
+  nome      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ResponsabilidadePadrao {
+  id        String   @id @default(uuid())
+  descricao String
+  tipo      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Cargo {
+  id               String   @id @default(uuid())
+  nome             String   @unique
+  unicoEquipamento Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Admissao {
+  id                          String       @id @default(uuid())
+  cargo                       String?
+  observacoes                 String?
+  createdAt                   DateTime     @default(now())
+  updatedAt                   DateTime     @updatedAt
+  assinaturaDigital           Boolean      @default(false)
+  candidatoId                 String?      @unique
+  clinicaASO                  String?
+  contratoUrl                 String?
+  cpf                         String?
+  dataAdmissaoPrevista        DateTime?
+  dataAssinatura              DateTime?
+  dataExameASO                DateTime?
+  departamento                String?
+  documentosEnviados          Json?
+  email                       String?
+  etapa                       String       @default("ENVIO_DOCUMENTACAO")
+  funcionarioId               String?
+  motivoCancelamento          String?
+  nome                        String
+  pipefyCardId                String?
+  resultadoASO                String?
+  telefone                    String?
+  adicionalAjudaCusto         String?
+  adicionalAuxilioMoradia     String?
+  adicionalDuplaFuncao        String?
+  adicionalInsalubridade      String?
+  cidadeMoradia               String?
+  dataAdmissaoRegistrada      DateTime?
+  dataAgendamentoExame        DateTime?
+  foiAprovadoExame            Boolean?
+  jornadaTrabalho             String?
+  linkPastaColaborador        String?
+  numeroRegistroCBO           String?
+  optanteAdiantamentoSalarial Boolean?
+  optanteValeTransporte       String?
+  razaoSocial                 String?
+  salarioBase                 Decimal?     @db.Decimal(10, 2)
+  tipoAso                     String?
+  tipoPagamento               String?
+  validadeAso                 DateTime?
+  grauInstrucao               String?
+  tamanhoCalca                String?
+  tamanhoCalcado              String?
+  tamanhoCamiseta             String?
+  avaliacaoPsicossocial       Boolean?
+  codigoESocial               String?
+  eSocialGerado               Boolean?
+  encaminhamentoExameEnviado  Boolean?
+  exameToxicologicoAprovado   String?
+  inclusoGrupoWhatsapp        Boolean?
+  inclusoSIN                  Boolean?
+  modalidadeTrabalho          String?
+  numeroConta                 String?
+  prazoRetornoContabilidade   DateTime?
+  retornoPsicossocial         String?
+  tipoContrato                String?
+  cep                         String?
+  dataNascimento              DateTime?
+  enderecoCompleto            String?
+  estadoCivil                 String?
+  genero                      String?
+  nacionalidade               String?      @default("Brasileiro(a)")
+  nomeMae                     String?
+  nomePai                     String?
+  pisPasep                    String?
+  racaCor                     String?
+  rg                          String?
+  rgDataEmissao               DateTime?
+  rgOrgaoEmissor              String?
+  tituloEleitor               String?
+  checklistDocumentos         Json?
+  dataHoraAssinatura          DateTime?
+  emailNovoFuncionarioDP      Boolean?
+  emailNovoFuncionarioST      String?
+  emailSeguroVida             Boolean?
+  candidato                   Candidato?   @relation(fields: [candidatoId], references: [id])
+  funcionario                 Funcionario? @relation(fields: [funcionarioId], references: [id])
+}
+
+model ControleFerias {
+  id                     String      @id @default(uuid())
+  funcionarioId          String
+  periodoAquisitivo      String?
+  diasDireito            Int         @default(30)
+  diasGozados            Int         @default(0)
+  diasVendidos           Int         @default(0)
+  status                 String      @default("A_VENCER")
+  dataInicio             DateTime?
+  dataFim                DateTime?
+  dataVencimento         DateTime?
+  observacoes            String?
+  pipefyCardId           String?
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
+  dataEnvioContabilidade DateTime?
+  empresaContratante     String?
+  funcionario            Funcionario @relation(fields: [funcionarioId], references: [id])
+}
+
+model ASOControle {
+  id             String      @id @default(uuid())
+  funcionarioId  String
+  tipo           String
+  clinica        String?
+  dataExame      DateTime?
+  dataVencimento DateTime?
+  resultado      String?
+  observacoes    String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  funcionario    Funcionario @relation(fields: [funcionarioId], references: [id])
+}
+
+model Desligamento {
+  id                           String      @id @default(uuid())
+  funcionarioId                String
+  nome                         String
+  cargo                        String?
+  cpf                          String?
+  etapa                        String      @default("NOVA_SOLICITACAO")
+  tipoDesligamento             String?
+  dataDesligamento             DateTime?
+  dataAvisoPrevio              DateTime?
+  clinicaASO                   String?
+  dataExameDemissional         DateTime?
+  resultadoASO                 String?
+  valorRescisao                Decimal?    @db.Decimal(12, 2)
+  motivoDesligamento           String?
+  observacoes                  String?
+  pipefyCardId                 String?
+  createdAt                    DateTime    @default(now())
+  updatedAt                    DateTime    @updatedAt
+  dataVencimentoRescisao       DateTime?
+  concluido                    Boolean     @default(false)
+  cajuExcluido                 Boolean?
+  celular                      String?
+  colaboradorAssinou           Boolean?
+  comprovantesEnviadosJuridico Boolean?
+  contaBancaria                String?
+  dataAdmissao                 DateTime?
+  dataAssinatura               DateTime?
+  dataAudiencia                DateTime?
+  dataEnvioContabilidade       DateTime?
+  dataEnvioJuridico            DateTime?
+  dataExpurgo                  DateTime?
+  dataLimitePagamentoRescisao  DateTime?
+  dataPericia                  DateTime?
+  dataRecepcaoNotificacao      DateTime?
+  dataRetornoContabilidade     DateTime?
+  dataUltimaParcelaAcordo      DateTime?
+  dataUltimaParcelaEncargos    DateTime?
+  dataVencimentoFGTS           DateTime?
+  descontarPassagem            Boolean?
+  descricaoDescontos           String?
+  descricaoEncargos            String?
+  devolucaoEquipamentos        String?
+  email                        String?
+  emailEnviadoJuridico         Boolean?
+  empresaContratante           String?
+  fgtsLancado                  String?
+  formaAssinatura              String?
+  formaPagamentoAcordo         String?
+  formaPagamentoCustas         String?
+  formaPagamentoEncargos       String?
+  formaRecepcaoNotificacao     String?
+  guiaPaga                     String?
+  haDescontos                  Boolean?
+  inseridoListaMestra          Boolean?
+  linkPastaProcesso            String?
+  linkPastaRescisao            String?
+  numeroCaixaArquivo           Int?
+  numeroProcesso               String?
+  pensaoAlimenticia            String?
+  pix                          String?
+  pontoApurado                 Boolean?
+  previaAprovada               String?
+  qtdParcelasAcordo            Int?
+  qtdParcelasEncargos          Int?
+  rescisaoLancada              Boolean?
+  sinExcluido                  Boolean?
+  statusAcordo                 String?
+  statusProcessoJuridico       String?
+  temEncargos                  Boolean?
+  temPericia                   Boolean?
+  temProcessoTrabalhista       Boolean     @default(false)
+  tipoArquivamento             String?
+  valorAcordo                  Decimal?    @db.Decimal(12, 2)
+  valorCustasJudiciais         Decimal?    @db.Decimal(12, 2)
+  valorDesconto                Decimal?    @db.Decimal(12, 2)
+  valorEncargos                Decimal?    @db.Decimal(12, 2)
+  vrVtApurado                  Boolean?
+  whatsappEscalaExcluido       Boolean?
+  funcionario                  Funcionario @relation(fields: [funcionarioId], references: [id])
+}
+
+model Agendamento {
+  id                   String              @id @default(uuid())
+  propostaId           String?
+  clienteId            String
+  cidadeServico        String
+  dataViagem           DateTime?
+  dataInicio           DateTime
+  dataTermino          DateTime?
+  duracaoDias          Int?
+  turno                String?
+  equipeSummary        String?
+  tipoAtividade        String?
+  tipoIntegracao       String?
+  fornecimentosNH      String?
+  fornecimentosCliente String?
+  contatosExtras       String?
+  observacoes          String?
+  status               String              @default("PENDENTE")
+  disparadoWhatsapp    Boolean             @default(false)
+  disparadoEmail       Boolean             @default(false)
+  disparadoEm          DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  ordemServicoId       String?
+  cliente              Cliente             @relation(fields: [clienteId], references: [id])
+  ordemServico         OrdemServico?       @relation(fields: [ordemServicoId], references: [id])
+  proposta             Proposta?           @relation(fields: [propostaId], references: [id])
+  tarefas              AgendamentoTarefa[]
+}
+
+model AgendamentoTarefa {
+  id            String      @id @default(uuid())
+  agendamentoId String
+  area          String
+  responsavel   String?
+  descricao     String
+  statusTarefa  String      @default("PENDENTE")
+  observacao    String?
+  concluidaEm   DateTime?
+  concluidaPor  String?
+  createdAt     DateTime    @default(now())
+  agendamento   Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
+}

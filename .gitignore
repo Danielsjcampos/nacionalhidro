@@ -1,0 +1,40 @@
+node_modules
+.env
+dist
+build
+out
+coverage
+.DS_Store
+.vscode
+.idea
+*.log
+tmp
+dist/
+.env
+.DS_Store
+*.log
+
+# ─────────────────────────────────────────────────────────
+# Sistema Legado + Banco de Dados de Produção
+# NÃO versionar — contém dados sensíveis de clientes/financeiro
+# ─────────────────────────────────────────────────────────
+NacionalHidro_entrega/
+*.sql
+*.sql.gz
+legacy/
+backend/legacy_data/
+*.pdf
+*.jpeg
+*.jpg
+*.png
+*.XLSX
+*.xlsx
+*.zip
+*.txt
+*.json
+*.resolved
+Todos as explicacoes do funcionamento nacional hido/
+AUTOMACOES EMAIL/
+Logistica RH/
+REUNIAO DAYANNE CONTAS PAGAR E RECEBER/
+2time_chat.zip

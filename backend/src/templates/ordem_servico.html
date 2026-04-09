@@ -1,0 +1,784 @@
+<!doctype html>
+<html>
+<head>
+	<title>Ordem de Serviço</title>
+	<meta charset="utf-8">
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
+		integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+
+	<script type="text/javascript" src="http://code.jquery.com/jquery-1.7.1.min.js"></script>
+	<style>
+    @page {
+      size: A4;
+    }
+    @media print {
+      .page {
+          margin-left: 5%;
+          margin-right: 5%;
+          margin-bottom: 4%;
+          width: 100%;
+          position: relative;
+      }
+      .wrapper {
+        page-break-after: always;
+      }
+    }
+    /*CONFIG AND GENERAL STYLE*/
+    /*General colors palette*/
+    /*General elements*/
+    /*colors palette*/
+    /*social colors*/
+    /*Functions*/
+    html {
+      height: 100%;
+    }
+    body {
+      position: relative;
+      padding: 0;
+      background-color: #FFF;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 12px;
+      color: #333;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6,
+    .h1,
+    .h2,
+    .h3,
+    .h4,
+    .h5,
+    .h6 {
+      font-family: 'Open Sans', sans-serif;
+      font-weight: 300;
+    }
+    p {
+      font-size: 13px;
+      line-height: 22px;
+    }
+    b {
+      font-weight: 400;
+    }
+    .overflow-hidden {
+      overflow: hidden;
+    }
+    .no-margin {
+      margin: 0 !important;
+    }
+    .no-margin-y {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+    }
+    .no-margin-x {
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
+    .no-margin-top {
+      margin-top: 0 !important;
+    }
+    .no-margin-bottom {
+      margin-bottom: 0 !important;
+    }
+    .no-margin-left {
+      margin-left: 0 !important;
+    }
+    .no-margin-right {
+      margin-right: 0 !important;
+    }
+    .spacer {
+      margin-top: 15px !important;
+    }
+    .spacer2 {
+      margin-top: 30px !important;
+    }
+    .spacer3 {
+      margin-top: 50px !important;
+    }
+    .spacer-bottom-xs {
+      margin-bottom: 10px !important;
+    }
+    .spacer-bottom {
+      margin-bottom: 30px !important;
+    }
+    .spacer-bottom-sm {
+      margin-bottom: 15px !important;
+    }
+    .spacer-bottom-lg {
+      margin-bottom: 40px !important;
+    }
+    body {
+      height: 100%;
+    }
+    /*ELEMENTS*/
+    table thead th {
+      padding: 5px;
+      font-size: 13px;
+      font-weight: 200;
+    }
+    table tbody td {
+      padding: 7px 8px;
+      font-size: 12px;
+    }
+    table .primary-emphasis,
+    table .primary-emphasis-dark {
+      background: #4D90FD;
+      color: #FFF;
+      border-color: #4D90FD;
+      text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.3);
+    }
+    table .primary-emphasis-dark {
+      background-color: #437edd;
+    }
+    table .success-emphasis,
+    table .success-emphasis-dark {
+      background: #60C060;
+      color: #FFF;
+      border-color: #60C060;
+      text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.3);
+    }
+    table .success-emphasis-dark {
+      background-color: #58b058;
+      border-color: #58b058;
+    }
+    table .warning-emphasis,
+    table .warning-emphasis-dark {
+      background: #FC9700;
+      color: #FFF;
+      border-color: #FC9700;
+      text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.3);
+    }
+    table .warning-emphasis-dark {
+      background-color: #fc8800;
+      border-color: #fc8800;
+    }
+    table .danger-emphasis,
+    table .danger-emphasis-dark {
+      background: #DA4932;
+      color: #FFF;
+      border-color: #DA4932;
+      text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.3);
+    }
+    table .danger-emphasis-dark {
+      background-color: #c8432e;
+      border-color: #c8432e;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    table.no-border {
+      border: 0;
+    }
+    table .right {
+      text-align: right;
+    }
+    table .left {
+      text-align: left;
+    }
+    .red thead th {
+      color: #d36442;
+    }
+    .blue thead th {
+      color: #3078EF;
+    }
+    .violet thead th {
+      color: #8b12ae;
+    }
+    .green thead th {
+      color: #4da60c;
+    }
+    table thead th span {
+      color: #333;
+    }
+    table thead th {
+      vertical-align: bottom;
+      border-bottom: 1px solid #DADADA;
+      border-left: 1px solid #DADADA;
+      border-top: 1px solid #DADADA;
+      padding: 10px 8px 5px 8px;
+    }
+    table thead th:last-child {
+      border-right: 1px solid #DADADA;
+    }
+    table thead span {
+      font-size: 15px;
+      display: block;
+    }
+    table td {
+      border-left: 1px solid #DADADA;
+      border-bottom: 1px solid #dadada;
+      padding: 7px 8px;
+    }
+    table.padding-sm td {
+      padding: 4px 6px;
+    }
+    table td .progress {
+      margin: 0;
+    }
+    table td i {
+      font-size: 15px;
+      display: inline-block;
+      text-align: center;
+      width: 23px;
+    }
+    table td:last-child {
+      border-right: 1px solid #dadada;
+    }
+    table tr:nth-child(2n) {
+      background: #ffffff;
+    }
+    table.no-strip tr:nth-child(2n) {
+      background: transparent;
+    }
+    /*No-Internal borders in thead*/
+    table .no-border th {
+      border-left: 0;
+    }
+    table .no-border tr th:first-child {
+      border-left: 1px solid #dadada;
+    }
+    /*No-Internal borders in tbody x and y*/
+    table .no-border-x td {
+      border-bottom: 0;
+    }
+    table .no-border-x tr:last-child td {
+      border-bottom: 1px solid #dadada;
+    }
+    table .no-border-y td {
+      border-left: 0;
+    }
+    table .no-border-y tr td:first-child {
+      border-left: 1px solid #dadada;
+    }
+    /*No-External borders general table*/
+    table.no-border tr th {
+      border-top: 0;
+    }
+    table.no-border tr th:first-child {
+      border-left: 0;
+    }
+    table.no-border tr th:last-child {
+      border-right: 0;
+    }
+    table.no-border tr td:first-child {
+      border-left: 0;
+    }
+    table.no-border tr td:last-child {
+      border-right: 0;
+    }
+    table.no-border tr:last-child td {
+      border-bottom: 0;
+    }
+    /*No-External borders when .no-padding in block*/
+    .no-padding table th:first-child {
+      border-left: 0;
+    }
+    .no-padding table th:last-child {
+      border-right: 0;
+    }
+    .no-padding table tr td:first-child {
+      border-left: 0;
+    }
+    .no-padding table tr td:last-child {
+      border-right: 0;
+    }
+    .no-padding table tr:last-child td {
+      border-bottom: 0;
+    }
+    table tbody .toggle-details {
+      cursor: pointer;
+    }
+    table tbody .details {
+      background: #FFF;
+    }
+    table tbody td .btn {
+      margin-bottom: 0 !important;
+    }
+    table tbody td .btn-group .dropdown-menu {
+      margin-top: -1px;
+      min-width: 130px;
+    }
+    table tbody td .btn-group .dropdown-menu li > a {
+      padding: 5px 12px;
+      text-align: left;
+    }
+    table td .flag {
+      text-align: center;
+      padding: 0 4px;
+    }
+    table td .legend {
+      width: 10px;
+      height: 10px;
+      background: #efefef;
+    }
+    div.dataTables_length label select {
+      display: inline !important;
+    }
+    .table td .btn i {
+      width: inherit;
+    }
+
+
+
+    .table-noborder {
+      border-collapse: collapse;
+      width: 750px;
+      font-size: 10px;
+    }
+    .table-noborder.no-border {
+      border: 0;
+    }
+    .table-noborder .right {
+      text-align: right;
+    }
+    .table-noborder .left {
+      text-align: left;
+    }
+    .table-noborder thead th span {
+      color: #333;
+    }
+    .table-noborder thead th {
+      vertical-align: bottom;
+        padding: 0;
+      /*padding: 10px 8px 5px 8px;*/
+    }
+    .table-noborder thead span {
+      font-size: 15px;
+      display: block;
+    }
+    .table-noborder td {
+      border: none;
+      /*padding: 0;*/
+      padding: 1px 0 1px 0;
+    }
+    .table-noborder.padding-sm td {
+        padding: 0;
+      /*padding: 4px 6px;*/
+    }
+    .table-noborder td .progress {
+      margin: 0;
+    }
+    .table-noborder td i {
+      font-size: 15px;
+      display: inline-block;
+      text-align: center;
+      width: 23px;
+    }
+    .table-noborder td:last-child {
+      border-right: none;
+    }
+
+    .table-border th,
+    .table-border td {
+        border: 1px solid #333;
+    }
+	</style>
+</head>
+<body cz-shortcut-listen="true">
+  <div style="width: 100%;" contenteditable="true" ng-model="divMeio">
+    <table class="table-noborder" style="margin: 0 auto;">
+      <tbody>
+        <tr>
+          <td>
+            <table class="table-noborder">
+              <tbody>
+                <tr>
+                  <td>
+                    <img src="https://prodnhidro.blob.core.windows.net/storage/logo.jpg">
+                  </td>
+                  <td style="text-align: center; font-size: 11px;">
+                    <strong>NACIONAL HIDRO</strong>
+                    <br>RUA DIACONISA ALICE ANA DA SILVA, 279 - - CAMPINAS - SÃO PAULO <br>CONTATO@NACIONALHIDRO.COM.BR - http://www.nacionalhidro.com.br <br>Fone (19) 32431320 - Fax (19) 32428206
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <table class="table-noborder">
+              <tbody>
+                <tr>
+                  <td style="width: 50%;">Campinas, {{Data}}</td>
+                  <td style="width: 50%; text-align: right;">
+                    <strong>Ordem de serviço No:</strong> {{NumeroOS}}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <table class="table-noborder">
+              <tbody>
+                <tr>
+                  <td style="font-weight: bold; width: 15%;">Cliente:&nbsp;</td>
+                  <td colspan="3">{{Cliente.RazaoSocial}}</td>
+                </tr>
+                <tr>
+                  <td style="font-weight: bold;">Endereço:&nbsp;</td>
+                  <td colspan="3">{{Cliente.Endereco}}, {{Cliente.Numero}}</td>
+                </tr>
+                <tr>
+                  <td style="font-weight: bold;">CNPJ:</td>
+                  <td style="width: 35%;">{{Cliente.Cnpj}}</td>
+                  <td style="font-weight: bold; width: 15%;">Inscrição:</td>
+                  <td style="width: 35%;">{{Cliente.Ie}}</td>
+                  <td style="font-weight: bold;">Fone:</td>
+                  <td>{{Cliente.Telefone}}</td>
+                </tr>
+                <tr>
+                  <td style="font-weight: bold;">Bairro:</td>
+                  <td>{{Cliente.Bairro}}</td>
+                  <td style="font-weight: bold;">Cidade:</td>
+                  <td>{{Cliente.Cidade}}</td>
+                  <td style="font-weight: bold;">Estado:</td>
+                  <td>{{Cliente.EstadoSigla}}</td>
+                </tr>
+                <tr>
+                  <td style="font-weight: bold;">Contato:</td>
+                  <td colspan="3">{{Contato.Nome}}</td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="border-top: 1px solid #333; border-top: 1px solid #333; padding: 5px 0 5px 0;">
+            <strong>Serviços</strong>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <table style="border: 1px solid #333;">
+              <tbody>
+                <tr>
+                  <td style="width: 5%; padding: 3px 0 3px 5px; border-right: 1px solid #333; border-bottom: 1px solid #333; background-color: #CCC;">
+                    <strong>QUANT.</strong>
+                  </td>
+                  <td style="width: 24%; padding: 3px 0 3px 5px; border-right: 1px solid #333; border-bottom: 1px solid #333; background-color: #CCC;">
+                    <strong>EQUIPAMENTO</strong>
+                  </td>
+                  <td style="width: 40%; padding: 3px 0 3px 5px; border-right: 1px solid #333; border-bottom: 1px solid #333; background-color: #CCC;">
+                    <strong>DESCRITIVO</strong>
+                  </td>
+                  <td style="width: 13%; padding: 3px 0 3px 5px; border-right: 1px solid #333; border-bottom: 1px solid #333; background-color: #CCC;">
+                    <strong>V UNITÁRIO</strong>
+                  </td>
+                  <td style="width: 13%; padding: 3px 0 3px 5px; border-bottom: 1px solid #333; background-color: #CCC;">
+                    <strong>V TOTAL</strong>
+                  </td>
+                </tr>
+                {{#Servicos}}
+                <tr>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;">1</td>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;">{{Equipamento}}</td>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;">{{Discriminacao}}</td>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;"></td>
+                  <td style="padding-left: 5px; border-bottom: 1px solid #333;"></td>
+                </tr>
+                {{/Servicos}}
+              </tbody>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 5px 0 5px 0;">
+            <strong>Observação</strong>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            {{Observacao}}
+          </td>
+        </tr>
+        <tr>
+          <td style="border-top: 1px solid #333; border-top: 1px solid #333; padding: 5px 0 5px 0;">
+            <strong>Relatório de horário trabalhado e à disposição</strong>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <table style="border: 1px solid #333;">
+              <tbody>
+                <tr>
+                  <td style="width: 15%; padding: 3px 0 3px 5px; border-right: 1px solid #333; border-bottom: 1px solid #333; background-color: #CCC;">
+                    <strong>HORA INÍCIO</strong>
+                  </td>
+                  <td style="width: 15%; padding: 3px 0 3px 5px; border-right: 1px solid #333; border-bottom: 1px solid #333; background-color: #CCC;">
+                    <strong>HORA TÉRMINO</strong>
+                  </td>
+                  <td style="width: 50%; padding: 3px 0 3px 5px; border-right: 1px solid #333; border-bottom: 1px solid #333; background-color: #CCC;">
+                    <strong>DESCRIÇÃO</strong>
+                  </td>
+                  <td style="width: 20%; padding: 3px 0 3px 5px; border-right: 1px solid #333; border-bottom: 1px solid #333; background-color: #CCC;">
+                    <strong>ACESSÓRIOS UTILIZADOS</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333; height: 2rem;"></td>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;"></td>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;"></td>
+                  <td style="padding-left: 5px; border-bottom: 1px solid #333;"></td>
+                </tr>
+                <tr>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333; height: 2rem;"></td>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;"></td>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;"></td>
+                  <td style="padding-left: 5px; border-bottom: 1px solid #333;"></td>
+                </tr>
+                <tr>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333; height: 2rem;"></td>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;"></td>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;"></td>
+                  <td style="padding-left: 5px; border-bottom: 1px solid #333;"></td>
+                </tr>
+                <tr>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333; height: 2rem;"></td>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;"></td>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;"></td>
+                  <td style="padding-left: 5px; border-bottom: 1px solid #333;"></td>
+                </tr>
+                <tr>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333; height: 2rem;"></td>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;"></td>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;"></td>
+                  <td style="padding-left: 5px; border-bottom: 1px solid #333;"></td>
+                </tr>
+                <tr>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333; height: 2rem;"></td>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;"></td>
+                  <td style="padding-left: 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;"></td>
+                  <td style="padding-left: 5px; border-bottom: 1px solid #333;"></td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="border-bottom: 1px solid #333; padding: 5px 0 5px 0;">
+            <table style="width: 50%">
+              <tbody>
+                <tr>
+                  <td>
+                    <strong>Garantia</strong>
+                  </td>
+                  <td>
+                    <table>
+                      <tbody>
+                        <tr>
+                          <td style="height: 20px; width: 20px; border: 1px solid #333; text-align: center;"> X </td>
+                          <td>&nbsp;&nbsp;Sim</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                  <td>
+                    <table>
+                      <tbody>
+                        <tr>
+                          <td style="height: 20px; width: 20px; border: 1px solid #333; text-align: center;"></td>
+                          <td>&nbsp;&nbsp;Não</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <table class="table-noborder">
+              <tbody>
+                <tr>
+                  <td style="width: 20%;">Condição de pagamento:</td>
+                  <td style="width: 30%;"></td>
+                  <td style="width: 20%;">Vencimento:</td>
+                  <td style="width: 30%;"></td>
+                </tr>
+                <tr>
+                  <td>
+                    <strong>Motorista:</strong>
+                  </td>
+                  <td></td>
+                  <td>
+                    <strong>Veículo Placa:</strong>
+                  </td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td>
+                    <strong>Ajudante:</strong>
+                  </td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+            <br>
+            <br>
+            <br>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>AVALIAÇÃO DE TRABALHO</strong>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <table style="border: 1px solid #333; font-weight: bold;">
+              <tbody>
+                <tr>
+                  <td style="width: 25%; padding: 5px 10px 5px 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;">
+                    <table>
+                      <tbody>
+                        <tr>
+                          <td>EQUIPAMENTO</td>
+                          <td style="height: 20px; width: 20px; border: 1px solid #333; text-align: center;"></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                  <td style="width: 25%; padding: 5px 10px 5px 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;">
+                    <table>
+                      <tbody>
+                        <tr>
+                          <td>EQUIPE</td>
+                          <td style="height: 20px; width: 20px; border: 1px solid #333; text-align: center;"></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                  <td style="width: 25%; padding: 5px 10px 5px 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;">
+                    <table>
+                      <tbody>
+                        <tr>
+                          <td>SEGURANÇA</td>
+                          <td style="height: 20px; width: 20px; border: 1px solid #333; text-align: center;"></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                  <td style="width: 25%; padding: 5px 10px 5px 5px; border-bottom: 1px solid #333;">
+                    <table>
+                      <tbody>
+                        <tr>
+                          <td>ORGANIZAÇÃO</td>
+                          <td style="height: 20px; width: 20px; border: 1px solid #333; text-align: center;"></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="width: 25%; padding: 5px 10px 5px 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;">
+                    <table>
+                      <tbody>
+                        <tr>
+                          <td>PONTUALIDADE</td>
+                          <td style="height: 20px; width: 20px; border: 1px solid #333; text-align: center;"></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                  <td style="width: 25%; padding: 5px 10px 5px 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;">
+                    <table>
+                      <tbody>
+                        <tr>
+                          <td>EFICÁCIA</td>
+                          <td style="height: 20px; width: 20px; border: 1px solid #333; text-align: center;"></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                  <td style="width: 25%; padding: 5px 10px 5px 5px; border-right: 1px solid #333; border-bottom: 1px solid #333;">
+                    <table>
+                      <tbody>
+                        <tr>
+                          <td>LIDERANÇA</td>
+                          <td style="height: 20px; width: 20px; border: 1px solid #333; text-align: center;"></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td style="width: 25%; padding: 5px 10px 5px 5px; border-right: 1px solid #333; background-color: #CCC; text-align: center;">FRACO (00-02)</td>
+                  <td style="width: 25%; padding: 5px 10px 5px 5px; border-right: 1px solid #333; background-color: #CCC; text-align: center;">REGULAR (03-05)</td>
+                  <td style="width: 25%; padding: 5px 10px 5px 5px; border-right: 1px solid #333; background-color: #CCC; text-align: center;">BOM (06-08)</td>
+                  <td style="width: 25%; padding: 5px 10px 5px 5px; border-right: 1px solid #333; border-top: 1px solid #333; background-color: #CCC; text-align: center;">ÓTIMO (09-10)</td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding-top: 12px;">
+            <table>
+              <tbody>
+                <tr>
+                  <td style="width: 60%">
+                    <table style="border: 1px solid #333;">
+                      <tbody>
+                        <tr>
+                          <td>Autorizo a execução do(s) serviço(s) de acordo com as especificações, preços e condições de pagamentos mencionadas</td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 20px 0 8px 30px;">
+                            <table style="width: 60%">
+                              <tbody>
+                                <tr>
+                                  <td style="border-bottom: 1px solid #333;">&nbsp;</td>
+                                </tr>
+                                <tr>
+                                  <td>Cliente/Assinatura</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                  <td style="width: 40%; padding-left: 15px;">
+                    <table>
+                      <tbody>
+                        <tr>
+                          <td style="padding-bottom: 30px;">Campinas, &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;</td>
+                        </tr>
+                        <tr>
+                          <td colspan="3" style="border-bottom: 1px solid #333;">&nbsp;</td>
+                        </tr>
+                        <tr>
+                          <td>NACIONAL HIDRO</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>Não aceitamos reclamações após a assinatura</strong>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="page-break-before: always;"></div>
+  </div>
+</body>
+</html>

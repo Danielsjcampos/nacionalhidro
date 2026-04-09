@@ -1,0 +1,206 @@
+<!doctype html>
+<html>
+
+<head>
+  <title>Relatório</title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
+    integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+
+  <script type="text/javascript" src="http://code.jquery.com/jquery-1.7.1.min.js"></script>
+  <style>
+    .header {
+      display: table;
+	  width: 100%;
+	  display: inline;
+    }
+
+    .body {
+	  border: 3px solid black;
+	  margin-top: 50px;
+	  margin-bottom: 50px;
+	  margin-right: 50px;
+	  margin-left: 50px;
+    }
+
+    .header1 {
+	  margin-top: 5px;
+	  margin-bottom: 5px;
+	  margin-left: 5px;
+	  width: 60%;
+	  text-align:center;
+    }
+
+    .header2 {
+	  margin-top: 5px;
+	  margin-bottom: 5px;
+	  margin-right: 5px;
+	  width: 40%;
+	  text-align:left;
+    }
+    .subheader {
+      display: table;
+	  width: 100%;
+	  display: inline-flex;
+    }
+
+    .subheader1 {
+	  border: 2px solid lightgray;
+	  margin-top: 5px;
+	  margin-bottom: 5px;
+	  margin-right: 5px;
+	  margin-left: 5px;
+	  width: 70%;
+	  text-align:center;
+    }
+
+    .subheader2 {
+	  border: 2px solid lightgray;
+	  margin-top: 5px;
+	  margin-bottom: 5px;
+	  margin-right: 5px;
+	  width: 30%;
+	  text-align:center;
+    }
+
+    .cabecalho {
+      display: table-cell;
+	  text-align: left;
+    }
+
+    .cabecalho h6 {
+      font-weight: 400;
+    }
+
+    .table td,
+    td {
+      border: 1px solid black;
+    }
+
+    .table th,
+    td {
+      border: 1px solid black;
+    }
+
+    .tablefooter td,
+    td {
+      border: 0;
+    }
+  </style>
+</head>
+
+<body class="body">
+	<div id="target">
+		<div class="containter pdf">
+			<div class="header">
+        <table class="table">
+          <tr>
+            <td width="60%">
+              <img
+              src="https://prodnhidro.blob.core.windows.net/storage/logo.jpg"
+              alt="Nacional Locação" width="200">
+              <br/>
+              <br/>
+              <h6><strong>{{Emitente.Descricao}}</strong></h6>
+              <br/>
+              <h6>{{Emitente.Logradouro}}, {{Emitente.Numero}} - {{Emitente.Bairro}}</h6>
+              <h6>CEP {{Emitente.CEP}} - {{Emitente.Municipio}}/{{Emitente.UF}}</h6>
+              <h6>TELEFONE {{Emitente.Telefone}}</h6>
+              <h6>www.nacionalhidro.com.br</h6>
+            </td>
+            <td>
+              <h6>CNPJ: {{Emitente.CNPJ}}</h6>
+              <h6>INSC. ESTADUAL: {{Emitente.InscricaoEstadual}}</h6>
+              <br/>
+              <h6>1º Via - Cliente</h6>
+              <h6>2º Via - Controle cliente</h6>
+              <h6>3º Via - Talão</h6>
+              <h6>4º Via - Contabilidade</h6>
+              <br/>
+              <h6>EMISSÃO : {{DataEmissao}}</h6>
+            </td>
+          </tr>
+        </table>
+        <table class="table">
+          <tr>
+            <td width="70%">
+              <h5><strong>RECIBO DE LOCAÇÃO DE BENS MÓVEIS</strong></h5>
+            </td>
+            <td>
+              <h5 style='border-bottom: solid 1px'>Nº {{ReciboLocacaoId}}</h5>
+              <h5>PEDIDO: {{NumeroPedido}}</h5>
+              <h5>{{DadosComplementares}}</h5>
+            </td>
+          </tr>
+				</table>
+			</div>
+			<table class="table">
+			  <tr>
+				<td colspan='2' width=50%>NOME/RAZÃO SOCIAL: {{Destinatario.RazaoSocial}}</td>
+				<td colspan='2' width=50%>CNPJ/CPF: {{Destinatario.Cnpj}}</td>
+			  </tr>
+			  <tr>
+				<td colspan='2' width=50%>ENDEREÇO: {{Destinatario.Endereco}}, {{Destinatario.Numero}}</td>
+				<td colspan='2' width=50%>INSCRIÇÃO ESTADUAL: {{Destinatario.Ie}}</td>
+			  </tr>
+			  <tr>
+				<td>MUNICÍPIO: {{Destinatario.Cidade}}</td>
+				<td>UF: {{Destinatario.EstadoSigla}} </td>
+				<td>CEP: {{Destinatario.Cep}}</td>
+				<td>FONE/FAX: {{Destinatario.Telefone}}</td>
+			  </tr>
+			  <tr>
+				<td colspan='2' width=50%>NATUREZA DA OPERAÇÃO: LOCAÇÃO DE BENS IMÓVEIS</td>
+				<td colspan='2' width=50%>VENCIMENTO: {{Vencimento}}</td>
+			  </tr>
+			</table>
+			<table class="table">
+			  <thead>
+          <th>QUANT.</th>
+          <th>DESCRIÇÃO</th>
+          <th>PREÇO UNIT.</th>
+          <th>PREÇO TOTAL R$</th>
+			  </thead>
+			  <tbody>
+          <tr>
+            <td>1</td>
+            <td>{{Descricao}}</td>
+            <td></td>
+            <td>{{ValorRL}}</td>
+          </tr>
+        </tbody>
+			</table>
+			<div style='width:100%; border:1px solid black; border-radius:25px'>
+				<div style='margin:8px'>
+					<p>- INSENTA DE RETENÇÕES DE IMPOSTO E CONTRIBUIÇÕES FEDERAIS CONFORME IN-RFB Nº 765 DE 2 DE AGOSTO DE 2007.</p>
+					<p>- INSENTO DE RECOLHIMENTO DE ISS E CONFORME COMPLEMENTAR 116/203</p>
+				</div>
+			</div>
+			<h5 style='text-align:center; border-bottom:1px solid black'>DADOS PARA DEPOSITO: {{DadosDeposito}}</h5>
+			<table class="tablefooter">
+				<tr>
+          <td>
+            <p style='border-bottom:1px solid black'>EQUIPAMENTO LOCADO EM: {{Periodo}}</p>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <p>RECEBI(EMOS) DE {{Emitente.Descricao}} OS PRODUTOS</p>
+            <p>CONSTANTES NO RECIBO DE LOCAÇÃO INDICADO AO LADO.</p>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <p>EM _________/__________________/_____________</p>
+          </td>
+          <td>
+            <h5>VALOR DA LOCAÇÃO: {{ValorRL}}</h5>
+            <h5>VALOR DESTE RECIBO: {{ValorRL}}</h5>
+          </td>
+        </tr>
+			</table>
+		</div>
+	</div>
+</body>
+
+</html>

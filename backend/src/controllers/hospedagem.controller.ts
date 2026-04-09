@@ -1,0 +1,205 @@
+import { Response } from 'express';
+import prisma from '../lib/prisma';
+import { AuthRequest } from '../middleware/auth.middleware';
+
+// ─── HELPER: Auto-criar Conta a Pagar para despesa de viagem ─────
+async function autoCreateContaPagarViagem(
+    tipo: 'HOSPEDAGEM' | 'PASSAGEM',
+    registro: any,
+    valor: number
+): Promise<void> {
+    if (valor <= 0) return;
+
+    // Idempotency check
+    const existing = await (prisma as any).contaPagar.findFirst({
+        where: {
+            observacoes: { contains: registro.id },
+            categoria: tipo
+        }
+    });
+    if (existing) return;
+
+    const descricao = tipo === 'HOSPEDAGEM'
+        ? `Hospedagem ${registro.hotel || registro.cidade || ''} - ${registro.funcionario || registro.colaborador || ''}`.trim()
+        : `Passagem ${registro.origem || ''}→${registro.destino || ''} - ${registro.funcionario || registro.colaborador || ''}`.trim();
+
+    await (prisma as any).contaPagar.create({
+        data: {
+            descricao,
+            categoria: tipo,
+            valorOriginal: valor,
+            saldoDevedor: valor,
+            dataVencimento: tipo === 'HOSPEDAGEM'
+                ? (registro.dataCheckin || new Date())
+                : (registro.dataIda || new Date()),
+            centroCusto: registro.osId ? `OS-${registro.osId.substring(0, 8)}` : 'VIAGEM',
+            status: 'ABERTO',
+            observacoes: `Gerado automaticamente - ${tipo} ID: ${registro.id}`,
+            fornecedorId: tipo === 'HOSPEDAGEM' ? registro.fornecedorId : undefined
+        },
+    });
+}
+
+// ─── HOSPEDAGEM ─────────────────────────────────────────────────
+export const listHospedagens = async (req: AuthRequest, res: Response) => {
+    try {
+        const { status, osId } = req.query;
+        const where: any = {};
+        if (status) where.status = status;
+        if (osId) where.osId = osId as string;
+        const list = await (prisma as any).hospedagem.findMany({
+            where,
+            orderBy: { dataCheckin: 'desc' }
+        });
+        res.json(list);
+    } catch (error) {
+        console.error('List hospedagens error:', error);
+        res.status(500).json({ error: 'Failed to fetch lodgings' });
+    }
+};
+
+export const createHospedagem = async (req: AuthRequest, res: Response) => {
+    try {
+        const data = {
+            ...req.body,
+            valorDiaria: req.body.valorDiaria ? Number(req.body.valorDiaria) : undefined,
+            diarias: req.body.diarias ? Number(req.body.diarias) : 1,
+            dataCheckin: new Date(req.body.dataCheckin),
+            dataCheckout: req.body.dataCheckout ? new Date(req.body.dataCheckout) : undefined,
+            tipoAcomodacao: req.body.tipoAcomodacao || "INDIVIDUAL",
+            cafeDaManha: req.body.cafeDaManha === true || req.body.cafeDaManha === 'true',
+            almoco: req.body.almoco === true || req.body.almoco === 'true',
+            lavanderia: req.body.lavanderia === true || req.body.lavanderia === 'true',
+            fornecedorId: req.body.fornecedorId || undefined,
+        };
+        data.valorTotal = (data.valorDiaria || 0) * (data.diarias || 1);
+        const h = await (prisma as any).hospedagem.create({ data });
+
+        // ── Auto-criar Conta a Pagar ──
+        try {
+            await autoCreateContaPagarViagem('HOSPEDAGEM', h, Number(h.valorTotal || 0));
+        } catch (cpErr) {
+            console.error('Auto-create ContaPagar for hospedagem error:', cpErr);
+        }
+
+        res.status(201).json(h);
+    } catch (error: any) {
+        console.error('Create hospedagem error:', error);
+        res.status(500).json({ error: 'Failed to create lodging', details: error.message });
+    }
+};
+
+export const updateHospedagem = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string;
+        const update: any = { ...req.body };
+        if (update.dataCheckout) update.dataCheckout = new Date(update.dataCheckout);
+        const h = await (prisma as any).hospedagem.update({ where: { id }, data: update });
+        res.json(h);
+    } catch (error: any) {
+        console.error('Update hospedagem error:', error);
+        res.status(500).json({ error: 'Failed to update lodging', details: error.message });
+    }
+};
+
+export const deleteHospedagem = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string;
+        await (prisma as any).hospedagem.delete({ where: { id } });
+        res.status(204).send();
+    } catch (error: any) {
+        console.error('Delete hospedagem error:', error);
+        res.status(500).json({ error: 'Failed to delete lodging', details: error.message });
+    }
+};
+
+// ─── PASSAGENS ──────────────────────────────────────────────────
+export const listPassagens = async (req: AuthRequest, res: Response) => {
+    try {
+        const { osId, status } = req.query;
+        const where: any = {};
+        if (osId) where.osId = osId as string;
+        if (status) where.status = status as string;
+        const list = await (prisma as any).passagem.findMany({
+            where,
+            orderBy: { dataIda: 'desc' }
+        });
+        res.json(list);
+    } catch (error) {
+        console.error('List passagens error:', error);
+        res.status(500).json({ error: 'Failed to fetch tickets' });
+    }
+};
+
+export const createPassagem = async (req: AuthRequest, res: Response) => {
+    try {
+        const data = {
+            ...req.body,
+            valor: req.body.valor ? Number(req.body.valor) : undefined,
+            dataIda: new Date(req.body.dataIda),
+            dataVolta: req.body.dataVolta ? new Date(req.body.dataVolta) : undefined,
+        };
+        const p = await (prisma as any).passagem.create({ data });
+
+        // ── Auto-criar Conta a Pagar ──
+        try {
+            await autoCreateContaPagarViagem('PASSAGEM', p, Number(p.valor || 0));
+        } catch (cpErr) {
+            console.error('Auto-create ContaPagar for passagem error:', cpErr);
+        }
+
+        res.status(201).json(p);
+    } catch (error: any) {
+        console.error('Create passagem error:', error);
+        res.status(500).json({ error: 'Failed to create ticket', details: error.message });
+    }
+};
+
+export const updatePassagem = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string;
+        const p = await (prisma as any).passagem.update({ where: { id }, data: req.body });
+        res.json(p);
+    } catch (error: any) {
+        console.error('Update passagem error:', error);
+        res.status(500).json({ error: 'Failed to update ticket', details: error.message });
+    }
+};
+
+export const deletePassagem = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string;
+        await (prisma as any).passagem.delete({ where: { id } });
+        res.status(204).send();
+    } catch (error: any) {
+        console.error('Delete passagem error:', error);
+        res.status(500).json({ error: 'Failed to delete ticket', details: error.message });
+    }
+};
+
+// ─── RESUMO POR OS ──────────────────────────────────────────────
+export const getResumoViagem = async (req: AuthRequest, res: Response) => {
+    try {
+        const osId = req.params.osId as string;
+        const hospedagens = await (prisma as any).hospedagem.findMany({ where: { osId } });
+        const passagens = await (prisma as any).passagem.findMany({ where: { osId } });
+
+        const totalHospedagem = hospedagens.reduce((s: number, h: any) => s + Number(h.valorTotal || 0), 0);
+        const totalPassagens = passagens.reduce((s: number, p: any) => s + Number(p.valor || 0), 0);
+
+        res.json({
+            hospedagens,
+            passagens,
+            resumo: {
+                totalHospedagem: Math.round(totalHospedagem * 100) / 100,
+                totalPassagens: Math.round(totalPassagens * 100) / 100,
+                totalGeral: Math.round((totalHospedagem + totalPassagens) * 100) / 100,
+                qtdHospedagens: hospedagens.length,
+                qtdPassagens: passagens.length,
+            }
+        });
+    } catch (error) {
+        console.error('Resumo viagem error:', error);
+        res.status(500).json({ error: 'Failed to get travel summary' });
+    }
+};

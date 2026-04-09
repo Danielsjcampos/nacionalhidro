@@ -1,0 +1,755 @@
+import { Response } from 'express';
+import prisma from '../lib/prisma';
+import { AuthRequest } from '../middleware/auth.middleware';
+import { gerarPdfReciboLocacao } from '../services/legacyPdf.service';
+import { sendEmail } from '../services/email.service';
+import { NfseCampinasService } from '../services/nfseCampinas.service';
+
+// ─── HELPER: Auto-criar Conta a Receber para um Faturamento ─────
+async function autoCreateContaReceber(fat: any): Promise<void> {
+    const vlLiquido = Number(fat.valorLiquido || fat.valorBruto || 0);
+    if (vlLiquido <= 0 || !fat.clienteId) return;
+
+    // Check if a ContaReceber already exists for this faturamento
+    const existing = await (prisma as any).contaReceber.findFirst({
+        where: { faturamentoId: fat.id },
+    });
+    if (existing) return;
+
+    // Auto-classify: find planoContasId and contaBancariaId by company
+    let planoContasId: string | undefined;
+    let contaBancariaId: string | undefined;
+    try {
+        const cnpjStr = (fat.cnpjFaturamento || '').toLowerCase();
+        const isLocacao = cnpjStr.includes('locação') || cnpjStr.includes('locacao');
+        const codigoBusca = isLocacao ? '1.1.02' : '1.1.01';
+        const planoConta = await (prisma as any).planoContas.findFirst({ where: { codigo: codigoBusca } });
+        if (planoConta) planoContasId = planoConta.id;
+
+        const empresaBusca = isLocacao ? 'LOCACAO' : 'HIDRO';
+        const contaBancaria = await (prisma as any).contaBancaria.findFirst({
+            where: { ativa: true, empresa: { in: [empresaBusca, 'AMBAS'] } },
+            orderBy: { createdAt: 'asc' },
+        });
+        if (contaBancaria) contaBancariaId = contaBancaria.id;
+    } catch (pcErr) {
+        console.error('Auto planoContas/contaBancaria lookup error:', pcErr);
+    }
+
+    // Resolve client name
+    let clienteNome = fat.cliente?.nome || 'Cliente';
+    if (!fat.cliente?.nome && fat.clienteId) {
+        try {
+            const cli = await (prisma as any).cliente.findUnique({ where: { id: fat.clienteId }, select: { nome: true } });
+            if (cli) clienteNome = cli.nome;
+        } catch (_) { /* ignore */ }
+    }
+
+    await (prisma as any).contaReceber.create({
+        data: {
+            descricao: `Faturamento ${fat.tipo || 'NFS-e'} ${fat.numero ? '#' + fat.numero : ''} - ${clienteNome}`.trim(),
+            clienteId: fat.clienteId,
+            faturamentoId: fat.id,
+            planoContasId: planoContasId || undefined,
+            contaBancariaId: contaBancariaId || undefined,
+            valorOriginal: vlLiquido,
+            saldoDevedor: vlLiquido,
+            dataVencimento: fat.dataVencimento || new Date(new Date().setDate(new Date().getDate() + 30)),
+            status: 'PENDENTE',
+            notaFiscal: fat.numero || undefined,
+            observacoes: `Gerado automaticamente a partir do faturamento ${fat.id}`,
+        },
+    });
+}
+
+// ─── HELPER: Cancelar Conta a Receber vinculada a um Faturamento ──
+async function cancelContaReceberByFaturamento(faturamentoId: string): Promise<void> {
+    const cr = await (prisma as any).contaReceber.findFirst({
+        where: { faturamentoId, status: { not: 'CANCELADO' } },
+    });
+    if (cr) {
+        await (prisma as any).contaReceber.update({
+            where: { id: cr.id },
+            data: { status: 'CANCELADO', observacoes: `Cancelado automaticamente - faturamento ${faturamentoId} cancelado` },
+        });
+    }
+}
+
+// ─── HELPER: Deletar Contas a Receber vinculadas a um Faturamento ──
+async function deleteContasReceberByFaturamento(faturamentoId: string): Promise<void> {
+    // Delete related HistoricoCobranca and NegociacaoDivida first to avoid FK constraint issues
+    const crs = await (prisma as any).contaReceber.findMany({ where: { faturamentoId } });
+    for (const cr of crs) {
+        await (prisma as any).historicoCobranca.deleteMany({ where: { contaReceberId: cr.id } });
+        const negs = await (prisma as any).negociacaoDivida.findMany({ where: { contaReceberId: cr.id } });
+        for (const neg of negs) {
+            await (prisma as any).parcelaNegociacao.deleteMany({ where: { negociacaoId: neg.id } });
+        }
+        await (prisma as any).negociacaoDivida.deleteMany({ where: { contaReceberId: cr.id } });
+    }
+    await (prisma as any).contaReceber.deleteMany({ where: { faturamentoId } });
+}
+
+const CENTROS_CUSTO = [
+    'EQUIPAMENTO_COMBINADO',
+    'ALTO_VACUO_SUCCAO',
+    'ALTA_PRESSAO_SAP',
+    'HIDROJATO',
+    'MAO_DE_OBRA_SERVICO',
+    'OUTROS'
+];
+
+// ─── LIST FATURAMENTOS ──────────────────────────────────────────
+export const listFaturamentos = async (req: AuthRequest, res: Response) => {
+    try {
+        const { clienteId, tipo, status, cnpjFaturamento, mes, ano } = req.query;
+        const where: any = {};
+
+        if (clienteId) where.clienteId = clienteId as string;
+        if (tipo) where.tipo = tipo as string;
+        if (status) where.status = status as string;
+        if (cnpjFaturamento) where.cnpjFaturamento = cnpjFaturamento as string;
+
+        if (mes && ano) {
+            const m = Number(mes) - 1;
+            const y = Number(ano);
+            where.dataEmissao = {
+                gte: new Date(y, m, 1),
+                lt: new Date(y, m + 1, 1)
+            };
+        }
+
+        const list = await (prisma as any).faturamento.findMany({
+            where,
+            include: { 
+                cliente: { select: { id: true, nome: true, cnpj: true } },
+                medicao: { select: { id: true, codigo: true } }
+            },
+            orderBy: { dataEmissao: 'desc' }
+        });
+        res.json(list);
+    } catch (error) {
+        console.error('List faturamentos error:', error);
+        res.status(500).json({ error: 'Failed to fetch invoices' });
+    }
+};
+
+// ─── GET FATURAMENTO ────────────────────────────────────────────
+export const getFaturamento = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string;
+        const fat = await (prisma as any).faturamento.findUnique({
+            where: { id },
+            include: { cliente: true }
+        });
+        if (!fat) return res.status(404).json({ error: 'Invoice not found' });
+        res.json(fat);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch invoice' });
+    }
+};
+
+// ─── HELPER: Check Teto Fiscal ──────────────────────────────────
+async function checkTetoFiscal(cnpj: string, novoValor: number): Promise<{ excedido: boolean, mensagem?: string }> {
+    if (!cnpj) return { excedido: false };
+    const empresa = await (prisma as any).empresaCNPJ.findUnique({ where: { cnpj } });
+    if (!empresa || !empresa.ativa) return { excedido: false };
+
+    const now = new Date();
+    const inicioMes = new Date(now.getFullYear(), now.getMonth(), 1);
+    const fimMes = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    const faturamentoMes = await (prisma as any).faturamento.aggregate({
+        _sum: { valorBruto: true },
+        where: {
+            cnpjFaturamento: cnpj,
+            dataEmissao: { gte: inicioMes, lte: fimMes },
+            status: { notIn: ['CANCELADA'] },
+        },
+    });
+
+    const valorMensal = Number(faturamentoMes._sum.valorBruto || 0);
+    const limite = Number(empresa.limiteMenusal || 500000);
+
+    if (valorMensal + novoValor > limite) {
+        const vlFormatado = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorMensal + novoValor);
+        const lmFormatado = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(limite);
+        return { excedido: true, mensagem: `O faturamento mensal do CNPJ ${cnpj} atingiria ${vlFormatado} (limite de ${lmFormatado}).` };
+    }
+    return { excedido: false };
+}
+
+// ─── CREATE FATURAMENTO ─────────────────────────────────────────
+export const createFaturamento = async (req: AuthRequest, res: Response) => {
+    try {
+        const {
+            dataEmissao, dataVencimento, dataPagamento,
+            valorBruto, percentualINSS, valorINSS, valorISS, valorIR,
+            valorCSLL, valorPIS, valorCOFINS, valorLiquido,
+            ...rest
+        } = req.body;
+
+        const valBrutoNum = valorBruto ? Number(valorBruto) : 0;
+
+        if (rest.cnpjFaturamento && !req.query.overrideTeto) {
+            const check = await checkTetoFiscal(rest.cnpjFaturamento, valBrutoNum);
+            if (check.excedido) {
+                return res.status(403).json({ error: 'TETO_FISCAL_EXCEDIDO', message: check.mensagem });
+            }
+        }
+
+        const fat = await (prisma as any).faturamento.create({
+            data: {
+                ...rest,
+                dataEmissao: dataEmissao ? new Date(dataEmissao) : new Date(),
+                dataVencimento: dataVencimento ? new Date(dataVencimento) : undefined,
+                dataPagamento: dataPagamento ? new Date(dataPagamento) : undefined,
+                valorBruto: valorBruto ? Number(valorBruto) : 0,
+                percentualINSS: percentualINSS !== undefined ? Number(percentualINSS) : 3.5,
+                valorINSS: valorINSS ? Number(valorINSS) : 0,
+                valorISS: valorISS ? Number(valorISS) : 0,
+                valorIR: valorIR ? Number(valorIR) : 0,
+                valorCSLL: valorCSLL ? Number(valorCSLL) : 0,
+                valorPIS: valorPIS ? Number(valorPIS) : 0,
+                valorCOFINS: valorCOFINS ? Number(valorCOFINS) : 0,
+                valorLiquido: valorLiquido ? Number(valorLiquido) : Number(valorBruto || 0),
+            },
+            include: { cliente: { select: { id: true, nome: true } } }
+        });
+
+        // ── Auto-criar Conta a Receber vinculada ao faturamento ──
+        try {
+            await autoCreateContaReceber(fat);
+        } catch (crErr) {
+            console.error('Auto-create ContaReceber for faturamento error:', crErr);
+            // Non-blocking: faturamento was created successfully
+        }
+
+        res.status(201).json(fat);
+    } catch (error: any) {
+        console.error('Create faturamento error:', error);
+        res.status(500).json({ error: 'Failed to create invoice', details: error.message });
+    }
+};
+
+// ─── UPDATE FATURAMENTO ─────────────────────────────────────────
+export const updateFaturamento = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string;
+        const {
+            dataEmissao, dataVencimento, dataPagamento, emailEnviadoEm,
+            valorBruto, percentualINSS, valorINSS, valorISS, valorIR,
+            valorCSLL, valorPIS, valorCOFINS, valorLiquido,
+            ...rest
+        } = req.body;
+
+        const update: any = { ...rest };
+        if (dataEmissao) update.dataEmissao = new Date(dataEmissao);
+        if (dataVencimento) update.dataVencimento = new Date(dataVencimento);
+        if (dataPagamento) update.dataPagamento = new Date(dataPagamento);
+        if (emailEnviadoEm) update.emailEnviadoEm = new Date(emailEnviadoEm);
+        if (valorBruto !== undefined) update.valorBruto = Number(valorBruto);
+        if (percentualINSS !== undefined) update.percentualINSS = Number(percentualINSS);
+        if (valorINSS !== undefined) update.valorINSS = Number(valorINSS);
+        if (valorISS !== undefined) update.valorISS = Number(valorISS);
+        if (valorIR !== undefined) update.valorIR = Number(valorIR);
+        if (valorCSLL !== undefined) update.valorCSLL = Number(valorCSLL);
+        if (valorPIS !== undefined) update.valorPIS = Number(valorPIS);
+        if (valorCOFINS !== undefined) update.valorCOFINS = Number(valorCOFINS);
+        if (valorLiquido !== undefined) update.valorLiquido = Number(valorLiquido);
+
+        const fat = await (prisma as any).faturamento.update({
+            where: { id },
+            data: update,
+            include: { cliente: { select: { id: true, nome: true } } }
+        });
+
+        // ── Sync Conta a Receber when faturamento values or status change ──
+        try {
+            if (rest.status === 'CANCELADA') {
+                await cancelContaReceberByFaturamento(id);
+            } else if (rest.status === 'PAGA') {
+                const cr = await (prisma as any).contaReceber.findFirst({ where: { faturamentoId: id } });
+                if (cr) {
+                    await (prisma as any).contaReceber.update({
+                        where: { id: cr.id },
+                        data: {
+                            status: 'RECEBIDO',
+                            valorRecebido: Number(fat.valorLiquido || fat.valorBruto || 0),
+                            dataRecebimento: fat.dataPagamento || new Date(),
+                            saldoDevedor: 0,
+                        },
+                    });
+                }
+            } else if (valorLiquido !== undefined || dataVencimento) {
+                // Sync value/date changes to linked ContaReceber
+                const cr = await (prisma as any).contaReceber.findFirst({ where: { faturamentoId: id, status: { in: ['PENDENTE', 'VENCIDO'] } } });
+                if (cr) {
+                    const syncData: any = {};
+                    if (valorLiquido !== undefined) {
+                        syncData.valorOriginal = Number(valorLiquido);
+                        syncData.saldoDevedor = Number(valorLiquido);
+                    }
+                    if (dataVencimento) syncData.dataVencimento = new Date(dataVencimento);
+                    await (prisma as any).contaReceber.update({ where: { id: cr.id }, data: syncData });
+                }
+            }
+        } catch (syncErr) {
+            console.error('Sync ContaReceber on faturamento update error:', syncErr);
+        }
+
+        res.json(fat);
+    } catch (error: any) {
+        console.error('Update faturamento error:', error);
+        res.status(500).json({ error: 'Failed to update invoice', details: error.message });
+    }
+};
+
+// ─── DELETE FATURAMENTO ─────────────────────────────────────────
+export const deleteFaturamento = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string;
+
+        // ── Delete linked Contas a Receber before deleting faturamento ──
+        try {
+            await deleteContasReceberByFaturamento(id);
+        } catch (delCrErr) {
+            console.error('Delete linked ContaReceber error:', delCrErr);
+        }
+
+        await (prisma as any).faturamento.delete({ where: { id } });
+        res.status(204).send();
+    } catch (error) {
+        console.error('Delete faturamento error:', error);
+        res.status(500).json({ error: 'Failed to delete invoice' });
+    }
+};
+
+// ─── GERAR FATURAMENTO (RL 90% + NFS-e 10%) ────────────────────
+export const gerarFaturamentoRL = async (req: AuthRequest, res: Response) => {
+    try {
+        const { clienteId, medicaoId, osId, valorTotal, centroCusto, cnpjFaturamento, pedidoCompras, dataVencimento, percentualRL: pctRLRaw } = req.body;
+
+        let finalValorTotal = Number(valorTotal) || 0;
+        let finalClienteId = clienteId;
+        let finalObservacoes = '';
+
+        // 1. If medicaoId is provided, enrich billing with details
+        if (medicaoId) {
+            const medicao = await (prisma as any).medicao.findUnique({
+                where: { id: medicaoId },
+                include: { ordensServico: true }
+            });
+            if (medicao) {
+                finalValorTotal = Number(medicao.valorTotal);
+                finalClienteId = medicao.clienteId;
+                
+                // Construct detailed observation from subitens
+                if (medicao.subitens && Array.isArray(medicao.subitens)) {
+                    const details = (medicao.subitens as any[])
+                        .map(s => `${s.descricao}: R$ ${Number(s.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+                        .join(' | ');
+                    finalObservacoes = `Detalhamento Medição ${medicao.codigo}: ${details}`;
+                } else {
+                    finalObservacoes = `Ref. Medição ${medicao.codigo}`;
+                }
+
+                // Mark medicao as FINALIZADA
+                await (prisma as any).medicao.update({
+                    where: { id: medicaoId },
+                    data: { status: 'FINALIZADA' }
+                });
+
+                // Update all linked OS to FATURADA
+                const osIds = medicao.ordensServico.map((os: any) => os.id);
+                if (osIds.length > 0) {
+                    await (prisma as any).ordemServico.updateMany({
+                        where: { id: { in: osIds } },
+                        data: { status: 'FATURADA' }
+                    });
+                }
+            }
+        }
+
+        const pctRL = Math.min(100, Math.max(50, Number(pctRLRaw) || 90));
+        const pctNFSe = 100 - pctRL;
+        const valorRL = finalValorTotal * pctRL / 100;
+        const valorNFSe = finalValorTotal * pctNFSe / 100;
+        const baseData = {
+            clienteId: finalClienteId,
+            medicaoId: medicaoId || undefined,
+            osId: osId || undefined,
+            centroCusto: centroCusto || undefined,
+            cnpjFaturamento: cnpjFaturamento || undefined,
+            pedidoCompras: pedidoCompras || undefined,
+            dataVencimento: dataVencimento ? new Date(dataVencimento) : undefined,
+            observacoes: finalObservacoes,
+        };
+
+        if (cnpjFaturamento && !req.query.overrideTeto) {
+            const check = await checkTetoFiscal(cnpjFaturamento, finalValorTotal);
+            if (check.excedido) {
+                return res.status(403).json({ error: 'TETO_FISCAL_EXCEDIDO', message: check.mensagem });
+            }
+        }
+
+        const rl = await (prisma as any).faturamento.create({
+            data: {
+                ...baseData,
+                tipo: 'RL',
+                valorBruto: valorRL,
+                valorLiquido: valorRL,
+                percentualINSS: 0,
+            }
+        });
+
+        const nfse = await (prisma as any).faturamento.create({
+            data: {
+                ...baseData,
+                tipo: 'NFSE',
+                valorBruto: valorNFSe,
+                percentualINSS: 3.5,
+                valorINSS: valorNFSe * 0.035,
+                valorLiquido: valorNFSe * (1 - 0.035),
+            }
+        });
+
+        // Tenta emitir a NFS-e logo após a criação da fatura (não-bloqueante)
+        (async () => {
+            try {
+                if (!baseData.cnpjFaturamento) return;
+                
+                const empresa = await (prisma as any).empresaCNPJ.findUnique({ 
+                    where: { cnpj: baseData.cnpjFaturamento } 
+                });
+
+                if (empresa && empresa.nfseAtiva && empresa.nfseCertificate && empresa.nfsePrivateKey) {
+                    const { NfseCampinasService } = await import('../services/nfseCampinas.service');
+                    const ambient = (empresa.nfseAmbient === 'PRODUCAO' ? 'PRODUCAO' : 'HOMOLOGACAO');
+                    const svc = new NfseCampinasService(
+                        ambient,
+                        empresa.nfsePrivateKey,
+                        empresa.nfseCertificate
+                    );
+                    
+                    const cliente = await (prisma as any).cliente.findUnique({ where: { id: finalClienteId } });
+                    if (!cliente) return;
+
+                    const nfseData = {
+                        idRps: nfse.id,
+                        valorBruto: nfse.valorBruto,
+                        observacoes: nfse.observacoes,
+                    };
+
+                    const resSoap = await svc.emitirRps(nfseData, empresa, cliente);
+                    if (resSoap.protocolo) {
+                        await (prisma as any).faturamento.update({
+                            where: { id: nfse.id },
+                            data: { 
+                                status: 'EM PROCESSAMENTO', 
+                                nfseCodVerificacao: resSoap.codVerificacao || undefined,
+                                observacoes: `${nfse.observacoes || ''}\nProtocolo: ${resSoap.protocolo}`.trim() 
+                            }
+                        });
+                    }
+                }
+            } catch (srvErr) {
+                console.error('Erro ao disparar emissão NFSe automática:', srvErr);
+            }
+        })();
+
+        // ── Auto-criar Contas a Receber para ambos RL e NFSe ──
+        try {
+            await autoCreateContaReceber(rl);
+            await autoCreateContaReceber(nfse);
+        } catch (crErr) {
+            console.error('Auto-create ContaReceber for RL/NFSe error:', crErr);
+        }
+
+        res.status(201).json({ rl, nfse, totalBruto: finalValorTotal, split: `${pctRL}/${pctNFSe}` });
+    } catch (error: any) {
+        console.error('Gerar faturamento RL error:', error);
+        res.status(500).json({ error: 'Failed to generate invoices', details: error.message });
+    }
+};
+
+// ─── STATS / DASHBOARD ──────────────────────────────────────────
+export const getFaturamentoStats = async (req: AuthRequest, res: Response) => {
+    try {
+        const all = await (prisma as any).faturamento.findMany({
+            include: { cliente: { select: { nome: true } } }
+        });
+
+        const totalEmitidas = all.filter((f: any) => f.status === 'EMITIDA').length;
+        const totalEnviadas = all.filter((f: any) => f.status === 'ENVIADA').length;
+        const totalPagas = all.filter((f: any) => f.status === 'PAGA').length;
+        const totalVencidas = all.filter((f: any) => f.status === 'VENCIDA').length;
+
+        const valorTotalBruto = all.reduce((s: number, f: any) => s + Number(f.valorBruto || 0), 0);
+        const valorTotalLiquido = all.reduce((s: number, f: any) => s + Number(f.valorLiquido || 0), 0);
+        const valorPago = all.filter((f: any) => f.status === 'PAGA').reduce((s: number, f: any) => s + Number(f.valorLiquido || 0), 0);
+        const valorAReceber = all.filter((f: any) => ['EMITIDA', 'ENVIADA'].includes(f.status)).reduce((s: number, f: any) => s + Number(f.valorLiquido || 0), 0);
+
+        // Por centro de custo
+        const porCentroCusto: Record<string, number> = {};
+        all.forEach((f: any) => {
+            const cc = f.centroCusto || 'OUTROS';
+            porCentroCusto[cc] = (porCentroCusto[cc] || 0) + Number(f.valorBruto || 0);
+        });
+
+        // Por tipo
+        const porTipo: Record<string, number> = {};
+        all.forEach((f: any) => {
+            porTipo[f.tipo] = (porTipo[f.tipo] || 0) + Number(f.valorBruto || 0);
+        });
+
+        res.json({
+            totalEmitidas, totalEnviadas, totalPagas, totalVencidas,
+            valorTotalBruto: Math.round(valorTotalBruto * 100) / 100,
+            valorTotalLiquido: Math.round(valorTotalLiquido * 100) / 100,
+            valorPago: Math.round(valorPago * 100) / 100,
+            valorAReceber: Math.round(valorAReceber * 100) / 100,
+            porCentroCusto,
+            porTipo
+        });
+    } catch (error) {
+        console.error('Faturamento stats error:', error);
+        res.status(500).json({ error: 'Failed to get billing stats' });
+    }
+};
+
+// ─── NFSE: EMITIR E CONSULTAR STATUS ────────────────────────────
+
+export const emitirNFSeManual = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string;
+        const fat = await (prisma as any).faturamento.findUnique({ where: { id }, include: { cliente: true, medicao: true }});
+        if (!fat) return res.status(404).json({ error: 'Faturamento não encontrado' });
+        
+        if (!fat.cnpjFaturamento) {
+            return res.status(400).json({ error: 'CNPJ de faturamento não definido para esta nota.' });
+        }
+
+        const empresa = await (prisma as any).empresaCNPJ.findUnique({ 
+            where: { cnpj: fat.cnpjFaturamento } 
+        });
+
+        if (!empresa || !empresa.nfseAtiva || !empresa.nfseCertificate || !empresa.nfsePrivateKey) {
+            return res.status(400).json({ error: `Configurações de NFS-e não encontradas ou inativas para o CNPJ ${fat.cnpjFaturamento}.` });
+        }
+
+        const ambient = (empresa.nfseAmbient === 'PRODUCAO' ? 'PRODUCAO' : 'HOMOLOGACAO');
+        const svc = new NfseCampinasService(ambient, empresa.nfsePrivateKey, empresa.nfseCertificate);
+        const nfseData = {
+            idRps: fat.id,
+            numero: fat.numero || Date.now().toString(),
+            serie: '1', // Default
+            tipo: '1', // RPS
+            dataEmissao: new Date().toISOString(),
+            status: '1', // Normal
+            competencia: new Date().toISOString().split('T')[0],
+            valorServicos: fat.valorBruto,
+            valorDeducoes: 0,
+            valorPis: fat.valorPIS || 0,
+            valorCofins: fat.valorCOFINS || 0,
+            valorInss: fat.valorINSS || 0,
+            valorIr: fat.valorIR || 0,
+            valorCsll: fat.valorCSLL || 0,
+            outrasRetencoes: 0,
+            valorIss: fat.valorISS || 0,
+            aliquota: 3.5,
+            descontoIncondicionado: 0,
+            descontoCondicionado: 0,
+            itemListaServico: '7.10',
+            codigoCnae: '8129000',
+            codigoTributacaoMunicipio: '8129000',
+            discriminacao: fat.observacoes || 'Serviços Prestados',
+            codigoMunicipio: '3509502', // Campinas
+            tomador: {
+                cpfCnpj: fat.cliente?.cnpj || '00000000000000',
+                razaoSocial: fat.cliente?.nome,
+                telefone: fat.cliente?.telefone || '',
+                email: fat.cliente?.email || '',
+                endereco: {
+                    logradouro: fat.cliente?.rua || '',
+                    numero: fat.cliente?.numero || '',
+                    complemento: fat.cliente?.complemento || '',
+                    bairro: fat.cliente?.bairro || '',
+                    codigoMunicipio: '3509502', // Simplificacao para testes
+                    uf: fat.cliente?.estado || 'SP',
+                    cep: fat.cliente?.cep || '13000000'
+                }
+            }
+        };
+
+        const resSoap = await svc.emitirRps(nfseData, {}, fat.cliente);
+        
+        await (prisma as any).faturamento.update({
+            where: { id },
+            data: { status: 'EM PROCESSAMENTO', observacoes: `Protocolo RPS ${resSoap.protocolo || resSoap.lote} enviado.` }
+        });
+
+        res.json({ message: 'Envio efetuado', loteData: resSoap });
+    } catch (error: any) {
+        console.error('Erro ao emitir NFS-e manualmente:', error);
+        res.status(500).json({ error: 'Falha ao emitir NFS-e', details: error.message });
+    }
+};
+
+export const consultarStatusNFSe = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string;
+        const fat = await (prisma as any).faturamento.findUnique({ 
+            where: { id }, 
+            include: { cliente: true }
+        });
+        if (!fat) return res.status(404).json({ error: 'Faturamento não encontrado' });
+        if (!fat.cnpjFaturamento) return res.status(400).json({ error: 'CNPJ de faturamento não definido.' });
+
+        // Extrair protocolo das observacoes se nao tiver campo proprio
+        const protocoloMatch = fat.observacoes?.match(/Protocolo:?\s*([A-Za-z0-9]+)/i);
+        const protocolo = protocoloMatch ? protocoloMatch[1] : null;
+
+        if (!protocolo) {
+            return res.status(400).json({ error: 'Protocolo de envio não encontrado nas observações da fatura.' });
+        }
+
+        const empresa = await (prisma as any).empresaCNPJ.findUnique({ where: { cnpj: fat.cnpjFaturamento } });
+        if (!empresa) return res.status(404).json({ error: 'Empresa emissora não encontrada.' });
+
+        const svc = new NfseCampinasService(
+            empresa.nfseAmbient === 'PRODUCAO' ? 'PRODUCAO' : 'HOMOLOGACAO',
+            empresa.nfsePrivateKey || '',
+            empresa.nfseCertificate || ''
+        );
+
+        const resSoap = await svc.consultarLoteRps(empresa, protocolo);
+
+        if (resSoap.nfse) {
+            await (prisma as any).faturamento.update({
+                where: { id },
+                data: { 
+                    status: 'EMITIDA', 
+                    numero: resSoap.nfse,
+                    nfseCodVerificacao: resSoap.codVerificacao || undefined,
+                    observacoes: `${fat.observacoes || ''}\nNFSe Confirmada: ${resSoap.nfse}`.trim()
+                }
+            });
+            return res.json({ message: 'NFSe Confirmada', numero: resSoap.nfse });
+        }
+
+        if (resSoap.erro) {
+             return res.status(400).json({ error: 'Erro no processamento da prefeitura', details: resSoap.erro });
+        }
+
+        res.json({ message: 'Ainda em processamento ou aguardando lote', raw: resSoap });
+    } catch (error: any) {
+        console.error('Erro ao consultar status:', error);
+        res.status(500).json({ error: 'Falha ao consultar status', details: error.message });
+    }
+};
+
+export const cancelarNFSeManual = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string;
+        const fat = await (prisma as any).faturamento.findUnique({ where: { id } });
+        if (!fat || !fat.numero) return res.status(400).json({ error: 'Nota fiscal não emitida ou não encontrada.' });
+        
+        const empresa = await (prisma as any).empresaCNPJ.findUnique({ where: { cnpj: fat.cnpjFaturamento } });
+        if (!empresa || !empresa.nfseAtiva) return res.status(400).json({ error: 'Empresa sem configuração de NFS-e.' });
+
+        const svc = new NfseCampinasService(
+            empresa.nfseAmbient === 'PRODUCAO' ? 'PRODUCAO' : 'HOMOLOGACAO',
+            empresa.nfsePrivateKey || '',
+            empresa.nfseCertificate || ''
+        );
+
+        const resSoap = await svc.cancelarNfse(empresa, fat.numero, '1');
+        
+        if (resSoap.erro && !resSoap.rawResponse?.includes('Sucesso')) {
+             return res.status(400).json({ error: 'Falha no cancelamento prefeitura', details: resSoap.erro });
+        }
+
+        await (prisma as any).faturamento.update({
+            where: { id },
+            data: { status: 'CANCELADA', observacoes: `${fat.observacoes || ''}\nCancelada via SOAP em ${new Date().toLocaleString()}`.trim() }
+        });
+
+        res.json({ message: 'Cancelado com sucesso na prefeitura.' });
+    } catch (error: any) {
+        console.error('Erro ao cancelar NFS-e:', error);
+        res.status(500).json({ error: 'Falha ao cancelar NFS-e', details: error.message });
+    }
+};
+
+export const emitirCartaCorrecao = async (req: AuthRequest, res: Response) => {
+    res.json({ error: 'Não aplicável para NFS-e padrão Campinas na maioria das vezes, apenas cancelamento.' });
+};
+
+// ─── ENVIAR FATURAMENTO AO CLIENTE (Email / PDF) ────────────────
+export const enviarFaturamentoAoCliente = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string;
+        const fat = await (prisma as any).faturamento.findUnique({
+            where: { id },
+            include: { cliente: true, medicao: { include: { ordensServico: { include: { servicos: true, itensCobranca: true } } } } }
+        });
+        if (!fat) return res.status(404).json({ error: 'Faturamento não encontrado' });
+        if (!fat.cliente?.email) return res.status(400).json({ error: 'Cliente sem email registrado' });
+
+        const empresa = await (prisma as any).empresaCNPJ.findUnique({ where: { cnpj: fat.cnpjFaturamento } }) || await (prisma as any).configuracao.findFirst() || {};
+        const config = await (prisma as any).configuracao.findFirst() || {};
+
+        let pdfBuffer: Buffer | null = null;
+        let filename = 'Documento.pdf';
+        let nfseLink = '';
+        
+        if (fat.tipo === 'RL') {
+             pdfBuffer = await gerarPdfReciboLocacao(fat, fat.cliente, config);
+             filename = `Recibo_Locacao_${fat.id.substring(0,6)}.pdf`;
+        } else if (fat.tipo === 'NFSE' && fat.numero && fat.nfseCodVerificacao) {
+             // Link oficial prefeitura Campinas
+             const inscricao = empresa.inscricaoMunicipal?.replace(/\D/g, '') || '';
+             nfseLink = `https://nfse.campinas.sp.gov.br/nfse/visualizarNota.do?nota=${fat.numero}&inscricao=${inscricao}&codVerificacao=${fat.nfseCodVerificacao}`;
+        } else {
+             return res.status(400).json({ error: 'NFS-e ainda não emitida ou código de verificação pendente.' });
+        }
+
+        let htmlText = `Prezado(a) ${fat.cliente.razaoSocial || fat.cliente.nome},<br><br>Gostaríamos de lhe enviar o documento anexo referente ao faturamento de código <b>${fat.numero || fat.id.substring(0,8)}</b>.<br>Valor: <b>R$ ${Number(fat.valorLiquido).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</b>.<br><br>`;
+        
+        if (nfseLink) {
+            htmlText += `<b>Visualizar Nota Fiscal:</b> <a href="${nfseLink}">${nfseLink}</a><br><br>`;
+        }
+
+        htmlText += `Atenciosamente,<br><b>Nacional Hidro</b>`;
+
+        const resp = await sendEmail({
+            to: fat.cliente.email,
+            subject: `Faturamento Nacional Hidro - ${fat.tipo} ${fat.numero || ''}`,
+            html: htmlText,
+            attachments: pdfBuffer ? [
+                { filename, content: pdfBuffer, contentType: 'application/pdf' }
+            ] : []
+        });
+
+        if (resp.success) {
+             await (prisma as any).faturamento.update({ where: { id }, data: { status: 'ENVIADA', emailEnviadoEm: new Date() } });
+             if (fat.medicaoId) {
+                 await (prisma as any).cobrancaEmail.create({
+                     data: {
+                         medicaoId: fat.medicaoId,
+                         destinatario: fat.cliente.email || '',
+                         assunto: `Faturamento ${fat.tipo} Enviado`,
+                         corpo: `PDF enviado por email em ${new Date().toISOString()}`
+                     }
+                 });
+             }
+             return res.json({ message: 'E-mail enviado com sucesso' });
+        } else {
+             throw new Error('Falha no disparo de e-mail');
+        }
+    } catch (e: any) {
+        console.error('Falha enviar faturamento:', e);
+        res.status(500).json({ error: 'Falha enviar', details: e.message });
+    }
+};

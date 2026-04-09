@@ -1,0 +1,1213 @@
+import { useEffect, useState, useMemo } from 'react';
+import api from '../services/api';
+import {
+  Plus, Loader2, ChevronRight, X, Clock, Copy, Printer,
+  CheckCircle2, AlertCircle, PlayCircle, FolderOpen, ChevronLeft, ChevronDown,
+  Package
+} from 'lucide-react';
+import { ImprimirOS } from '../components/ImprimirOS';
+
+const EQUIPAMENTOS = [
+  'Combinado', 'Alto Vácuo / Sucção', 'Alta Pressão (AP)',
+  'Super Alta Pressão (SAP)', 'Hidrojato', 'Mão de Obra / Serviço Manual',
+];
+
+const EMPRESAS = [
+  'NACIONAL HIDROSANEAMENTO EIRELI EPP',
+  'NACIONAL HIDRO LOCAÇÃO DE EQUIPAMENTOS EIRELI',
+];
+
+const TIPOS_COBRANCA = ['Cobrança', 'Cortesia', 'Garantia'];
+
+const DIAS_SEMANA = ['DIAS', 'Segunda a Sexta', 'Segunda a Sábado', 'Todos os dias'];
+
+type OsTab = 'abrir' | 'em_aberto' | 'executadas' | 'canceladas';
+
+const STATUS_MAP: Record<OsTab, string[]> = {
+  abrir: [],
+  em_aberto: ['ABERTA', 'EM_EXECUCAO'],
+  executadas: ['CONCLUIDA', 'FINALIZADA'],
+  canceladas: ['CANCELADA'],
+};
+
+function calcHorasTotais(entrada: string, saida: string, almoco: string, descontarAlmoco: boolean): { total: string, adicional: string } {
+  if (!entrada || !saida) return { total: '---', adicional: '---' };
+  const e = new Date(entrada).getTime();
+  const s = new Date(saida).getTime();
+  if (isNaN(e) || isNaN(s) || s <= e) return { total: '---', adicional: '---' };
+  let diff = (s - e) / 3600000;
+  if (descontarAlmoco && almoco) diff -= 1;
+  const h = Math.floor(diff);
+  const m = Math.round((diff - h) * 60);
+  return { total: `${h}h${m > 0 ? m + 'm' : ''}`, adicional: '---' };
+}
+
+export default function OS() {
+  const [osList, setOsList] = useState<any[]>([]);
+  const [propostas, setPropostas] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<OsTab>('abrir');
+  const [showModal, setShowModal] = useState(false);
+  const [selectedOS, setSelectedOS] = useState<any>(null);
+  const [modalTab, setModalTab] = useState<'servicos' | 'escala'>('servicos');
+  const [saving, setSaving] = useState(false);
+  const [disponibilidades, setDisponibilidades] = useState<any[]>([]);
+  const [printOs, setPrintOs] = useState<any>(null);
+  const [produtos, setProdutos] = useState<any[]>([]);
+  const [materiaisUtilizados, setMateriaisUtilizados] = useState<any[]>([]);
+
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelJustification, setCancelJustification] = useState('');
+
+  useEffect(() => {
+    if (printOs) {
+      setTimeout(() => {
+        window.print();
+        setTimeout(() => setPrintOs(null), 500); // clear after print dialog closes
+      }, 100);
+    }
+  }, [printOs]);
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(10);
+
+  // Date filter for propostas tab
+  const [dataFiltro, setDataFiltro] = useState(
+    `09-11-2025 até 09-07-${new Date().getFullYear()}`
+  );
+
+  // Form state
+  const [form, setForm] = useState<any>({
+    propostaId: '',
+    codigo: '',
+    dataInicial: new Date().toISOString().split('T')[0],
+    horaInicial: '',
+    tipoCobranca: 'Cobrança',
+    empresa: EMPRESAS[0],
+    diasFornada: 'DIAS',
+    quantidadeDia: '',
+    clienteNome: '',
+    contato: '',
+    acompanhante: '',
+    servicos: [{ equipamento: '', descricao: '' }],
+    escala: [],
+    observacoes: '',
+    minimoHoras: '',
+    entrada: '',
+    saida: '',
+    almoco: '',
+    descontarAlmoco: false,
+    qtdBicos: 1,
+    turnos: 'DIURNO',
+    qtdPessoas: 3,
+  });
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [osRes, propsRes, prodRes] = await Promise.all([
+        api.get('/os').catch(() => ({ data: [] })),
+        api.get('/propostas').catch(() => ({ data: [] })),
+        api.get('/estoque').catch(() => ({ data: [] })),
+      ]);
+
+      setOsList(Array.isArray(osRes.data) ? osRes.data : []);
+      setPropostas(Array.isArray(propsRes.data) ? propsRes.data : (propsRes.data?.data || []));
+      setProdutos(Array.isArray(prodRes.data) ? prodRes.data : []);
+    } catch (err) {
+      console.error('Erro ao buscar dados da OS', err);
+      setOsList([]);
+      setPropostas([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateStatus = async (id: string, newStatus: string, justification?: string) => {
+    try {
+      setSaving(true);
+      await api.patch(`/os/${id}`, { status: newStatus, justificativaCancelamento: justification });
+      alert(`OS ${newStatus === 'CANCELADA' ? 'cancelada' : 'finalizada'} com sucesso!`);
+      setShowCancelModal(false);
+      setCancelJustification('');
+      fetchData();
+      setShowModal(false);
+    } catch (error) {
+      console.error('Update status error:', error);
+      alert('Erro ao atualizar status da OS');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  // Auto-open modal from external navigation (e.g. Histograma → Gerar OS)
+  useEffect(() => {
+    if (loading) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('autoOpen') === 'true') {
+      const clienteNome = params.get('clienteNome') || '';
+      const data = params.get('data') || new Date().toISOString().split('T')[0];
+      const propostaId = params.get('propostaId') || '';
+
+      // If a propostaId is provided, find the proposal and pre-fill from it
+      if (propostaId) {
+        const prop = propostas.find((p: any) => p.id === propostaId);
+        if (prop) {
+          openNewModal(prop);
+          // Override date
+          setForm((prev: any) => ({ ...prev, dataInicial: data }));
+          // Clean URL
+          window.history.replaceState({}, '', '/os');
+          return;
+        }
+      }
+
+      // Otherwise, open with the data we have
+      openNewModal();
+      setForm((prev: any) => ({
+        ...prev,
+        clienteNome,
+        dataInicial: data,
+      }));
+      // Clean URL
+      window.history.replaceState({}, '', '/os');
+    }
+  }, [loading, propostas]);
+
+  // Fetch Disponibilidade whenever dates or client changes
+  useEffect(() => {
+    if (!showModal) return;
+
+    // Find the client object to pass the exact ID to API (for integration check)
+    const client = propostas.find((c: any) => c.cliente?.nome === form.clienteNome)?.cliente;
+
+    api.get('/rh/disponibilidade', {
+      params: {
+        data: form.dataInicial,
+        dataFim: form.dataInicial, // for now OS has only one date, could be expanded later
+        clienteId: client?.id || ''
+      }
+    })
+      .then(res => setDisponibilidades(Array.isArray(res.data) ? res.data : []))
+      .catch(err => console.error("Error fetching disponibilidade", err));
+  }, [form.dataInicial, form.clienteNome, showModal]);
+
+  // ── Filtered lists ──────────────────────────────────────────────
+  // Proposals marked as accepted/approved (used for highlighting in the list)
+
+  const osFiltered = useMemo(() => {
+    const statuses = STATUS_MAP[activeTab];
+    if (!statuses || !statuses.length) return [];
+    return (osList || []).filter(o => statuses.includes(o.status));
+  }, [osList, activeTab]);
+
+  const propostasFiltroData = useMemo(() => {
+    if (!dataFiltro) return (propostas || []);
+    const parts = dataFiltro.split(' até ');
+    if (parts.length !== 2) return (propostas || []);
+    
+    // string format: DD-MM-YYYY
+    const parseData = (str: string) => {
+      const [d, m, y] = str.split('-');
+      return new Date(Number(y), Number(m) - 1, Number(d)).getTime();
+    };
+
+    const inicio = parseData(parts[0]);
+    const fim = parseData(parts[1]);
+
+    return (propostas || []).filter((p: any) => {
+      if (!p.dataProposta) return true;
+      const dataP = new Date(p.dataProposta).getTime();
+      return dataP >= inicio && dataP <= fim;
+    });
+  }, [propostas, dataFiltro]);
+
+  const paginated = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    const source = activeTab === 'abrir' ? propostasFiltroData : osFiltered;
+    return (source || []).slice(start, start + pageSize);
+  }, [propostasFiltroData, osFiltered, page, pageSize, activeTab]);
+
+  const totalPages = useMemo(() => {
+    const source = activeTab === 'abrir' ? propostasFiltroData : osFiltered;
+    return Math.ceil((source || []).length / pageSize) || 1;
+  }, [propostasFiltroData, osFiltered, pageSize, activeTab]);
+
+  // ── Modal helpers ───────────────────────────────────────────────
+  const openNewModal = (prop?: any) => {
+    const base: any = {
+      propostaId: prop?.id || '',
+      codigo: '',
+      dataInicial: new Date().toISOString().split('T')[0],
+      horaInicial: '',
+      tipoCobranca: 'Cobrança',
+      empresa: prop?.empresa || EMPRESAS[0],
+      diasFornada: 'DIAS',
+      quantidadeDia: '',
+      clienteNome: prop?.cliente?.nome || '',
+      contato: prop?.contato || '',
+      acompanhante: '',
+      servicos: prop?.itens?.length
+        ? prop.itens.map((i: any) => ({ equipamento: i.equipamento || '', descricao: i.descricao || '' }))
+        : [{ equipamento: '', descricao: '' }],
+      observacoes: '',
+      minimoHoras: '',
+      entrada: '',
+      saida: '',
+      almoco: '',
+      descontarAlmoco: false,
+    };
+    setForm(base);
+    setSelectedOS(null);
+    setModalTab('servicos');
+    setMateriaisUtilizados([]);
+    setShowModal(true);
+  };
+
+  const openEditModal = async (os: any) => {
+    try {
+      const res = await api.get(`/os/${os.id}`);
+      const d = res.data;
+      setSelectedOS(d);
+      setForm({
+        ...d,
+        dataInicial: d.dataInicial ? new Date(d.dataInicial).toISOString().split('T')[0] : '',
+        entrada: d.entrada ? new Date(d.entrada).toISOString().slice(0, 16) : '',
+        saida: d.saida ? new Date(d.saida).toISOString().slice(0, 16) : '',
+        almoco: d.almoco ? new Date(d.almoco).toISOString().slice(0, 16) : '',
+        servicos: d.servicos?.length ? d.servicos : [{ equipamento: '', descricao: '' }],
+        clienteNome: d.cliente?.nome || '',
+      });
+      setModalTab('servicos');
+      setMateriaisUtilizados([]);
+      setShowModal(true);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const onProposalChange = (propId: string) => {
+    const prop = propostas.find(p => p.id === propId);
+    if (prop) {
+      setForm((f: any) => ({
+        ...f,
+        propostaId: prop.id,
+        clienteNome: prop.cliente?.nome || '',
+        contato: prop.contato || '',
+        empresa: prop.empresa || f.empresa,
+        servicos: prop.itens?.length
+          ? prop.itens.map((i: any) => ({ equipamento: i.equipamento || '', descricao: i.descricao || '' }))
+          : [{ equipamento: '', descricao: '' }],
+      }));
+    } else {
+      setForm((f: any) => ({ ...f, propostaId: '', clienteNome: '', contato: '', servicos: [{ equipamento: '', descricao: '' }] }));
+    }
+  };
+
+  const addServico = () =>
+    setForm((f: any) => ({ ...f, servicos: [...f.servicos, { equipamento: '', descricao: '' }] }));
+
+  const removeServico = (idx: number) =>
+    setForm((f: any) => ({ ...f, servicos: f.servicos.filter((_: any, i: number) => i !== idx) }));
+
+  const updateServico = (idx: number, field: string, value: string) =>
+    setForm((f: any) => {
+      const s = [...f.servicos];
+      s[idx] = { ...s[idx], [field]: value };
+      return { ...f, servicos: s };
+    });
+
+  const handleSave = async (baixar = false, baixarEstoque = false) => {
+    try {
+      setSaving(true);
+      const status = baixarEstoque ? 'BAIXADA' : (baixar ? 'EM_EXECUCAO' : 'ABERTA');
+      const payload: any = { ...form, status };
+      // Incluir materiais utilizados se estiver baixando com estoque
+      if (baixarEstoque && materiaisUtilizados.length > 0) {
+        payload.materiaisUtilizados = materiaisUtilizados.filter((m: any) => m.produtoId && m.quantidade > 0);
+      }
+      if (selectedOS) {
+        await api.patch(`/os/${selectedOS.id}`, payload);
+      } else {
+        await api.post('/os', payload);
+      }
+      setShowModal(false);
+      setMateriaisUtilizados([]);
+      fetchData();
+    } catch (err) {
+      console.error('Error saving OS', err);
+      alert('Erro ao salvar OS. Verifique os campos obrigatórios.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Material helpers ──
+  const addMaterial = () => setMateriaisUtilizados(prev => [...prev, { produtoId: '', quantidade: 1, darBaixaEstoque: true }]);
+  const removeMaterial = (idx: number) => setMateriaisUtilizados(prev => prev.filter((_, i) => i !== idx));
+  const updateMaterial = (idx: number, field: string, value: any) => {
+    setMateriaisUtilizados(prev => {
+      const arr = [...prev];
+      arr[idx] = { ...arr[idx], [field]: value };
+      return arr;
+    });
+  };
+
+  const handleDuplicate = async (os: any) => {
+    try {
+      await api.post('/os', {
+        propostaId: os.propostaId,
+        clienteNome: os.cliente?.nome,
+        contato: os.contato,
+        empresa: os.empresa,
+        tipoCobranca: os.tipoCobranca,
+        servicos: os.servicos || [],
+        status: 'ABERTA',
+        dataInicial: new Date().toISOString().split('T')[0],
+        observacoes: `[Duplicada de OS ${os.codigo}] ${os.observacoes || ''}`,
+      });
+      fetchData();
+    } catch (err) {
+      console.error('Error duplicating OS', err);
+    }
+  };
+
+  const horas = calcHorasTotais(form.entrada, form.saida, form.almoco, form.descontarAlmoco);
+
+  // ── Tab config ──────────────────────────────────────────────────
+  const tabs: { id: OsTab; label: string; color: string; dotColor: string; count: number }[] = [
+    { id: 'abrir', label: 'Abrir', color: 'text-blue-600', dotColor: 'bg-blue-500', count: (propostas || []).length },
+    { id: 'em_aberto', label: 'Em Aberto', color: 'text-blue-500', dotColor: 'bg-blue-400', count: (osFiltered || []).length },
+    { id: 'executadas', label: 'Executadas', color: 'text-emerald-600', dotColor: 'bg-emerald-500', count: (osList || []).filter(o => ['CONCLUIDA', 'FINALIZADA'].includes(o.status)).length },
+    { id: 'canceladas', label: 'Canceladas', color: 'text-slate-500', dotColor: 'bg-slate-800', count: (osList || []).filter(o => o.status === 'CANCELADA').length },
+  ];
+
+  if (loading) return (
+    <div className="h-full flex items-center justify-center">
+      <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+    </div>
+  );
+
+  return (
+    <>
+      <div className={`h-full flex flex-col ${printOs ? 'print:hidden' : ''}`}>
+        {/* ═══ TABS HEADER ═══ */}
+        <div className="bg-[#1e3a5f] rounded-xl mb-4 px-6 py-3 flex items-center gap-10">
+          {tabs.map(t => (
+            <button
+              key={t.id}
+              onClick={() => { setActiveTab(t.id); setPage(1); }}
+              className={`flex flex-col items-center gap-1 text-xs font-bold transition-all ${activeTab === t.id ? 'text-white' : 'text-blue-200 hover:text-white'}`}
+            >
+              <div className={`w-3 h-3 rounded-full ${t.dotColor} ${activeTab === t.id ? 'ring-2 ring-white ring-offset-1 ring-offset-[#1e3a5f]' : 'opacity-60'}`} />
+              <span className="uppercase tracking-wide text-[11px]">{t.label}</span>
+            </button>
+          ))}
+          <div className="ml-auto">
+            <button
+              onClick={() => openNewModal()}
+              className="bg-blue-500 hover:bg-blue-400 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" /> Nova OS
+            </button>
+          </div>
+        </div>
+
+        {/* ═══ FILTER BAR (for Abrir tab = proposals) ═══ */}
+        {activeTab === 'abrir' && (
+          <div className="mb-3 px-1">
+            <p className="text-xs font-bold text-slate-500 mb-1">Filtrar data proposta</p>
+            <input
+              type="text"
+              value={dataFiltro}
+              onChange={e => setDataFiltro(e.target.value)}
+              className="border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-600 w-56 outline-none focus:ring-1 focus:ring-blue-400"
+            />
+          </div>
+        )}
+
+        {/* ═══ TABLE ═══ */}
+        <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+          <div className="overflow-x-auto flex-1">
+            <table className="w-full text-sm min-w-max">
+              <thead>
+                <tr className="bg-[#1e3a5f] text-white">
+                  {activeTab === 'abrir' ? (
+                    <>
+                      <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide">Ações</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide">Proposta</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide">Revisão</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide">Empresa</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide">Cliente</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide">Vendedor</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide">Data de Geração</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide">Validade</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide">Data de Aprovação</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide">Ações</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide">Código OS</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide">Proposta</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide">Cliente</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide">Empresa</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide">Data Inicial</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide">Status</th>
+                    </>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {activeTab === 'abrir' ? (
+                  paginated.map((prop: any) => (
+                    <tr key={prop.id} className="hover:bg-blue-50/40 transition-colors group">
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => openNewModal(prop)}
+                          title="Abrir OS a partir desta proposta"
+                          className="p-1.5 rounded-lg border border-slate-200 hover:border-blue-400 hover:bg-blue-50 transition-colors group-hover:border-blue-300"
+                        >
+                          <FolderOpen className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 font-bold text-slate-800">{prop.codigo}</td>
+                      <td className="px-4 py-3 text-slate-500 text-xs">
+                        {prop.revisao ?? <span className="text-slate-400 italic">Não revisado</span>}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 text-xs max-w-[180px] truncate">
+                        {prop.empresa || prop.cnpjFaturamento || '—'}
+                      </td>
+                      <td className="px-4 py-3 font-medium text-slate-800 max-w-[180px] truncate">
+                        {prop.cliente?.nome || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 text-xs">
+                        {prop.responsavel || prop.vendedor || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 text-xs">
+                        {prop.createdAt ? new Date(prop.createdAt).toLocaleDateString('pt-BR') : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 text-xs">
+                        {prop.dataValidade ? new Date(prop.dataValidade).toLocaleDateString('pt-BR') : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-xs">
+                        {prop.dataAprovacao ? (
+                          <span className="text-emerald-700 font-bold">{new Date(prop.dataAprovacao).toLocaleDateString('pt-BR')}</span>
+                        ) : prop.status === 'ACEITA' ? (
+                          <span className="text-emerald-700 font-bold">{prop.updatedAt ? new Date(prop.updatedAt).toLocaleDateString('pt-BR') : '—'}</span>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  paginated.map((os: any) => (
+                    <tr key={os.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => openEditModal(os)}>
+                      <td className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openEditModal(os); }}
+                            title="Editar OS"
+                            className="p-1.5 rounded border border-slate-200 hover:bg-blue-50 hover:border-blue-300"
+                          >
+                            <ChevronRight className="w-3.5 h-3.5 text-blue-500" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setPrintOs(os); }}
+                            title="Imprimir OS"
+                            className="p-1.5 rounded border border-slate-200 hover:bg-emerald-50 hover:border-emerald-300"
+                          >
+                            <Printer className="w-3.5 h-3.5 text-emerald-600" />
+                          </button>
+                          {activeTab === 'canceladas' && (
+                            <button
+                               onClick={() => handleDuplicate(os)}
+                               title="Duplicar OS"
+                               className="p-1.5 rounded border border-slate-200 hover:bg-blue-50 hover:border-blue-300"
+                            >
+                               <Copy className="w-3.5 h-3.5 text-blue-600" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 font-bold text-blue-700">{os.codigo || '—'}</td>
+                      <td className="px-4 py-3 text-slate-600 text-xs">{os.proposta?.codigo || os.propostaCodigo || '—'}</td>
+                      <td className="px-4 py-3 font-medium text-slate-800">{os.cliente?.nome || '—'}</td>
+                      <td className="px-4 py-3 text-xs text-slate-600 max-w-[180px] truncate">{os.empresa || '—'}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500">
+                        {os.dataInicial ? new Date(os.dataInicial).toLocaleDateString('pt-BR') : '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={os.status} />
+                      </td>
+                    </tr>
+                  ))
+                )}
+                {paginated.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="py-16 text-center text-slate-400 text-sm italic">
+                      {activeTab === 'abrir' ? 'Nenhuma proposta encontrada' : 'Nenhuma OS nesta categoria'}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* ── PAGINATION ── */}
+          <div className="flex items-center justify-between px-6 py-3 border-t border-slate-100 bg-slate-50">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="text-xs font-bold text-slate-500 hover:text-slate-800 disabled:opacity-30 flex items-center gap-1"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" /> Anterior
+            </button>
+            <div className="flex items-center gap-3 text-xs text-slate-500">
+              <span>Página</span>
+              <span className="font-bold text-slate-800">{page}</span>
+              <span>de {totalPages}</span>
+              <span className="text-slate-300">|</span>
+              <span className="font-bold">{activeTab === 'abrir' ? propostas.length : osFiltered.length} itens</span>
+            </div>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="text-xs font-bold text-slate-500 hover:text-slate-800 disabled:opacity-30 flex items-center gap-1"
+            >
+              Próximo <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* ═══ OS OPENING MODAL ═══ */}
+        {showModal && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col overflow-hidden">
+
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-6 py-4 bg-[#1e3a5f] text-white rounded-t-2xl">
+                <h2 className="font-bold text-base tracking-wide">
+                  {selectedOS ? `OS ${selectedOS.codigo}` : 'Abertura de OS'}
+                </h2>
+                <button onClick={() => setShowModal(false)} className="hover:text-blue-200 transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-5">
+
+                {/* Row 1: N° Proposta | Código OS | Data Inicial | Hora Inicial | Tipo Cobrança | Empresa */}
+                <div className="grid grid-cols-6 gap-3">
+                  <FormField label="N° Proposta">
+                    <select
+                      value={form.propostaId}
+                      onChange={e => onProposalChange(e.target.value)}
+                      className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400 bg-white"
+                    >
+                      <option value="">Selecione...</option>
+                      {(propostas || []).map(p => (
+                        <option key={p.id} value={p.id}>{p.codigo}</option>
+                      ))}
+                    </select>
+                  </FormField>
+
+                  <FormField label="Código OS">
+                    <input
+                      type="text"
+                      value={form.codigo}
+                      onChange={e => setForm((f: any) => ({ ...f, codigo: e.target.value }))}
+                      placeholder="Auto"
+                      className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400 bg-slate-50"
+                    />
+                  </FormField>
+
+                  <FormField label="Data Inicial">
+                    <input
+                      type="date"
+                      value={form.dataInicial}
+                      onChange={e => setForm((f: any) => ({ ...f, dataInicial: e.target.value }))}
+                      className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400"
+                    />
+                  </FormField>
+
+                  <FormField label="Hora Inicial">
+                    <div className="relative">
+                      <input
+                        type="time"
+                        value={form.horaInicial}
+                        onChange={e => setForm((f: any) => ({ ...f, horaInicial: e.target.value }))}
+                        className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400"
+                      />
+                      <Clock className="absolute right-2 top-2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    </div>
+                  </FormField>
+
+                  <FormField label="Tipo Cobrança">
+                    <div className="relative">
+                      <select
+                        value={form.tipoCobranca}
+                        onChange={e => setForm((f: any) => ({ ...f, tipoCobranca: e.target.value }))}
+                        className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400 appearance-none"
+                      >
+                        {TIPOS_COBRANCA.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-2 top-2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    </div>
+                  </FormField>
+
+                  <FormField label="Empresa">
+                    <div className="relative">
+                      <select
+                        value={form.empresa}
+                        onChange={e => setForm((f: any) => ({ ...f, empresa: e.target.value }))}
+                        className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400 appearance-none"
+                      >
+                        {EMPRESAS.map(em => <option key={em} value={em}>{em}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-2 top-2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    </div>
+                  </FormField>
+                </div>
+
+                {/* Row 2: Dias de Fornada | Quantidade d/Dia */}
+                <div className="grid grid-cols-4 gap-3">
+                  <FormField label="Dias de Fornada">
+                    <div className="relative">
+                      <select
+                        value={form.diasFornada}
+                        onChange={e => setForm((f: any) => ({ ...f, diasFornada: e.target.value }))}
+                        className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400 appearance-none"
+                      >
+                        {DIAS_SEMANA.map(d => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-2 top-2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    </div>
+                  </FormField>
+                  <FormField label="Quantidade d/Dia">
+                    <input
+                      type="text"
+                      value={form.quantidadeDia}
+                      onChange={e => setForm((f: any) => ({ ...f, quantidadeDia: e.target.value }))}
+                      placeholder="Quantidade p/dia"
+                      className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400"
+                    />
+                  </FormField>
+                </div>
+
+                {/* Row 2.5: Bicos / Turnos / Equipe */}
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest mb-3">🔧 Dimensionamento de Equipe</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <FormField label="Qtd. Bicos">
+                      <div className="flex gap-2">
+                        {[1, 2].map(n => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => {
+                              const turnoMult = form.turnos === '24H' ? 2 : 1;
+                              const pessoas = n === 1 ? (1 + 2) * turnoMult : (1 + 4) * turnoMult;
+                              setForm((f: any) => ({ ...f, qtdBicos: n, qtdPessoas: pessoas }));
+                            }}
+                            className={`flex-1 py-2 rounded-lg text-xs font-black border-2 transition-all ${form.qtdBicos === n
+                              ? 'bg-blue-900 border-blue-900 text-white shadow-md'
+                              : 'bg-white border-slate-200 text-slate-400 hover:border-blue-400'
+                              }`}
+                          >
+                            {n} Bico{n > 1 ? 's' : ''}
+                          </button>
+                        ))}
+                      </div>
+                    </FormField>
+                    <FormField label="Turnos">
+                      <div className="flex gap-1">
+                        {['DIURNO', 'NOTURNO', '24H'].map(turno => (
+                          <button
+                            key={turno}
+                            type="button"
+                            onClick={() => {
+                              const bicos = form.qtdBicos || 1;
+                              const turnoMult = turno === '24H' ? 2 : 1;
+                              const pessoas = bicos === 1 ? (1 + 2) * turnoMult : (1 + 4) * turnoMult;
+                              setForm((f: any) => ({ ...f, turnos: turno, qtdPessoas: pessoas }));
+                            }}
+                            className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase border-2 transition-all ${form.turnos === turno
+                              ? 'bg-blue-900 border-blue-900 text-white shadow-md'
+                              : 'bg-white border-slate-200 text-slate-400 hover:border-blue-400'
+                              }`}
+                          >
+                            {turno}
+                          </button>
+                        ))}
+                      </div>
+                    </FormField>
+                    <FormField label="Equipe Necessária">
+                      <div className="flex items-center justify-center bg-white border border-blue-200 rounded-lg py-2">
+                        <span className="text-lg font-black text-blue-900">{form.qtdPessoas || 3}</span>
+                        <span className="text-[10px] font-bold text-slate-400 ml-1">pessoas</span>
+                      </div>
+                    </FormField>
+                  </div>
+                </div>
+
+                {/* Row 3: Cliente | Contato | Acompanhante */}
+                <div className="grid grid-cols-3 gap-3">
+                  <FormField label="Cliente">
+                    <input
+                      type="text"
+                      readOnly
+                      value={form.clienteNome}
+                      className="w-full border border-slate-200 rounded px-2 py-2 text-xs bg-slate-100 font-bold uppercase text-slate-700"
+                      placeholder="Selecione a proposta..."
+                    />
+                  </FormField>
+                  <FormField label="Contato">
+                    <div className="relative">
+                      <select
+                        value={form.contato}
+                        onChange={e => setForm((f: any) => ({ ...f, contato: e.target.value }))}
+                        className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400 appearance-none"
+                      >
+                        <option value="">Selecione...</option>
+                        {form.contato && <option value={form.contato}>{form.contato}</option>}
+                      </select>
+                      <ChevronDown className="absolute right-2 top-2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    </div>
+                  </FormField>
+                  <FormField label="Acompanhante">
+                    <input
+                      type="text"
+                      value={form.acompanhante}
+                      onChange={e => setForm((f: any) => ({ ...f, acompanhante: e.target.value }))}
+                      placeholder="Acompanhante"
+                      className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400"
+                    />
+                  </FormField>
+                </div>
+
+                {/* ── TABS: Serviços / Escala ── */}
+                <div>
+                  <div className="flex gap-1 border-b border-slate-200">
+                    {(['servicos', 'escala'] as const).map(t => (
+                      <button
+                        key={t}
+                        onClick={() => setModalTab(t)}
+                        className={`px-5 py-2 text-xs font-bold capitalize transition-colors border-b-2 ${modalTab === t
+                          ? 'border-blue-600 text-blue-700'
+                          : 'border-transparent text-slate-500 hover:text-slate-700'
+                          }`}
+                      >
+                        {t === 'servicos' ? 'Serviços' : 'Escala'}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="border border-t-0 border-slate-200 rounded-b-xl p-5 bg-white min-h-[200px]">
+                    {modalTab === 'servicos' && (
+                      <div className="space-y-4">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                          <ChevronRight className="w-3 h-3 text-blue-500" /> Serviços
+                        </p>
+                        {form.servicos.map((s: any, idx: number) => (
+                          <div key={idx} className="grid grid-cols-[1fr_2fr_auto] gap-3 items-end">
+                            <FormField label="Tipo de nome">
+                              <div className="relative">
+                                <select
+                                  value={s.equipamento}
+                                  onChange={e => updateServico(idx, 'equipamento', e.target.value)}
+                                  className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400 appearance-none"
+                                >
+                                  <option value="">Selecione...</option>
+                                  {EQUIPAMENTOS.map(eq => <option key={eq} value={eq}>{eq}</option>)}
+                                </select>
+                                <ChevronDown className="absolute right-2 top-2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                              </div>
+                            </FormField>
+                            <FormField label="Descrição do Serviço">
+                              <input
+                                type="text"
+                                value={s.descricao}
+                                onChange={e => updateServico(idx, 'descricao', e.target.value)}
+                                placeholder="Discriminação do serviço..."
+                                className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400"
+                              />
+                            </FormField>
+                            <button
+                              onClick={() => removeServico(idx)}
+                              className="p-2 text-slate-400 hover:text-slate-800 transition-colors mb-0.5"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={addServico}
+                          className="text-blue-600 text-xs font-bold hover:underline flex items-center gap-1 mt-2"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Adicionar Serviço
+                        </button>
+                      </div>
+                    )}
+
+                    {modalTab === 'escala' && (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                            <ChevronRight className="w-3 h-3 text-blue-500" /> Montar Equipe
+                          </p>
+                          <p className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                            {form.escala?.length || 0} selecionado(s)
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-[300px] overflow-y-auto pr-2">
+                          {(disponibilidades || []).map(f => {
+                            const isSelected = form.escala?.includes(f.id);
+                            
+                            const isBlocked = f.disponibilidade === 'INDISPONIVEL';
+
+                            return (
+                              <div
+                                key={f.id}
+                                className={`border rounded-lg p-3 transition-colors relative flex flex-col gap-2 
+                                  ${isBlocked ? 'border-slate-300 bg-slate-50/50 opacity-75 cursor-not-allowed' :
+                                    isSelected ? 'border-blue-500 bg-blue-50/50 cursor-pointer' : 'border-slate-200 hover:border-blue-300 cursor-pointer'
+                                  }`}
+                                onClick={() => {
+                                  if (isBlocked) {
+                                    alert(`Colaborador indisponível: ${f.motivo}`);
+                                    return;
+                                  }
+                                  setForm((prev: any) => {
+                                    let newEscala = prev.escala || [];
+                                    if (newEscala.includes(f.id)) newEscala = newEscala.filter((id: string) => id !== f.id);
+                                    else newEscala = [...newEscala, f.id];
+                                    return { ...prev, escala: newEscala };
+                                  });
+                                }}
+                              >
+                                {isBlocked && (
+                                  <div className="absolute -top-2 -right-2 bg-slate-800 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded shadow-sm z-10 flex items-center gap-1">
+                                    <AlertCircle className="w-3 h-3" /> Bloqueado
+                                  </div>
+                                )}
+                                <div className="flex items-start justify-between">
+                                  <div>
+                                    <p className={`text-xs font-bold ${isBlocked ? 'text-slate-500' : 'text-slate-800'}`}>{f.nome}</p>
+                                    <p className="text-[10px] text-slate-500">{f.cargo || 'Sem cargo'}</p>
+                                  </div>
+                                  <div className={`w-4 h-4 rounded border flex items-center justify-center ${isSelected ? 'bg-blue-500 border-blue-500' : isBlocked ? 'border-slate-200 bg-slate-50' : 'border-slate-300 bg-white'}`}>
+                                    {isSelected && <CheckCircle2 className="w-3 h-3 text-white" />}
+                                  </div>
+                                </div>
+
+                                <div className={`mt-auto text-[10px] font-bold px-2 py-1 rounded w-fit ${isBlocked ? 'bg-slate-200 text-slate-700' : f.cor || 'bg-emerald-100 text-emerald-700'}`}>
+                                  {isBlocked ? f.motivo : f.disponibilidade === 'DISPONIVEL' ? 'Disponível' : f.motivo}
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {(disponibilidades || []).length === 0 && (
+                            <div className="col-span-full py-8 text-center text-slate-400 text-xs italic">
+                              Nenhum funcionário encontrado ou carregando...
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── Observações ── */}
+                <FormField label="Observações">
+                  <textarea
+                    value={form.observacoes}
+                    onChange={e => setForm((f: any) => ({ ...f, observacoes: e.target.value }))}
+                    rows={4}
+                    placeholder="Observações gerais da OS..."
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-blue-400 resize-none"
+                  />
+                </FormField>
+
+                {/* ── Primeira Baixa ── */}
+                <div className="pt-2">
+                  <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3 border-b border-slate-200 pb-2">
+                    Primeira Baixa
+                  </p>
+                  <div className="grid grid-cols-6 gap-3 items-end">
+                    <FormField label="Mínimo de Horas">
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min={0}
+                          value={form.minimoHoras}
+                          onChange={e => setForm((f: any) => ({ ...f, minimoHoras: e.target.value }))}
+                          className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none"
+                        />
+                        <Clock className="absolute right-2 top-2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                      </div>
+                    </FormField>
+                    <FormField label="Entrada">
+                      <div className="relative">
+                        <input
+                          type="datetime-local"
+                          value={form.entrada}
+                          onChange={e => setForm((f: any) => ({ ...f, entrada: e.target.value }))}
+                          className="w-full border border-slate-300 rounded px-2 py-2 text-[10px] outline-none"
+                        />
+                        <Clock className="absolute right-2 top-2.5 w-3 h-3 text-slate-400 pointer-events-none" />
+                      </div>
+                    </FormField>
+                    <FormField label="Saída">
+                      <div className="relative">
+                        <input
+                          type="datetime-local"
+                          value={form.saida}
+                          onChange={e => setForm((f: any) => ({ ...f, saida: e.target.value }))}
+                          className="w-full border border-slate-300 rounded px-2 py-2 text-[10px] outline-none"
+                        />
+                        <Clock className="absolute right-2 top-2.5 w-3 h-3 text-slate-400 pointer-events-none" />
+                      </div>
+                    </FormField>
+                    <FormField label="Almoço">
+                      <div className="relative">
+                        <input
+                          type="datetime-local"
+                          value={form.almoco}
+                          onChange={e => setForm((f: any) => ({ ...f, almoco: e.target.value }))}
+                          className="w-full border border-slate-300 rounded px-2 py-2 text-[10px] outline-none"
+                        />
+                        <Clock className="absolute right-2 top-2.5 w-3 h-3 text-slate-400 pointer-events-none" />
+                      </div>
+                    </FormField>
+                    <FormField label="Total Horas">
+                      <input
+                        readOnly
+                        value={horas.total}
+                        className="w-full border border-slate-200 rounded px-2 py-2 text-xs bg-slate-100 font-bold text-center"
+                      />
+                    </FormField>
+                    <FormField label="Hora Adicional">
+                      <input
+                        readOnly
+                        value={horas.adicional}
+                        className="w-full border border-slate-200 rounded px-2 py-2 text-xs bg-slate-100 font-bold text-center"
+                      />
+                    </FormField>
+                  </div>
+                  {/* Descontar Almoço toggle */}
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm((f: any) => ({ ...f, descontarAlmoco: !f.descontarAlmoco }))}
+                      className={`relative w-9 h-5 rounded-full transition-colors ${form.descontarAlmoco ? 'bg-blue-500' : 'bg-slate-300'}`}
+                    >
+                      <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${form.descontarAlmoco ? 'left-4' : 'left-0.5'}`} />
+                    </button>
+                    <span className="text-xs text-slate-600 font-medium">Descontar Almoço</span>
+                  </div>
+                </div>
+
+                {/* ── Materiais Utilizados (Baixa de Estoque) ── */}
+                {selectedOS && (
+                  <div className="pt-2">
+                    <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3 border-b border-slate-200 pb-2 flex items-center gap-2">
+                      <Package className="w-3.5 h-3.5 text-amber-600" />
+                      Materiais Utilizados (Baixa de Estoque)
+                    </p>
+                    {materiaisUtilizados.map((m: any, idx: number) => {
+                      const prod = (produtos || []).find((p: any) => p.id === m.produtoId);
+                      return (
+                        <div key={idx} className="grid grid-cols-[2fr_1fr_1fr_auto] gap-2 mb-2 items-end">
+                          <FormField label={idx === 0 ? 'Produto' : ''}>
+                            <select
+                              value={m.produtoId}
+                              onChange={e => updateMaterial(idx, 'produtoId', e.target.value)}
+                              className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-amber-400"
+                            >
+                              <option value="">Selecione...</option>
+                              {(produtos || []).map((p: any) => (
+                                <option key={p.id} value={p.id}>{p.nome} (Estoque: {p.estoqueAtual} {p.unidadeMedida})</option>
+                              ))}
+                            </select>
+                          </FormField>
+                          <FormField label={idx === 0 ? 'Quantidade' : ''}>
+                            <input
+                              type="number"
+                              min={0.01}
+                              step={0.01}
+                              value={m.quantidade}
+                              onChange={e => updateMaterial(idx, 'quantidade', Number(e.target.value))}
+                              className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-amber-400"
+                            />
+                          </FormField>
+                          <FormField label={idx === 0 ? 'Unidade' : ''}>
+                            <input
+                              readOnly
+                              value={prod?.unidadeMedida || 'UN'}
+                              className="w-full border border-slate-200 rounded px-2 py-2 text-xs bg-slate-100"
+                            />
+                          </FormField>
+                          <button onClick={() => removeMaterial(idx)} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={addMaterial}
+                      className="text-[11px] font-bold text-amber-700 hover:text-amber-800 flex items-center gap-1 mt-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Adicionar Material
+                    </button>
+                    {materiaisUtilizados.length > 0 && (
+                      <p className="text-[10px] text-slate-400 mt-2 italic">⚠️ Os materiais serão descontados do estoque ao baixar a OS.</p>
+                    )}
+                  </div>
+                )}
+
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="text-xs text-slate-500 hover:text-slate-800 font-bold px-4 py-2 rounded-lg border border-slate-200 hover:bg-white transition-colors"
+                >
+                  Fechar
+                </button>
+
+                {selectedOS && selectedOS.status !== 'CANCELADA' && selectedOS.status !== 'FINALIZADA' && (
+                  <>
+                    <button
+                      onClick={() => setShowCancelModal(true)}
+                      disabled={saving}
+                      className="bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 text-xs font-bold px-5 py-2 rounded-lg transition-colors disabled:opacity-60"
+                    >
+                      Cancelar OS
+                    </button>
+                    {(selectedOS.status === 'CONCLUIDA' || selectedOS.status === 'BAIXADA') && (
+                      <button
+                        onClick={() => handleUpdateStatus(selectedOS.id, 'FINALIZADA')}
+                        disabled={saving}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-5 py-2 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-60"
+                      >
+                        {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                        Finalizar OS
+                      </button>
+                    )}
+                  </>
+                )}
+
+                <button
+                  onClick={() => handleSave(false, true)}
+                  disabled={saving}
+                  className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-5 py-2 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-60"
+                >
+                  {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <Package className="w-3.5 h-3.5" />
+                  Baixar c/ Estoque
+                </button>
+                <button
+                  onClick={() => handleSave(false)}
+                  disabled={saving}
+                  className="bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold px-5 py-2 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-60"
+                >
+                  {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  Baixar Ordem
+                </button>
+                <button
+                  onClick={() => handleSave(true)}
+                  disabled={saving}
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-5 py-2 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-60"
+                >
+                  {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  {selectedOS ? 'Salvar Edição' : 'Abrir Ordem'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      <ImprimirOS os={printOs} />
+
+      {/* Cancel Justification Modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] p-4 text-left">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-100">
+              <h3 className="text-slate-800 font-bold flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-blue-900" /> Justificativa de Cancelamento
+              </h3>
+              <button onClick={() => setShowCancelModal(false)}>
+                <X className="w-5 h-5 text-slate-400 hover:text-slate-600" />
+              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-xs text-slate-500 mb-4">
+                Por favor, informe obrigatoriamente o motivo do cancelamento da Ordem de Serviço <strong>{selectedOS?.codigo}</strong>.
+              </p>
+              <textarea
+                value={cancelJustification}
+                onChange={e => setCancelJustification(e.target.value)}
+                rows={4}
+                placeholder="Motivo do cancelamento..."
+                className="w-full border border-slate-200 rounded-lg p-3 text-sm outline-none focus:border-blue-400 resize-none shadow-inner"
+              />
+            </div>
+            <div className="px-6 py-4 bg-slate-50 flex justify-end gap-3">
+              <button
+                onClick={() => setShowCancelModal(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800"
+              >
+                Voltar
+              </button>
+              <button
+                disabled={!cancelJustification.trim() || saving}
+                onClick={() => handleUpdateStatus(selectedOS.id, 'CANCELADA', cancelJustification)}
+                className="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-6 py-2 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {saving ? 'Cancelando...' : 'Confirmar Cancelamento'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ── Shared helpers ──────────────────────────────────────────────────────────
+
+function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const config: Record<string, { cls: string; icon: React.ElementType; label: string }> = {
+    ABERTA: { cls: 'bg-blue-50 text-blue-700 border-blue-200', icon: FolderOpen, label: 'Aberta' },
+    EM_EXECUCAO: { cls: 'bg-blue-900 text-white border-blue-900', icon: PlayCircle, label: 'Em Execução' },
+    CONCLUIDA: { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2, label: 'Concluída' },
+    FINALIZADA: { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2, label: 'Finalizada' },
+    CANCELADA: { cls: 'bg-slate-800 text-white border-slate-800', icon: AlertCircle, label: 'Cancelada' },
+  };
+  const c = config[status] || { cls: 'bg-slate-50 text-slate-600 border-slate-200', icon: AlertCircle, label: status };
+  const Icon = c.icon;
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase ${c.cls}`}>
+      <Icon className="w-3 h-3" />
+      {c.label}
+    </span>
+  );
+}

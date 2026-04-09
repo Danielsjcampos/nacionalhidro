@@ -1,0 +1,44 @@
+# ──────────────────────────────────────────────────
+# Nacional Hidro - Stack para Portainer (Swarm)
+# Imagens buildadas automaticamente pelo GitHub Actions
+# ──────────────────────────────────────────────────
+
+services:
+  backend:
+    image: ghcr.io/danielsjcampos/nacionalhidro-backend:latest
+    environment:
+      - DATABASE_URL=postgresql://neondb_owner:npg_fRoHJYqn1jk5@ep-ancient-union-acm8qdvg-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+      - JWT_SECRET=supersecretkey-nacionalhidro-2024
+      - PORT=3000
+      - EVOLUTION_API_URL=https://api.2b.app.br
+      - EVOLUTION_API_KEY=d037768b3d06382756a0d9edecf3e40e
+      - EVOLUTION_INSTANCE=Nacional Hidro
+      - EVOLUTION_INSTANCE_TOKEN=ADE761A986A4-4055-879B-F7D7D3391584
+      - WHATSAPP_GROUP_LEADS_ID=120363405638860459@g.us
+    networks:
+      - hidro
+    deploy:
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.nh-backend.rule=Host(`apievo.nacionalhidro.com.br`)"
+        - "traefik.http.routers.nh-backend.entrypoints=websecure"
+        - "traefik.http.routers.nh-backend.tls.certresolver=letsencryptresolver"
+        - "traefik.http.services.nh-backend.loadbalancer.server.port=3000"
+
+  frontend:
+    image: ghcr.io/danielsjcampos/nacionalhidro-frontend:latest
+    networks:
+      - hidro
+    deploy:
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.nh-frontend.rule=Host(`painel.nacionalhidro.com.br`)"
+        - "traefik.http.routers.nh-frontend.entrypoints=websecure"
+        - "traefik.http.routers.nh-frontend.tls.certresolver=letsencryptresolver"
+        - "traefik.http.services.nh-frontend.loadbalancer.server.port=80"
+
+networks:
+  hidro:
+    external: true
