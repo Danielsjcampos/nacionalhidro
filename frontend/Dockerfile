@@ -1,4 +1,8 @@
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
+
+# Limite de memória para evitar crash em VPS com pouca RAM
+ENV NODE_OPTIONS="--max-old-space-size=2048"
+ENV VITE_CJS_IGNORE_WARNING=true
 
 WORKDIR /app
 COPY package*.json ./
