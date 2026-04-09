@@ -60,7 +60,6 @@ const menuGroups: MenuGroup[] = [
   {
     icon: ClipboardList, label: 'Medição',
     children: [
-      { label: 'Precificação', path: '/precificacao' },
       { label: 'Medições', path: '/medicoes' },
     ]
   },

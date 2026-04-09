@@ -20,7 +20,6 @@ import Usuarios from './pages/Usuarios';
 import Monitor from './pages/Monitor';
 import CRM from './pages/CRM';
 import Configuracoes from './pages/Configuracoes';
-import Precificacao from './pages/Precificacao';
 import Medicoes from './pages/Medicoes';
 import AuditLog from './pages/AuditLog';
 import Recrutamento from './pages/Recrutamento';
@@ -73,7 +72,7 @@ const routePermissions: Record<string, string[]> = {
   '/manutencao': ['frota', 'manutencao'],
   '/estoque/controle': ['estoque'], '/estoque/equipamentos': ['estoque'],
   '/seguranca-trabalho': ['rh'],
-  '/precificacao': ['medicoes'], '/medicoes': ['medicoes'],
+  '/medicoes': ['medicoes'],
   '/dashboard-financeiro': ['financeiro', 'contasPagar', 'contasReceber'],
   '/contas-pagar': ['financeiro', 'contasPagar'], '/contas-receber': ['financeiro', 'contasReceber'],
   '/cobranca': ['financeiro', 'cobranca'], '/faturamento': ['financeiro', 'faturamento'],
@@ -133,7 +132,7 @@ function App() {
         <Route path="/admissao-portal/:id" element={<PortalAdmissao />} />
         <Route path="/escala" element={<ProtectedRoute><Histograma /></ProtectedRoute>} />
         <Route path="/contratos" element={<ProtectedRoute><Contratos /></ProtectedRoute>} />
-        <Route path="/precificacao/:id" element={<ProtectedRoute><Precificacao /></ProtectedRoute>} />
+
 
         {/* Protected Routes */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -153,7 +152,7 @@ function App() {
         <Route path="/dashboard-financeiro" element={<ProtectedRoute><DashboardFinanceiroPage /></ProtectedRoute>} />
         <Route path="/gestao-colaboradores" element={<ProtectedRoute><GestaoColaboradoresPage /></ProtectedRoute>} />
         <Route path="/rh" element={<ProtectedRoute><RH /></ProtectedRoute>} />
-        <Route path="/precificacao" element={<ProtectedRoute><Precificacao /></ProtectedRoute>} />
+
         <Route path="/medicoes" element={<ProtectedRoute><Medicoes /></ProtectedRoute>} />
         <Route path="/audit-log" element={<ProtectedRoute><AuditLog /></ProtectedRoute>} />
         <Route path="/recrutamento" element={<ProtectedRoute><Recrutamento /></ProtectedRoute>} />

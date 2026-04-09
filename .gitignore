@@ -31,7 +31,6 @@ backend/legacy_data/
 *.xlsx
 *.zip
 *.txt
-*.json
 *.resolved
 Todos as explicacoes do funcionamento nacional hido/
 AUTOMACOES EMAIL/
