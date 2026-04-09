@@ -30,6 +30,7 @@ export const generatePdfFromHtml = async (html: string): Promise<Buffer> => {
     try {
         browser = await puppeteer.launch({
             headless: true,
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
