@@ -200,5 +200,4 @@ export const ImprimirOS: React.FC<ImprimirOSProps> = ({ os }) => {
 
         </div>
     );
-    );
 };
