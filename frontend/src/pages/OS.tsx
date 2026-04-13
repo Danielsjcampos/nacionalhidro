@@ -59,6 +59,10 @@ export default function OS() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelJustification, setCancelJustification] = useState('');
 
+  // ── Lote Selection ──
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [printingLote, setPrintingLote] = useState(false);
+
   useEffect(() => {
     if (printOs) {
       setTimeout(() => {
@@ -138,6 +142,31 @@ export default function OS() {
       alert('Erro ao atualizar status da OS');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handlePrintLote = async () => {
+    if (selectedIds.length === 0) return;
+    try {
+      setPrintingLote(true);
+      const res = await api.get(`/os/exportar/lote-pdf`, {
+        params: { ids: selectedIds.join(',') },
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Lote_OS_${new Date().getTime()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setSelectedIds([]); // clear selection after print
+    } catch (err) {
+      console.error('Erro ao imprimir lote', err);
+      alert('Falha ao gerar PDF das OSs selecionadas.');
+    } finally {
+      setPrintingLote(false);
     }
   };
 
@@ -406,7 +435,17 @@ export default function OS() {
               <span className="uppercase tracking-wide text-[11px]">{t.label}</span>
             </button>
           ))}
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            {selectedIds.length > 0 && activeTab !== 'abrir' && (
+              <button
+                onClick={handlePrintLote}
+                disabled={printingLote}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              >
+                {printingLote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
+                Imprimir Selecionadas ({selectedIds.length})
+              </button>
+            )}
             <button
               onClick={() => openNewModal()}
               className="bg-blue-500 hover:bg-blue-400 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
@@ -449,6 +488,17 @@ export default function OS() {
                     </>
                   ) : (
                     <>
+                      <th className="px-4 py-3 text-left w-10">
+                        <input
+                          type="checkbox"
+                          className="rounded border-slate-300 w-3.5 h-3.5 text-blue-600 cursor-pointer"
+                          checked={paginated.length > 0 && selectedIds.length === paginated.length}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedIds(paginated.map(o => o.id));
+                            else setSelectedIds([]);
+                          }}
+                        />
+                      </th>
                       <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide">Ações</th>
                       <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide">Código OS</th>
                       <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide">Proposta</th>
@@ -506,6 +556,17 @@ export default function OS() {
                 ) : (
                   paginated.map((os: any) => (
                     <tr key={os.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => openEditModal(os)}>
+                      <td className="px-4 py-3 text-left" onClick={e => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          className="rounded border-slate-300 w-3.5 h-3.5 text-blue-600 cursor-pointer"
+                          checked={selectedIds.includes(os.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedIds(p => [...p, os.id]);
+                            else setSelectedIds(p => p.filter(id => id !== os.id));
+                          }}
+                        />
+                      </td>
                       <td className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-1">
                           <button

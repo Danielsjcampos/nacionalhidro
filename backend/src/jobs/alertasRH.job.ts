@@ -57,6 +57,58 @@ export const startAlertasRHJob = () => {
                     }
                 }
             }
+
+            // ═══════════════════════════════════════════════════════
+            // 📧 WHATSAPP: Alertas de ASO (Vencendo <= 30 dias)
+            // ═══════════════════════════════════════════════════════
+            for (const aso of alertas.asoVencendo) {
+                if (telefoneGestor && (aso.urgencia === 'CRITICO' || aso.urgencia === 'VENCIDO' || aso.diasRestantes === 30 || aso.diasRestantes === 15)) {
+                    try {
+                        const dataVenc = new Date(aso.dataVencimento).toLocaleDateString('pt-BR');
+                        const statusText = aso.urgencia === 'VENCIDO' ? '*VENCEU*' : `Vence em ${aso.diasRestantes} dias`;
+                        const prefix = aso.urgencia === 'VENCIDO' ? '🚨 *ALERTA VERMELHO: ASO VENCIDO!*' : '⚠️ *AVISO: ASO VENCENDO*';
+                        
+                        const msgASO = `${prefix}\n\n` +
+                            `O ASO do colaborador *${aso.funcionario?.nome}* (${aso.funcionario?.cargo}) ${statusText} (${dataVenc}).\n` +
+                            `Status: ${aso.urgencia}. ` + 
+                            (aso.urgencia === 'VENCIDO' ? 'O colaborador não deve ser escalado até a regularização!' : 'Por favor, agende o exame o quanto antes.');
+                        
+                        await enviarMensagemWhatsApp(telefoneGestor, msgASO, 'RH_Oficial');
+
+                        if (aso.urgencia === 'VENCIDO') {
+                            await prisma.funcionario.update({
+                                where: { id: aso.funcionarioId },
+                                data: { statusAsoDemissional: 'VENCIDO' }
+                            });
+                        }
+                    } catch (e) {
+                        console.error(`[Alerta RH] ASO Notification failed`, e);
+                    }
+                }
+            }
+
+            // ═══════════════════════════════════════════════════════
+            // 📧 WHATSAPP: Alertas de Férias (Vencendo <= 30 dias)
+            // ═══════════════════════════════════════════════════════
+            for (const ferias of alertas.feriasVencendo) {
+                if (telefoneGestor && (ferias.urgencia === 'CRITICO' || ferias.urgencia === 'VENCIDO' || ferias.diasRestantes === 30 || ferias.diasRestantes === 15)) {
+                    try {
+                        const dataVenc = new Date(ferias.dataVencimento).toLocaleDateString('pt-BR');
+                        const statusText = ferias.urgencia === 'VENCIDO' ? '*VENCEU*' : `Vence em ${ferias.diasRestantes} dias`;
+                        const prefix = ferias.urgencia === 'VENCIDO' ? '🚨 *ALERTA VERMELHO: FÉRIAS VENCIDAS!*' : '🏖️ *AVISO: FÉRIAS A VENCER*';
+                        
+                        const msgFerias = `${prefix}\n\n` +
+                            `As férias do colaborador *${ferias.funcionario?.nome}* (${ferias.funcionario?.cargo}) ${statusText} (${dataVenc}).\n` +
+                            `Status: ${ferias.urgencia}. ` + 
+                            `Por favor, realize a programação de férias para evitar multas trabalhistas.`;
+                        
+                        await enviarMensagemWhatsApp(telefoneGestor, msgFerias, 'RH_Oficial');
+                    } catch (e) {
+                        console.error(`[Alerta RH] Férias Notification failed`, e);
+                    }
+                }
+            }
+
         } catch (error) {
             console.error('[CRON-RH] Erro ao verificar alertas RH:', error);
         }

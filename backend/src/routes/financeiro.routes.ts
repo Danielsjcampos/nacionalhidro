@@ -4,7 +4,7 @@ import {
     baixarLoteContasPagar, agruparFatura, cancelarContaPagar, revogarContaPagar,
     relatorioContasPagar, exportarLoteExcel, exportarLoteCnab,
     listContasReceber, createContaReceber, receberConta, corrigirBaixaContaReceber,
-    revogarContaReceber, cancelarContaReceber,
+    revogarContaReceber, cancelarContaReceber, receberLoteContasReceber,
     getFinanceiroStats
 } from '../controllers/financeiro.controller';
 import { authenticate } from '../middleware/auth.middleware';
@@ -35,6 +35,7 @@ router.patch('/contas-pagar/:id/pagar', baixarContaPagar);
 router.get('/contas-receber', listContasReceber);
 router.post('/contas-receber', createContaReceber);
 router.patch('/contas-receber/:id/receber', receberConta);
+router.post('/contas-receber/receber-lote', receberLoteContasReceber);
 router.patch('/contas-receber/:id/corrigir-baixa', corrigirBaixaContaReceber);
 router.patch('/contas-receber/:id/revogar', revogarContaReceber);
 router.patch('/contas-receber/:id/cancelar', cancelarContaReceber);

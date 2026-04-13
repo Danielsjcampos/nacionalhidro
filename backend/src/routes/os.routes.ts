@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import {
-    listOS, getOS, createOS, updateOS, deleteOS, printOS, downloadPdfOS,
+    listOS, getOS, createOS, updateOS, deleteOS, printOS, downloadPdfOS, printLoteOSPdf,
     listItensCobranca, createItemCobranca, updateItemCobranca, deleteItemCobranca,
     duplicateOS
 } from '../controllers/os.controller';
@@ -13,6 +13,7 @@ router.use(authenticate);
 
 // ── OS CRUD ──────────────────────────────────────────────────────
 router.get('/', listOS);
+router.get('/exportar/lote-pdf', printLoteOSPdf);
 router.get('/:id', getOS);
 router.post('/', createOS);
 router.post('/print', printOS);

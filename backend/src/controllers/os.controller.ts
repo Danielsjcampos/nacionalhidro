@@ -2,7 +2,7 @@ import { Response } from 'express';
 import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { registrarLog } from '../lib/auditLog';
-import { gerarPdfOrdemServico } from '../services/legacyPdf.service';
+import { gerarPdfOrdemServico, gerarPdfLoteOrdemServico } from '../services/legacyPdf.service';
 
 export const listOS = async (req: AuthRequest, res: Response) => {
   try {
@@ -488,6 +488,39 @@ export const downloadPdfOS = async (req: AuthRequest, res: Response) => {
   } catch (error: any) {
     console.error('Download OS PDF error:', error);
     res.status(500).json({ error: 'Falha ao gerar PDF da OS', details: error.message });
+  }
+};
+
+export const printLoteOSPdf = async (req: AuthRequest, res: Response) => {
+  try {
+    const { ids } = req.query; // Expecting comma separated ids: ?ids=id1,id2,id3
+    if (!ids || typeof ids !== 'string') {
+      return res.status(400).json({ error: 'Faltando parâmetro ids' });
+    }
+    const osIds = ids.split(',').map(id => id.trim());
+
+    const ordens = await prisma.ordemServico.findMany({
+      where: { id: { in: osIds } },
+      include: {
+        cliente: true,
+        servicos: true
+      },
+      // Preserve selection order if needed, but here we just order by createdAt
+      orderBy: { createdAt: 'asc' }
+    });
+
+    if (ordens.length === 0) {
+      return res.status(404).json({ error: 'Nenhuma Ordem de Serviço encontrada' });
+    }
+
+    const pdfBuffer = await gerarPdfLoteOrdemServico(ordens);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=OS_Lote_${Date.now()}.pdf`);
+    res.send(pdfBuffer);
+  } catch (error: any) {
+    console.error('Lote OS PDF error:', error);
+    res.status(500).json({ error: 'Falha ao gerar PDF do lote de OS', details: error.message });
   }
 };
 

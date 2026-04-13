@@ -65,6 +65,15 @@ export const getDashboardLogistica = async (req: AuthRequest, res: Response) => 
         const osPrecificada = await prisma.ordemServico.count({ where: { status: 'PRECIFICADA' } });
         const osFaturada = await prisma.ordemServico.count({ where: { status: 'FATURADA' } });
 
+        // 7.5 Admissões em Andamento (Para integração RH/Logística)
+        const admissoesPendentes = await prisma.admissao.findMany({
+            where: {
+                etapa: { notIn: ['CONTRATADO', 'CANCELADO'] },
+                departamento: { contains: 'Operacional' } // Foco em vagas operacionais/logística
+            },
+            select: { nome: true, cargo: true, dataAdmissaoPrevista: true }
+        });
+
         // 8. Escalas de hoje
         const escalasHoje = await prisma.escala.findMany({
             where: { data: { gte: today, lt: tomorrow } },
@@ -105,7 +114,8 @@ export const getDashboardLogistica = async (req: AuthRequest, res: Response) => 
                 precificada: osPrecificada,
                 faturada: osFaturada
             },
-            manutencoesPendentes
+            manutencoesPendentes,
+            admissoesPendentes
         });
     } catch (error) {
         console.error('Dashboard logistica error:', error);

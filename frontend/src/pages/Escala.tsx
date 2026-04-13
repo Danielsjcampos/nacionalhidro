@@ -117,7 +117,7 @@ export default function Histograma() {
     const [viewMode, setViewMode] = useState<ViewMode>('mes');
     const [currentDate, setCurrentDate] = useState(new Date());
 
-    const [selectedTipo, setSelectedTipo] = useState<'Abertas' | 'Canceladas'>('Abertas');
+    const [selectedTipo, setSelectedTipo] = useState<'Abertas' | 'Executadas' | 'Canceladas'>('Abertas');
 
     // ── Filters ─────────────────────────────────────────────────────────────
     const [filtroTipos, setFiltroTipos] = useState<Set<string>>(new Set());
@@ -448,7 +448,7 @@ export default function Histograma() {
                 </div>
 
                 <div className="flex border-b border-slate-200">
-                    {['Abertas', 'Canceladas'].map(tab => (
+                    {['Abertas', 'Executadas', 'Canceladas'].map(tab => (
                         <button
                             key={tab}
                             onClick={() => setSelectedTipo(tab as any)}
@@ -594,6 +594,40 @@ export default function Histograma() {
                                     <td className="px-4 py-3 font-semibold text-slate-700">{esc.equipamento || '—'}</td>
                                     <td className="px-4 py-3 text-slate-600">{esc.cliente?.nome || '—'}</td>
                                     <td className="px-4 py-3 text-slate-500">{new Date(esc.data).toLocaleDateString('pt-BR')}</td>
+                                    <td className="px-4 py-3 font-medium text-slate-800">{esc.codigoOS || '—'}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {/* ─── Executadas View ────────────────────────────────────────────── */}
+            {selectedTipo === 'Executadas' && (
+                <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <table className="w-full text-sm">
+                        <thead className="bg-[#1e3a5f] text-white">
+                            <tr>
+                                <th className="px-4 py-3 text-left font-bold uppercase text-[11px]">Equipamento</th>
+                                <th className="px-4 py-3 text-left font-bold uppercase text-[11px]">Cliente</th>
+                                <th className="px-4 py-3 text-left font-bold uppercase text-[11px]">Data</th>
+                                <th className="px-4 py-3 text-left font-bold uppercase text-[11px]">Horário</th>
+                                <th className="px-4 py-3 text-left font-bold uppercase text-[11px]">Equipe</th>
+                                <th className="px-4 py-3 text-left font-bold uppercase text-[11px]">OS</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {escalas.filter(e => e.status === 'CONCLUIDO').length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="py-8 text-center text-slate-400 italic">Nenhuma escala executada encontrada.</td>
+                                </tr>
+                            ) : escalas.filter(e => e.status === 'CONCLUIDO').map(esc => (
+                                <tr key={esc.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => openViewModal(esc)}>
+                                    <td className="px-4 py-3 font-semibold text-slate-700">{esc.equipamento || '—'}</td>
+                                    <td className="px-4 py-3 text-slate-600">{esc.cliente?.nome || '—'}</td>
+                                    <td className="px-4 py-3 text-slate-500">{new Date(esc.data).toLocaleDateString('pt-BR')}</td>
+                                    <td className="px-4 py-3 text-slate-500">{esc.hora || '—'}</td>
+                                    <td className="px-4 py-3 text-slate-500 text-xs">{Array.isArray(esc.funcionarios) ? esc.funcionarios.join(', ') : '—'}</td>
                                     <td className="px-4 py-3 font-medium text-slate-800">{esc.codigoOS || '—'}</td>
                                 </tr>
                             ))}

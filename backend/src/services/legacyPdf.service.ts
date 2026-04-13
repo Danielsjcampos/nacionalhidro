@@ -254,6 +254,40 @@ export const gerarPdfOrdemServico = async (ordem: any, cliente: any, servicos: a
     return generatePdfFromHtml(rendered);
 };
 
+export const gerarPdfLoteOrdemServico = async (ordens: any[]): Promise<Buffer> => {
+    const templateHtml = await getTemplateHtml('ordem_servico.html');
+    
+    const renderedPages = ordens.map(os => {
+        const view = {
+            NumeroOS:   os.codigo || 'S/N',
+            Data:       moment(os.dataInicial).format('DD/MM/YYYY'),
+            Cliente: {
+                RazaoSocial: os.cliente?.razaoSocial || os.cliente?.nome || '',
+                Endereco:    os.cliente?.endereco || '',
+                Numero:      os.cliente?.numero || '',
+                Cnpj:        os.cliente?.documento || '',
+                Ie:          os.cliente?.inscricaoEstadual || '',
+                Telefone:    os.cliente?.telefone || '',
+                Bairro:      os.cliente?.bairro || '',
+                Cidade:      os.cliente?.cidade || '',
+                EstadoSigla: os.cliente?.estado || os.cliente?.uf || ''
+            },
+            Contato: {
+                Nome: os.contato || os.cliente?.nome || ''
+            },
+            Servicos: (os.servicos || []).map((s: any) => ({
+                Equipamento:  s.equipamento || os.equipamento || '-',
+                Discriminacao: s.descricao || '-'
+            })),
+            Observacao: os.observacoes || ''
+        };
+        return mustache.render(templateHtml, view);
+    });
+
+    const finalHtml = renderedPages.join('<div style="page-break-before: always;"></div>');
+    return generatePdfFromHtml(finalHtml);
+};
+
 // ==========================================
 // PROPOSTA COMERCIAL (PREMIUM)
 // ==========================================

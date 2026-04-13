@@ -624,6 +624,47 @@ export const cancelarContaReceber = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// ─── RECEBER LOTE CONTAS A RECEBER ──────────────────────────────
+export const receberLoteContasReceber = async (req: AuthRequest, res: Response) => {
+  try {
+    const { titulosBaixa, formaPagamento, contaBancariaId } = req.body;
+
+    if (!titulosBaixa || !Array.isArray(titulosBaixa) || titulosBaixa.length === 0) {
+      return res.status(400).json({ error: 'Informe os títulos a serem recebidos' });
+    }
+
+    const resultados: any[] = [];
+    for (const item of titulosBaixa) {
+      const titulo = await prisma.contaReceber.findUnique({ where: { id: item.id } });
+      if (!titulo || titulo.status === 'RECEBIDO' || titulo.status === 'CANCELADO') continue;
+
+      const original = toNum(titulo.valorOriginal);
+      const desconto = item.valorDesconto !== undefined ? toNum(item.valorDesconto) : 0;
+      const juros = item.valorJuros !== undefined ? toNum(item.valorJuros) : 0;
+      const valorFinal = original + juros - desconto;
+
+      const updated = await prisma.contaReceber.update({
+        where: { id: item.id },
+        data: {
+          status: 'RECEBIDO',
+          valorRecebido: valorFinal,
+          valorDesconto: desconto,
+          valorJuros: juros,
+          dataRecebimento: new Date(),
+          formaPagamento,
+          contaBancariaId: contaBancariaId || undefined,
+        }
+      });
+      resultados.push(updated);
+    }
+
+    res.json({ recebidos: resultados.length, titulos: resultados });
+  } catch (error: any) {
+    console.error('Receber lote error:', error);
+    res.status(500).json({ error: 'Falha ao receber lote', details: error.message });
+  }
+};
+
 // ─── EXPORTAR LOTE EXCEL ─────────────────────────────────────────
 export const exportarLoteExcel = async (req: AuthRequest, res: Response) => {
   try {

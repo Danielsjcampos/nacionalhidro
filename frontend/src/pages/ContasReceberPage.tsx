@@ -3,7 +3,8 @@ import api from '../services/api';
 import {
     Loader2, Plus, X, Search,
     CheckCircle, Edit3, Calendar,
-    ChevronLeft, ChevronRight, RotateCcw
+    ChevronLeft, ChevronRight, RotateCcw,
+    Banknote, Download, CheckSquare
 } from 'lucide-react';
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string; label: string }> = {
@@ -22,6 +23,12 @@ export default function ContasReceberPage() {
     const [showForm, setShowForm] = useState(false);
     const [showBaixa, setShowBaixa] = useState<any>(null);
     const [showEditarBaixa, setShowEditarBaixa] = useState<any>(null);
+
+    // Batch selection
+    const [selected, setSelected] = useState<Set<string>>(new Set());
+    const [showBaixaLote, setShowBaixaLote] = useState(false);
+    const [loteItems, setLoteItems] = useState<any[]>([]);
+    const [loteForm, setLoteForm] = useState({ formaPagamento: 'PIX', contaBancariaId: '' });
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
@@ -98,6 +105,55 @@ export default function ContasReceberPage() {
             setBaixaForm({ valorRecebido: '', formaPagamento: 'PIX', banco: '', agencia: '', conta: '1', valorDesconto: '', observacoes: '' });
             fetchAll();
         } catch (err) { console.error(err); }
+    };
+
+    // Batch selection helpers
+    const toggleSelect = (id: string) => {
+        const ns = new Set(selected);
+        if (ns.has(id)) ns.delete(id); else ns.add(id);
+        setSelected(ns);
+    };
+
+    const toggleSelectAll = (list: any[]) => {
+        if (selected.size === list.length) {
+            setSelected(new Set());
+        } else {
+            setSelected(new Set(list.map(t => t.id)));
+        }
+    };
+
+    const prepararBaixaLote = () => {
+        const items = receber.filter(r => selected.has(r.id)).map(r => ({
+            ...r,
+            userDesconto: 0,
+            userJuros: 0
+        }));
+        setLoteItems(items);
+        setShowBaixaLote(true);
+    };
+
+    const processarBaixaLote = async () => {
+        try {
+            const titulosBaixa = loteItems.map(i => ({
+                id: i.id,
+                valorDesconto: i.userDesconto,
+                valorJuros: i.userJuros
+            }));
+
+            await api.post('/financeiro/contas-receber/receber-lote', {
+                titulosBaixa,
+                formaPagamento: loteForm.formaPagamento,
+                contaBancariaId: loteForm.contaBancariaId
+            });
+
+            setShowBaixaLote(false);
+            setSelected(new Set());
+            setActiveTab('HISTORICO');
+            fetchAll();
+            alert('Recebimento em lote realizado com sucesso!');
+        } catch (err: any) {
+            alert(err.response?.data?.error || 'Erro ao receber lote');
+        }
     };
 
     const handleEditarBaixa = async () => {
@@ -192,6 +248,11 @@ export default function ContasReceberPage() {
                     <p className="text-sm text-slate-500">Pipeline de faturamentos e recebimentos</p>
                 </div>
                 <div className="flex gap-2">
+                    {activeTab === 'RECEBER' && selected.size > 0 && (
+                        <button onClick={prepararBaixaLote} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm animate-in fade-in zoom-in-95 duration-200">
+                            <Banknote className="w-4 h-4" /> Receber {selected.size} Selecionados
+                        </button>
+                    )}
                     <button onClick={() => setShowForm(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-500/20">
                         <Plus className="w-4 h-4" /> Novo Faturamento
                     </button>
@@ -273,6 +334,12 @@ export default function ContasReceberPage() {
                             )}
                             <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Observações</th>
                             <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Usuário</th>
+                            {activeTab === 'RECEBER' && (
+                                <th className="p-3 w-10 text-center">
+                                    <input type="checkbox" checked={selected.size > 0 && selected.size === displayedData.filter(d => d.status === 'PENDENTE').length}
+                                        onChange={() => toggleSelectAll(displayedData.filter(d => d.status === 'PENDENTE'))} className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+                                </th>
+                            )}
                         </tr>
                         {/* FILTER ROW */}
                         <tr className="bg-slate-50/50 border-b border-slate-200">
@@ -397,6 +464,13 @@ export default function ContasReceberPage() {
                                         )}
                                         <td className="p-2 px-3 text-slate-400 italic truncate max-w-[120px]">{c.observacoes || '—'}</td>
                                         <td className="p-2 px-3 text-slate-500 truncate max-w-[120px]">{c.usuarioCriador || '—'}</td>
+                                        {activeTab === 'RECEBER' && (
+                                            <td className="p-2 px-3 text-center">
+                                                {c.status === 'PENDENTE' && (
+                                                    <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)} className="rounded border-slate-300 text-emerald-600 w-4 h-4 cursor-pointer" />
+                                                )}
+                                            </td>
+                                        )}
                                     </tr>
                                 );
                             })}
@@ -603,6 +677,99 @@ export default function ContasReceberPage() {
                         <button onClick={handleEditarBaixa} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold flex justify-center gap-2 mt-4 transition-all">
                             <Edit3 className="w-4 h-4" /> Atualizar Recebimento
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL: RECEBER EM LOTE */}
+            {showBaixaLote && (
+                <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in duration-200">
+                        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-emerald-600 text-white">
+                            <div>
+                                <h2 className="text-xl font-bold flex items-center gap-2"><Banknote className="w-5 h-5"/> Receber em Lote</h2>
+                                <p className="text-sm text-emerald-100 mt-1">Insira descontos e acréscimos antes de confirmar.</p>
+                            </div>
+                            <button onClick={() => setShowBaixaLote(false)}><X className="w-6 h-6 text-white hover:text-emerald-200" /></button>
+                        </div>
+
+                        <div className="p-6 bg-slate-50 flex-1 overflow-y-auto">
+                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+                                <table className="w-full text-xs">
+                                    <thead>
+                                        <tr className="bg-slate-50 border-b border-slate-200 text-left">
+                                            <th className="p-3 font-semibold text-slate-500">Descrição</th>
+                                            <th className="p-3 font-semibold text-slate-500">Cliente</th>
+                                            <th className="p-3 font-semibold text-slate-500 text-right">Valor Orig.</th>
+                                            <th className="p-3 font-semibold text-slate-500 text-center">Juros Adic. (R$)</th>
+                                            <th className="p-3 font-semibold text-slate-500 text-center">Desconto (R$)</th>
+                                            <th className="p-3 font-semibold text-slate-500 text-right">Total Final (R$)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {loteItems.map((item, idx) => {
+                                            const final1 = Number(item.valorOriginal) + Number(item.userJuros || 0) - Number(item.userDesconto || 0);
+                                            return (
+                                                <tr key={item.id} className="hover:bg-slate-50">
+                                                    <td className="p-3 font-bold text-slate-700">{item.descricao}</td>
+                                                    <td className="p-3 text-slate-500">{item.cliente?.nome || '—'}</td>
+                                                    <td className="p-3 text-right">{fmt(Number(item.valorOriginal))}</td>
+                                                    <td className="p-3 text-center w-32">
+                                                        <input type="number" step="0.01" value={item.userJuros}
+                                                            onChange={e => {
+                                                                const neo = [...loteItems];
+                                                                neo[idx].userJuros = Number(e.target.value);
+                                                                setLoteItems(neo);
+                                                            }}
+                                                            className="w-24 text-center border border-slate-200 p-1.5 focus:border-emerald-500 rounded text-amber-600 font-bold" />
+                                                    </td>
+                                                    <td className="p-3 text-center w-32">
+                                                        <input type="number" step="0.01" value={item.userDesconto}
+                                                            onChange={e => {
+                                                                const neo = [...loteItems];
+                                                                neo[idx].userDesconto = Number(e.target.value);
+                                                                setLoteItems(neo);
+                                                            }}
+                                                            className="w-24 text-center border border-slate-200 p-1.5 focus:border-emerald-500 rounded text-emerald-600 font-bold" />
+                                                    </td>
+                                                    <td className="p-3 text-right font-black text-emerald-700 bg-emerald-50/50">{fmt(final1)}</td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                    <tfoot className="bg-slate-100 font-bold text-sm">
+                                        <tr>
+                                            <td colSpan={5} className="p-3 text-right uppercase text-slate-500">Total do Lote:</td>
+                                            <td className="p-3 text-right text-emerald-800 text-base">
+                                                {fmt(loteItems.reduce((acc, item) => acc + Number(item.valorOriginal) + Number(item.userJuros || 0) - Number(item.userDesconto || 0), 0))}
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+
+                            {/* Config do Banco */}
+                            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-end gap-4">
+                                <div className="flex-1">
+                                    <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2 mb-2"><CheckSquare className="w-4 h-4"/> Banco Destino (Recebimento)</label>
+                                    <select value={loteForm.contaBancariaId} onChange={e => setLoteForm({...loteForm, contaBancariaId: e.target.value})} className="w-full bg-slate-50 border border-slate-200 p-3 rounded-lg font-bold text-slate-700">
+                                        <option value="">Selecione o banco de destino</option>
+                                        {contasBancarias.filter(b => b.ativa !== false).map((b: any) => (
+                                            <option key={b.id} value={b.id}>
+                                                {b.nome}{b.empresa ? ` (${b.empresa})` : ''}{b.agencia ? ` — Ag: ${b.agencia}` : ''}{b.conta ? ` Cc: ${b.conta}` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-6 border-t border-slate-100 bg-white flex justify-end gap-3">
+                            <button onClick={() => setShowBaixaLote(false)} className="px-6 py-3 rounded-xl text-slate-600 font-bold text-sm bg-slate-100 hover:bg-slate-200 transition-colors">Cancelar</button>
+                            <button onClick={processarBaixaLote} className="px-6 py-3 rounded-xl text-white font-bold text-sm bg-emerald-600 hover:bg-emerald-700 shadow-md flex items-center gap-2">
+                                <CheckCircle className="w-5 h-5" /> Confirmar Recebimento
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

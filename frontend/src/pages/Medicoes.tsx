@@ -184,6 +184,17 @@ export default function Medicoes() {
             } catch (err: any) { alert(err.response?.data?.error || 'Erro ao enviar'); }
             return;
         }
+
+        if (next === 'CONTESTADA') {
+            const motivo = prompt('Por favor, informe o motivo da contestação:');
+            if (motivo === null) return; // User cancelled
+            if (!motivo.trim()) {
+                alert('O motivo da contestação é obrigatório.');
+                return;
+            }
+            extra.motivoContestacao = motivo;
+        }
+
         try {
             await api.patch(`/medicoes/${id}/status`, { status: next, ...extra });
             fetchData(); openMedicao({ id });

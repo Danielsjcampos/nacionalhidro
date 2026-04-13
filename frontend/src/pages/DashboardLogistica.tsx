@@ -245,28 +245,52 @@ export default function DashboardLogistica() {
                 </div>
             </div>
 
-            {/* Escalas de Hoje */}
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
-                <h2 className="text-xs font-black text-slate-400 uppercase mb-3 flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5 text-indigo-500" /> Escalas de Hoje
-                </h2>
-                {data.escalasHoje.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic py-4 text-center">Nenhuma escala para hoje</p>
-                ) : (
-                    <div className="grid grid-cols-3 gap-2">
-                        {data.escalasHoje.map((e: any) => (
-                            <div key={e.id} className="p-3 bg-indigo-50 rounded-lg border border-indigo-100">
-                                <div className="flex items-center justify-between mb-1">
-                                    <p className="text-xs font-bold text-indigo-700">{e.cliente?.nome || '—'}</p>
-                                    {e.veiculo && <span className="text-[10px] font-bold text-slate-500 bg-white px-1.5 py-0.5 rounded">{e.veiculo.placa}</span>}
+            <div className="grid grid-cols-2 gap-4">
+                {/* Escalas de Hoje */}
+                <div className="bg-white rounded-xl border border-slate-200 p-4">
+                    <h2 className="text-xs font-black text-slate-400 uppercase mb-3 flex items-center gap-2">
+                        <Clock className="w-3.5 h-3.5 text-indigo-500" /> Escalas de Hoje
+                    </h2>
+                    {data.escalasHoje.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic py-4 text-center">Nenhuma escala para hoje</p>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-2">
+                            {data.escalasHoje.map((e: any) => (
+                                <div key={e.id} className="p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <p className="text-xs font-bold text-indigo-700">{e.cliente?.nome || '—'}</p>
+                                        {e.veiculo && <span className="text-[10px] font-bold text-slate-500 bg-white px-1.5 py-0.5 rounded">{e.veiculo.placa}</span>}
+                                    </div>
+                                    {e.funcionarios && Array.isArray(e.funcionarios) && (
+                                        <p className="text-[10px] text-slate-500">👷 {e.funcionarios.join(', ')}</p>
+                                    )}
                                 </div>
-                                {e.funcionarios && Array.isArray(e.funcionarios) && (
-                                    <p className="text-[10px] text-slate-500">👷 {e.funcionarios.join(', ')}</p>
-                                )}
-                            </div>
-                        ))}
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Admissões Operacionais em Andamento */}
+                <div className="bg-white rounded-xl border border-slate-200 p-4">
+                    <h2 className="text-xs font-black text-slate-400 uppercase mb-3 flex items-center gap-2">
+                        <Users className="w-3.5 h-3.5 text-blue-500" /> Novas Admissões
+                    </h2>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {!data.admissoesPendentes || data.admissoesPendentes.length === 0 ? (
+                            <p className="text-xs text-slate-400 italic py-4 text-center">Nenhuma admissão operacional em andamento</p>
+                        ) : (
+                            data.admissoesPendentes.map((adm: any, idx: number) => (
+                                <div key={idx} className="flex items-center justify-between p-2 bg-blue-50 rounded-lg">
+                                    <div>
+                                        <p className="text-xs font-bold text-blue-700">{adm.nome}</p>
+                                        <p className="text-[10px] text-slate-500">{adm.cargo}</p>
+                                    </div>
+                                    <span className="text-[10px] font-bold text-blue-500">{adm.dataAdmissaoPrevista ? fmtDate(adm.dataAdmissaoPrevista) : 'A Confirmar'}</span>
+                                </div>
+                            ))
+                        )}
                     </div>
-                )}
+                </div>
             </div>
         </div>
     );
