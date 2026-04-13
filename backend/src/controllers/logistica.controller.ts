@@ -191,18 +191,43 @@ export const verificarFuncionario = async (req: AuthRequest, res: Response) => {
       return 'OK';
     };
 
+    const asoStatus = checkStatus(aso?.dataVencimento);
+    const intStatus = checkStatus(integracao?.dataVencimento);
+
+    let status = 'OK';
+    let mensagem = '';
+
+    if (asoStatus === 'VENCIDO') {
+      status = 'VENCIDO';
+      mensagem = 'ASO Vencido. Realizar novo exame.';
+    } else if (asoStatus === 'INEXISTENTE') {
+      status = 'INEXISTENTE';
+      mensagem = 'Colaborador sem ASO cadastrado.';
+    } else if (intStatus === 'VENCIDO') {
+      status = 'VENCIDO';
+      mensagem = 'Integração com este cliente vencida.';
+    } else if (intStatus === 'INEXISTENTE') {
+      status = 'INEXISTENTE';
+      mensagem = 'Colaborador sem Integração para este cliente.';
+    } else if (asoStatus === 'VENCENDO' || intStatus === 'VENCENDO') {
+      status = 'VENCENDO';
+      mensagem = 'Documentação próxima do vencimento.';
+    }
+
     res.json({
       integracao: {
         existe: !!integracao,
         vencimento: integracao?.dataVencimento,
-        status: checkStatus(integracao?.dataVencimento)
+        status: intStatus
       },
       aso: {
         existe: !!aso,
         tipo: aso?.tipo,
         vencimento: aso?.dataVencimento,
-        status: checkStatus(aso?.dataVencimento)
-      }
+        status: asoStatus
+      },
+      status, 
+      mensagem
     });
 
   } catch (error) {

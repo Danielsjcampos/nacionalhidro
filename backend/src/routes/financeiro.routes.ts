@@ -2,7 +2,7 @@ import { Router } from 'express';
 import {
     listContasPagar, createContaPagar, baixarContaPagar, editarContaPagar,
     baixarLoteContasPagar, agruparFatura, cancelarContaPagar, revogarContaPagar,
-    relatorioContasPagar, exportarLoteExcel, exportarLoteCnab,
+    corrigirBaixaContaPagar, relatorioContasPagar, exportarLoteExcel, exportarLoteCnab,
     listContasReceber, createContaReceber, receberConta, corrigirBaixaContaReceber,
     revogarContaReceber, cancelarContaReceber, receberLoteContasReceber,
     getFinanceiroStats
@@ -24,6 +24,7 @@ router.post('/contas-pagar/baixar-lote', baixarLoteContasPagar);
 router.post('/contas-pagar/agrupar-fatura', agruparFatura);
 router.patch('/contas-pagar/:id/cancelar', cancelarContaPagar);
 router.patch('/contas-pagar/:id/revogar', revogarContaPagar);
+router.patch('/contas-pagar/:id/corrigir-baixa', corrigirBaixaContaPagar);
 router.get('/contas-pagar/relatorio', relatorioContasPagar);
 router.get('/contas-pagar/exportar-excel', exportarLoteExcel);
 router.get('/contas-pagar/exportar-cnab', exportarLoteCnab);

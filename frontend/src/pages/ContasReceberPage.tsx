@@ -99,12 +99,19 @@ export default function ContasReceberPage() {
 
     const handleReceber = async () => {
         if (!showBaixa) return;
+        if (!baixaForm.conta) {
+            alert('Por favor, selecione o banco de destino.');
+            return;
+        }
         try {
             await api.patch(`/financeiro/contas-receber/${showBaixa.id}/receber`, baixaForm);
             setShowBaixa(null);
-            setBaixaForm({ valorRecebido: '', formaPagamento: 'PIX', banco: '', agencia: '', conta: '1', valorDesconto: '', observacoes: '' });
+            setBaixaForm({ valorRecebido: '', formaPagamento: 'PIX', banco: '', agencia: '', conta: '', valorDesconto: '', observacoes: '' });
             fetchAll();
-        } catch (err) { console.error(err); }
+            alert('Recebimento confirmado com sucesso!');
+        } catch (err: any) {
+            alert(err.response?.data?.error || 'Erro ao confirmar recebimento');
+        }
     };
 
     // Batch selection helpers
@@ -133,6 +140,10 @@ export default function ContasReceberPage() {
     };
 
     const processarBaixaLote = async () => {
+        if (!loteForm.contaBancariaId) {
+            alert('Por favor, selecione o banco de destino para o lote.');
+            return;
+        }
         try {
             const titulosBaixa = loteItems.map(i => ({
                 id: i.id,
@@ -590,38 +601,57 @@ export default function ContasReceberPage() {
             {/* MODAL: Baixar Conta */}
             {showBaixa && (
                  <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden p-6 space-y-4">
-                        <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
-                            <h2 className="text-lg font-bold text-slate-800">Confirmar Recebimento</h2>
-                            <button onClick={() => setShowBaixa(null)}><X className="w-5 h-5 text-slate-400 hover:text-emerald-500" /></button>
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden p-0 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-emerald-600 text-white">
+                            <h2 className="text-lg font-bold">Confirmar Recebimento</h2>
+                            <button onClick={() => setShowBaixa(null)} className="p-1 hover:bg-emerald-500 rounded-lg transition-colors"><X className="w-5 h-5 text-white" /></button>
                         </div>
-                        <p className="font-bold text-emerald-800 text-sm mb-4 bg-emerald-50 p-3 rounded-lg">{showBaixa.descricao}</p>
-                        
-                        <div>
-                            <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Valor Recebido (R$)</label>
-                            <input type="number" step="0.01" value={baixaForm.valorRecebido} onChange={e => setBaixaForm({ ...baixaForm, valorRecebido: e.target.value })}
-                                className="w-full border border-slate-200 rounded-lg p-2.5 text-lg font-bold text-emerald-700 outline-none focus:border-emerald-400" />
+                        <div className="p-6 space-y-4">
+                            <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 mb-2">
+                                <p className="text-[10px] font-bold text-emerald-600 uppercase mb-1">Título Selecionado</p>
+                                <p className="font-bold text-emerald-800 text-sm">{showBaixa.descricao}</p>
+                                <p className="text-xs text-emerald-600 mt-1">Valor do Título: <b>{fmt(Number(showBaixa.valorOriginal))}</b></p>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Valor Recebido (R$)</label>
+                                    <input type="number" step="0.01" value={baixaForm.valorRecebido} onChange={e => setBaixaForm({ ...baixaForm, valorRecebido: e.target.value })}
+                                        className="w-full border border-slate-200 rounded-lg p-2.5 text-lg font-black text-emerald-700 outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50" />
+                                </div>
+                                <div>
+                                    <label className="text-[11px] font-bold text-red-400 uppercase block mb-1">Taxas / Desconto (R$)</label>
+                                    <input type="number" step="0.01" value={baixaForm.valorDesconto} onChange={e => setBaixaForm({ ...baixaForm, valorDesconto: e.target.value })}
+                                        className="w-full border border-slate-200 rounded-lg p-2.5 text-lg font-bold text-red-600 outline-none focus:ring-2 focus:ring-red-400 bg-slate-50" />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Banco de Destino *</label>
+                                <select value={baixaForm.conta} onChange={e => setBaixaForm({ ...baixaForm, conta: e.target.value })}
+                                    className={`w-full border ${!baixaForm.conta ? 'border-amber-300 bg-amber-50' : 'border-slate-200'} rounded-lg p-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-emerald-500 outline-none transition-all`}>
+                                    <option value="">Selecione o banco de destino</option>
+                                    {contasBancarias.filter(b => b.ativa !== false).map((b: any) => (
+                                        <option key={b.id} value={b.id}>
+                                            {b.nome}{b.empresa ? ` (${b.empresa})` : ''} {b.conta ? `• Cc: ${b.conta}` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Forma de Pagamento</label>
+                                <select value={baixaForm.formaPagamento} onChange={e => setBaixaForm({ ...baixaForm, formaPagamento: e.target.value })}
+                                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700">
+                                    <option value="PIX">PIX</option>
+                                    <option value="BOLETO">BOLETO</option>
+                                    <option value="TRANSFERENCIA">TRANSFERÊNCIA</option>
+                                    <option value="DEPOSITO">DEPÓSITO</option>
+                                    <option value="CARTAO">CARTÃO</option>
+                                </select>
+                            </div>
+                            <button onClick={handleReceber} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3.5 rounded-xl font-bold flex justify-center gap-2 mt-4 shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all">
+                                <CheckCircle className="w-5 h-5" /> Confirmar Baixa
+                            </button>
                         </div>
-                        <div>
-                            <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Taxas Bancárias / Desconto (R$)</label>
-                            <input type="number" step="0.01" value={baixaForm.valorDesconto} onChange={e => setBaixaForm({ ...baixaForm, valorDesconto: e.target.value })}
-                                className="w-full border border-slate-200 rounded-lg p-2 text-sm text-red-600 font-bold outline-none focus:border-emerald-400" />
-                        </div>
-                        <div>
-                            <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Banco / Destino</label>
-                            <select value={baixaForm.conta} onChange={e => setBaixaForm({ ...baixaForm, conta: e.target.value })}
-                                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700">
-                                <option value="">Selecione o banco de destino</option>
-                                {contasBancarias.filter(b => b.ativa !== false).map((b: any) => (
-                                    <option key={b.id} value={b.id}>
-                                        {b.nome}{b.empresa ? ` (${b.empresa})` : ''}{b.agencia ? ` — Ag: ${b.agencia}` : ''}{b.conta ? ` Cc: ${b.conta}` : ''}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <button onClick={handleReceber} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold flex justify-center gap-2 mt-4">
-                            <CheckCircle className="w-4 h-4" /> Confirmar Baixa
-                        </button>
                     </div>
                 </div>
             )}
@@ -629,54 +659,65 @@ export default function ContasReceberPage() {
             {/* MODAL: Editar Baixa */}
             {showEditarBaixa && (
                  <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden p-6 space-y-4">
-                        <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
-                            <h2 className="text-lg font-bold text-slate-800">Corrigir Detalhes do Recebimento</h2>
-                            <button onClick={() => setShowEditarBaixa(null)}><X className="w-5 h-5 text-slate-400 hover:text-blue-500" /></button>
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden p-0 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-blue-600 text-white">
+                            <h2 className="text-lg font-bold">Corrigir Detalhes do Recebimento</h2>
+                            <button onClick={() => setShowEditarBaixa(null)} className="p-1 hover:bg-blue-500 rounded-lg transition-colors"><X className="w-5 h-5 text-white" /></button>
                         </div>
-                        <p className="font-bold text-blue-800 text-xs mb-4 bg-blue-50 p-3 rounded-lg">Ajuste valores, desconto bancário, forma de pagamento ou conta de destino sem precisar revogar a nota.</p>
+                        <div className="p-6 space-y-4">
+                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                                <p className="text-blue-800 text-xs font-medium leading-relaxed">Ajuste valores, desconto bancário ou conta de destino sem precisar revogar o título.</p>
+                            </div>
 
-                        <div>
-                            <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Valor Recebido (R$)</label>
-                            <input type="number" step="0.01" value={editarForm.valorRecebido} onChange={e => setEditarForm({ ...editarForm, valorRecebido: e.target.value })}
-                                className="w-full border border-slate-200 rounded-lg p-2.5 text-lg font-bold text-emerald-700 outline-none focus:border-blue-400" />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Valor Recebido (R$)</label>
+                                    <input type="number" step="0.01" value={editarForm.valorRecebido} onChange={e => setEditarForm({ ...editarForm, valorRecebido: e.target.value })}
+                                        className="w-full border border-slate-200 rounded-lg p-2.5 text-lg font-black text-blue-700 outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50" />
+                                </div>
+                                <div>
+                                    <label className="text-[11px] font-bold text-red-500 uppercase block mb-1">Taxas / Desconto (R$)</label>
+                                    <input type="number" step="0.01" value={editarForm.valorDesconto} onChange={e => setEditarForm({ ...editarForm, valorDesconto: e.target.value })}
+                                        className="w-full border border-slate-200 rounded-lg p-2.5 text-lg font-bold text-red-600 outline-none focus:ring-2 focus:ring-red-400 bg-slate-50" />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Forma de Pagamento</label>
+                                <select value={editarForm.formaPagamento} onChange={e => setEditarForm({ ...editarForm, formaPagamento: e.target.value })}
+                                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700">
+                                    <option value="PIX">PIX</option>
+                                    <option value="BOLETO">BOLETO</option>
+                                    <option value="TRANSFERENCIA">TRANSFERÊNCIA</option>
+                                    <option value="CARTAO">CARTÃO</option>
+                                    <option value="DEPOSITO">DEPÓSITO</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Conta Bancária de Destino</label>
+                                <select value={editarForm.conta} onChange={e => setEditarForm({ ...editarForm, conta: e.target.value })}
+                                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none">
+                                    <option value="">Manter conta atual</option>
+                                    {contasBancarias.filter(b => b.ativa !== false).map((b: any) => (
+                                        <option key={b.id} value={b.id}>
+                                            {b.nome}{b.empresa ? ` (${b.empresa})` : ''} • Cc: {b.conta}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Motivo da Correção</label>
+                                <textarea spellCheck={false} value={editarForm.observacoes} onChange={e => setEditarForm({ ...editarForm, observacoes: e.target.value })}
+                                    className="w-full border border-slate-200 rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 h-20 resize-none" 
+                                    placeholder="Ex: Ajuste de taxa bancária não informada no momento da baixa" />
+                            </div>
+
+                            <button onClick={handleEditarBaixa} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold flex justify-center gap-2 mt-4 shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all">
+                                <Edit3 className="w-5 h-5" /> Atualizar Recebimento
+                            </button>
                         </div>
-                        <div>
-                            <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Forma de Pagamento</label>
-                            <select value={editarForm.formaPagamento} onChange={e => setEditarForm({ ...editarForm, formaPagamento: e.target.value })}
-                                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700">
-                                <option value="PIX">PIX</option>
-                                <option value="BOLETO">Boleto</option>
-                                <option value="TRANSFERENCIA">Transferência</option>
-                                <option value="CARTAO">Cartão</option>
-                                <option value="DEPOSITO">Depósito</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Taxas Bancárias / Desconto (R$)</label>
-                            <input type="number" step="0.01" value={editarForm.valorDesconto} onChange={e => setEditarForm({ ...editarForm, valorDesconto: e.target.value })}
-                                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-red-600 outline-none focus:border-blue-400" />
-                        </div>
-                        <div>
-                            <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Remanejar Banco Conta Recebida</label>
-                            <select value={editarForm.conta} onChange={e => setEditarForm({ ...editarForm, conta: e.target.value })}
-                                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700">
-                                <option value="">Selecione o banco</option>
-                                {contasBancarias.filter(b => b.ativa !== false).map((b: any) => (
-                                    <option key={b.id} value={b.id}>
-                                        {b.nome}{b.empresa ? ` (${b.empresa})` : ''}{b.agencia ? ` — Ag: ${b.agencia}` : ''}{b.conta ? ` Cc: ${b.conta}` : ''}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Motivo da Correção</label>
-                            <input type="text" value={editarForm.observacoes} onChange={e => setEditarForm({ ...editarForm, observacoes: e.target.value })}
-                                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:border-blue-400" placeholder="Ex: Esqueceu de lançar a taxa TED do banco" />
-                        </div>
-                        <button onClick={handleEditarBaixa} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold flex justify-center gap-2 mt-4 transition-all">
-                            <Edit3 className="w-4 h-4" /> Atualizar Recebimento
-                        </button>
                     </div>
                 </div>
             )}

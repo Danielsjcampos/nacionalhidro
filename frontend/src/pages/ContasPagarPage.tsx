@@ -4,7 +4,7 @@ import {
     Plus, X, Banknote, FileText, BarChart3,
     Search, CheckCircle, UploadCloud,
     Download, CheckSquare, Loader2, Calendar,
-    RotateCcw, List, ChevronLeft, ChevronRight
+    RotateCcw, List, ChevronLeft, ChevronRight, Edit3
 } from 'lucide-react';
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string; label: string }> = {
@@ -37,6 +37,10 @@ export default function ContasPagarPage() {
     const [showBaixaLote, setShowBaixaLote] = useState(false);
     const [loteItems, setLoteItems] = useState<any[]>([]);
     const [loteForm, setLoteForm] = useState({ formaPagamento: 'PIX', banco: '', agencia: '', conta: '' });
+
+    // Editar Baixa
+    const [showEditarBaixa, setShowEditarBaixa] = useState<any>(null);
+    const [editarForm, setEditarForm] = useState({ valorPago: '', formaPagamento: '', conta: '', observacoes: '', dataPagamento: '' });
 
     const [fornecedores, setFornecedores] = useState<any[]>([]);
     const [centrosCusto, setCentrosCusto] = useState<any[]>([]);
@@ -193,6 +197,8 @@ export default function ContasPagarPage() {
 
     const processarBaixaLote = async () => {
         try {
+            if (!loteForm.conta) return alert('Selecione o banco de saída para o malote!');
+
             const titulosBaixa = loteItems.map(i => ({
                 id: i.id,
                 valorDesconto: i.userDesconto,
@@ -212,6 +218,34 @@ export default function ContasPagarPage() {
             alert('Baixa em lote realizada com sucesso!');
         } catch (err: any) {
             alert(err.response?.data?.error || 'Erro ao baixar lote');
+        }
+    };
+
+    const handleEditarBaixaClick = (item: any) => {
+        setShowEditarBaixa(item);
+        setEditarForm({
+            valorPago: String(item.valorPago || item.valorOriginal),
+            formaPagamento: item.formaPagamento || 'PIX',
+            conta: item.contaBancariaId || '',
+            observacoes: '',
+            dataPagamento: item.dataPagamento ? new Date(item.dataPagamento).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+        });
+    };
+
+    const handleEditarBaixa = async () => {
+        try {
+            await api.patch(`/financeiro/contas-pagar/${showEditarBaixa.id}/corrigir-baixa`, {
+                valorPago: Number(editarForm.valorPago),
+                formaPagamento: editarForm.formaPagamento,
+                dataPagamento: editarForm.dataPagamento,
+                contaBancariaId: editarForm.conta,
+                observacoes: editarForm.observacoes
+            });
+            setShowEditarBaixa(null);
+            fetchAll();
+            alert('Baixa corrigida com sucesso!');
+        } catch (err: any) {
+             alert(err.response?.data?.error || 'Erro ao corrigir baixa');
         }
     };
 
@@ -449,6 +483,7 @@ export default function ContasPagarPage() {
                                                 )}
                                                 {activeTab === 'HISTORICO' && (
                                                     <>
+                                                        <button onClick={() => handleEditarBaixaClick(c)} className="text-blue-600 hover:text-blue-800 p-1" title="Corrigir Baixa"><Edit3 className="w-3.5 h-3.5"/></button>
                                                         <button onClick={() => { if(confirm('Revogar pagamento e voltar para etapa Pagar?')) { api.patch(`/financeiro/contas-pagar/${c.id}/revogar`).then(() => fetchAll()).catch(() => alert('Erro ao revogar')); } }} className="text-amber-600 hover:text-amber-800 p-1" title="Revogar / Voltar"><RotateCcw className="w-3.5 h-3.5"/></button>
                                                         <button onClick={() => alert(`Histórico:\n• Entrada: ${fmtDate(c.createdAt)}\n• Vencimento: ${fmtDate(c.dataVencimento)}\n• Pagamento: ${fmtDate(c.dataPagamento || c.updatedAt)}`)} className="text-slate-500 hover:text-slate-700 p-1" title="Ver Histórico"><List className="w-3.5 h-3.5"/></button>
                                                     </>
@@ -765,6 +800,62 @@ export default function ContasPagarPage() {
                      </div>
                  </div>
              </div>
+            )}
+
+            {/* MODAL: Editar Baixa (Correction) */}
+            {showEditarBaixa && (
+                 <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
+                            <h2 className="text-lg font-bold text-slate-800">Corrigir Detalhes do Pagamento</h2>
+                            <button onClick={() => setShowEditarBaixa(null)}><X className="w-5 h-5 text-slate-400 hover:text-blue-500" /></button>
+                        </div>
+                        <p className="font-bold text-blue-800 text-[10px] mb-4 bg-blue-50 p-3 rounded-lg uppercase tracking-tight">AJUSTE VALORES, DATA, FORMA DE PAGAMENTO OU BANCO SEM PRECISAR REVOGAR O TÍTULO.</p>
+
+                        <div>
+                            <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Valor Pago (R$)</label>
+                            <input type="number" step="0.01" value={editarForm.valorPago} onChange={e => setEditarForm({ ...editarForm, valorPago: e.target.value })}
+                                className="w-full border border-slate-200 rounded-lg p-2.5 text-lg font-bold text-blue-700 outline-none focus:border-blue-400" />
+                        </div>
+                        <div>
+                            <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Data do Pagamento</label>
+                            <input type="date" value={editarForm.dataPagamento} onChange={e => setEditarForm({ ...editarForm, dataPagamento: e.target.value })}
+                                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700" />
+                        </div>
+                        <div>
+                            <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Forma de Pagamento</label>
+                            <select value={editarForm.formaPagamento} onChange={e => setEditarForm({ ...editarForm, formaPagamento: e.target.value })}
+                                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700">
+                                <option value="PIX">PIX</option>
+                                <option value="BOLETO">Boleto (DDA)</option>
+                                <option value="TRANSFERENCIA">Transferência / TED</option>
+                                <option value="CARTAO">Cartão Corporativo</option>
+                                <option value="DEPOSITO">Depósito</option>
+                                <option value="DINHEIRO">Dinheiro (Caixinha)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Banco Origem (Saída)</label>
+                            <select value={editarForm.conta} onChange={e => setEditarForm({ ...editarForm, conta: e.target.value })}
+                                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700">
+                                <option value="">Selecione o banco</option>
+                                {contasBancarias.filter(b => b.ativa !== false).map((b: any) => (
+                                    <option key={b.id} value={b.id}>
+                                        {b.nome}{b.empresa ? ` (${b.empresa})` : ''}{b.agencia ? ` — Ag: ${b.agencia}` : ''}{b.conta ? ` Cc: ${b.conta}` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Motivo da Correção / Observações</label>
+                            <textarea value={editarForm.observacoes} onChange={e => setEditarForm({ ...editarForm, observacoes: e.target.value })}
+                                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:border-blue-400 h-20 resize-none" placeholder="Ex: Ajuste de centavos ou correção de banco de saída..." />
+                        </div>
+                        <button onClick={handleEditarBaixa} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold flex justify-center items-center gap-2 mt-4 shadow-lg shadow-blue-500/20 transition-all">
+                            <CheckCircle className="w-5 h-5" /> Salvar Correções
+                        </button>
+                    </div>
+                </div>
             )}
         </div>
     );

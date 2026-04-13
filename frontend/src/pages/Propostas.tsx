@@ -697,13 +697,25 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
 
   const getVigenteBadge = (prop: any) => {
     if (!prop.vigente && prop.status === 'ACEITA') {
-      return <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-400 border border-slate-200">Substituída</span>;
+      return (
+        <span className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-400 border border-slate-200 shadow-sm opacity-70">
+           <RefreshCw className="w-3 h-3" /> Substituída
+        </span>
+      );
     }
     if (prop.expirada) {
-      return <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-amber-50 text-amber-500 border border-amber-200">Expirada</span>;
+      return (
+        <span className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-200 shadow-sm shadow-amber-500/5">
+           <AlertTriangle className="w-3 h-3" /> Expirada
+        </span>
+      );
     }
     if (prop.vigente && prop.status === 'ACEITA') {
-      return <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-200">Vigente</span>;
+      return (
+        <span className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 border border-emerald-300 shadow-md shadow-emerald-500/10 animate-pulse">
+           <CheckCircle2 className="w-3 h-3" /> Vigente
+        </span>
+      );
     }
     return null;
   };

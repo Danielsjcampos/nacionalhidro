@@ -200,6 +200,32 @@ export const editarContaPagar = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const corrigirBaixaContaPagar = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { valorPago, formaPagamento, dataPagamento, contaBancariaId, observacoes } = req.body;
+
+    const titulo = await prisma.contaPagar.findUnique({ where: { id } });
+    if (!titulo) return res.status(404).json({ error: 'Título não encontrado' });
+
+    const updated = await prisma.contaPagar.update({
+      where: { id },
+      data: {
+        valorPago: valorPago !== undefined ? toNum(valorPago) : titulo.valorPago,
+        dataPagamento: dataPagamento ? new Date(dataPagamento) : titulo.dataPagamento,
+        formaPagamento: formaPagamento || titulo.formaPagamento,
+        contaBancariaId: contaBancariaId || titulo.contaBancariaId,
+        observacoes: observacoes ? `${titulo.observacoes || ''}\nCORREÇÃO: ${observacoes}` : titulo.observacoes
+      }
+    });
+
+    res.json(updated);
+  } catch (error: any) {
+    console.error('Corrigir baixa conta pagar error:', error);
+    res.status(500).json({ error: 'Falha ao corrigir baixa', details: error.message });
+  }
+};
+
 // ─── BAIXA INDIVIDUAL (TOTAL ou PARCIAL) ────────────────────────
 export const baixarContaPagar = async (req: AuthRequest, res: Response) => {
   try {
@@ -535,14 +561,17 @@ export const createContaReceber = async (req: AuthRequest, res: Response) => {
 
 export const receberConta = async (req: AuthRequest, res: Response) => {
   try {
-    const { valorRecebido, formaPagamento } = req.body;
+    const { valorRecebido, formaPagamento, valorDesconto, conta, observacoes } = req.body;
     const c = await prisma.contaReceber.update({
       where: { id: req.params.id as string },
       data: {
         status: 'RECEBIDO',
         valorRecebido: Number(valorRecebido),
+        valorDesconto: valorDesconto ? Number(valorDesconto) : 0,
         dataRecebimento: new Date(),
-        formaPagamento
+        formaPagamento,
+        contaBancariaId: conta || undefined,
+        observacoes: observacoes ? `${req.body.observacoes || ''}\nBAIXA: ${observacoes}` : req.body.observacoes
       }
     });
     res.json(c);
@@ -555,7 +584,7 @@ export const receberConta = async (req: AuthRequest, res: Response) => {
 export const corrigirBaixaContaReceber = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { valorRecebido, formaPagamento, valorDesconto, banco, agencia, conta, observacoes } = req.body;
+    const { valorRecebido, formaPagamento, valorDesconto, conta, observacoes } = req.body;
 
     const titulo = await prisma.contaReceber.findUnique({ where: { id } });
     if (!titulo) return res.status(404).json({ error: 'Título não encontrado' });
@@ -563,10 +592,10 @@ export const corrigirBaixaContaReceber = async (req: AuthRequest, res: Response)
     const c = await prisma.contaReceber.update({
       where: { id },
       data: {
-        valorRecebido: Number(valorRecebido),
-        valorDesconto: valorDesconto ? Number(valorDesconto) : titulo.valorDesconto,
-        formaPagamento,
-        contaBancariaId: conta || undefined, 
+        valorRecebido: valorRecebido !== undefined ? Number(valorRecebido) : titulo.valorRecebido,
+        valorDesconto: valorDesconto !== undefined ? Number(valorDesconto) : titulo.valorDesconto,
+        formaPagamento: formaPagamento || titulo.formaPagamento,
+        contaBancariaId: conta || titulo.contaBancariaId,
         observacoes: observacoes ? `${titulo.observacoes || ''}\nCORREÇÃO: ${observacoes}` : titulo.observacoes
       }
     });

@@ -10,30 +10,57 @@ async function autoCreateContaPagarViagem(
 ): Promise<void> {
     if (valor <= 0) return;
 
-    // Idempotency check
+    // Idempotency check 
     const existing = await (prisma as any).contaPagar.findFirst({
         where: {
             observacoes: { contains: registro.id },
             categoria: tipo
         }
     });
-    if (existing) return;
 
     const descricao = tipo === 'HOSPEDAGEM'
         ? `Hospedagem ${registro.hotel || registro.cidade || ''} - ${registro.funcionario || registro.colaborador || ''}`.trim()
         : `Passagem ${registro.origem || ''}→${registro.destino || ''} - ${registro.funcionario || registro.colaborador || ''}`.trim();
+
+    if (existing) {
+        // Se o valor mudou e ainda está aberto, atualiza
+        if (Number(existing.valorOriginal) !== valor && existing.status === 'ABERTO') {
+            await (prisma as any).contaPagar.update({
+                where: { id: existing.id },
+                data: {
+                    valorOriginal: valor,
+                    valorTotal: valor,
+                    saldoDevedor: valor,
+                    descricao: descricao 
+                }
+            });
+        }
+        return;
+    }
+
+    // Buscar planoContas para viagens
+    let planoContasId: string | undefined;
+    try {
+        const query = tipo === 'HOSPEDAGEM' ? 'Hospedagem' : 'Viagem';
+        const planoConta = await (prisma as any).planoContas.findFirst({
+            where: { descricao: { contains: query, mode: 'insensitive' } }
+        });
+        if (planoConta) planoContasId = planoConta.id;
+    } catch (_) { /* ignore */ }
 
     await (prisma as any).contaPagar.create({
         data: {
             descricao,
             categoria: tipo,
             valorOriginal: valor,
+            valorTotal: valor,
             saldoDevedor: valor,
             dataVencimento: tipo === 'HOSPEDAGEM'
                 ? (registro.dataCheckin || new Date())
                 : (registro.dataIda || new Date()),
             centroCusto: registro.osId ? `OS-${registro.osId.substring(0, 8)}` : 'VIAGEM',
             status: 'ABERTO',
+            planoContasId: planoContasId || undefined,
             observacoes: `Gerado automaticamente - ${tipo} ID: ${registro.id}`,
             fornecedorId: tipo === 'HOSPEDAGEM' ? registro.fornecedorId : undefined
         },
@@ -95,6 +122,14 @@ export const updateHospedagem = async (req: AuthRequest, res: Response) => {
         const update: any = { ...req.body };
         if (update.dataCheckout) update.dataCheckout = new Date(update.dataCheckout);
         const h = await (prisma as any).hospedagem.update({ where: { id }, data: update });
+        
+        // Sincronizar com Conta a Pagar
+        try {
+            await autoCreateContaPagarViagem('HOSPEDAGEM', h, Number(h.valorTotal || 0));
+        } catch (cpErr) {
+            console.error('Auto-sync ContaPagar for hospedagem error:', cpErr);
+        }
+
         res.json(h);
     } catch (error: any) {
         console.error('Update hospedagem error:', error);
@@ -159,6 +194,14 @@ export const updatePassagem = async (req: AuthRequest, res: Response) => {
     try {
         const id = req.params.id as string;
         const p = await (prisma as any).passagem.update({ where: { id }, data: req.body });
+
+        // Sincronizar com Conta a Pagar
+        try {
+            await autoCreateContaPagarViagem('PASSAGEM', p, Number(p.valor || 0));
+        } catch (cpErr) {
+            console.error('Auto-sync ContaPagar for passagem error:', cpErr);
+        }
+
         res.json(p);
     } catch (error: any) {
         console.error('Update passagem error:', error);

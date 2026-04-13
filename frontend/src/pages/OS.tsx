@@ -762,7 +762,9 @@ export default function OS() {
 
                 {/* Row 2.5: Bicos / Turnos / Equipe */}
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                  <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest mb-3">🔧 Dimensionamento de Equipe</p>
+                  <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest mb-3">
+                    {selectedOS ? '👷 Equipe Executora' : '🔧 Dimensionamento de Equipe'}
+                  </p>
                   <div className="grid grid-cols-3 gap-3">
                     <FormField label="Qtd. Bicos">
                       <div className="flex gap-2">
