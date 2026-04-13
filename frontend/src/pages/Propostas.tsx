@@ -54,6 +54,32 @@ O total dos serviços será emitido em nota de serviço.`;
 
 
 
+  // Contacts Sync State
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [newContact, setNewContact] = useState({ nome: '', email: '', telefone: '' });
+
+  const handleSaveContact = async () => {
+    if(!newContact.nome) return alert('Nome do contato é obrigatório!');
+    const cliente = clientes.find((c: any) => c.id === formData.clienteId);
+    if(!cliente) return;
+    try {
+      const existing = typeof cliente.contatos === 'string' ? JSON.parse(cliente.contatos) : (cliente.contatos || []);
+      const updated = [...existing, { id: Math.random().toString(36).substring(2,9), ...newContact }];
+      await api.put(`/clientes/${cliente.id}`, { contatos: updated });
+      setClientes(clientes.map((c: any) => c.id === cliente.id ? { ...c, contatos: updated } : c));
+      let currentEmails = formData.cc || '';
+      if(newContact.email && !currentEmails.includes(newContact.email)) {
+        currentEmails = currentEmails ? currentEmails + ';' + newContact.email : newContact.email;
+      }
+      setFormData({ ...formData, contato: newContact.nome, cc: currentEmails });
+      setShowContactModal(false);
+      setNewContact({ nome: '', email: '', telefone: '' });
+    } catch(e) {
+      console.error(e);
+      alert('Erro ao sincronizar contato no cliente.');
+    }
+  };
+
   // Form State
   const [formData, setFormData] = useState<any>({
     tipo: 'INDIVIDUAL',
@@ -1154,14 +1180,61 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
                   {clientes.map(c => <option key={c.id} value={c.id}>{c.nome} ({c.documento})</option>)}
                 </select>
               </div>
-              <div className="col-span-3 space-y-1">
-                <label htmlFor="contato" className="text-[9px] font-bold text-slate-600 uppercase">Contato (A/C)</label>
-                <input
-                  id="contato"
-                  type="text" value={formData.contato || ''}
-                  onChange={(e) => setFormData({ ...formData, contato: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400"
-                />
+              <div className="col-span-3 space-y-1 relative">
+                <div className="flex justify-between items-center">
+                  <label htmlFor="contato" className="text-[9px] font-bold text-slate-600 uppercase">Contato (A/C)</label>
+                  {formData.clienteId && (
+                     <button type="button" onClick={() => setShowContactModal(!showContactModal)} className="text-[9px] font-bold text-blue-600 hover:text-blue-800 transition-colors">
+                       {showContactModal ? 'CANCELAR' : '+ VINCULAR NOVO'}
+                     </button>
+                  )}
+                </div>
+                {!showContactModal ? (
+                  <>
+                    <input
+                      id="contato"
+                      list="contatos-list"
+                      type="text" value={formData.contato || ''}
+                      onChange={(e) => setFormData({ ...formData, contato: e.target.value })}
+                      placeholder=""
+                      className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400"
+                    />
+                    <datalist id="contatos-list">
+                      {formData.clienteId && (
+                        (() => {
+                          const cl = clientes.find((c: any) => c.id === formData.clienteId);
+                          const arr = cl?.contatos ? (typeof cl.contatos === 'string' ? JSON.parse(cl.contatos) : cl.contatos) : [];
+                          return arr.map((ct: any) => <option key={ct.id} value={ct.nome} />);
+                        })()
+                      )}
+                    </datalist>
+                    {/* Auto-fill Helper */}
+                    {formData.contato && formData.clienteId && (() => {
+                      const cl = clientes.find((c: any) => c.id === formData.clienteId);
+                      const arr = cl?.contatos ? (typeof cl.contatos === 'string' ? JSON.parse(cl.contatos) : cl.contatos) : [];
+                      const ct = arr.find((x: any) => x.nome === formData.contato);
+                      if (ct && ct.email && !(formData.cc || '').includes(ct.email)) {
+                        return (
+                          <div className="absolute top-[85%] left-0 z-10 w-full p-2 bg-blue-50/95 backdrop-blur-sm border border-blue-200 rounded shadow-md text-[10px] animate-in fade-in">
+                            <p className="text-slate-600 mb-1">Puxar e-mail: <b>{ct.email}</b>?</p>
+                            <button type="button" onClick={() => setFormData({...formData, cc: formData.cc ? formData.cc + ';' + ct.email : ct.email})} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold px-2 py-1.5 rounded transition-colors duration-200">Preencher Automático</button>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </>
+                ) : (
+                  <div className="absolute top-[85%] left-0 z-20 w-[280px] p-4 bg-white border border-blue-200 rounded-lg shadow-xl text-xs space-y-3 animate-in fade-in">
+                     <p className="font-bold text-blue-800 text-[10px] uppercase border-b border-blue-100 pb-1">Vincular Novo Contato</p>
+                     <div className="space-y-2">
+                       <div><label className="text-[9px] text-slate-500 uppercase font-medium">Nome *</label><input type="text" value={newContact.nome} onChange={e=>setNewContact({...newContact, nome: e.target.value})} className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1.5 focus:border-blue-400 outline-none" autoFocus /></div>
+                       <div><label className="text-[9px] text-slate-500 uppercase font-medium">E-mail</label><input type="email" value={newContact.email} onChange={e=>setNewContact({...newContact, email: e.target.value})} className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1.5 focus:border-blue-400 outline-none" /></div>
+                       <div><label className="text-[9px] text-slate-500 uppercase font-medium">Telefone</label><input type="text" value={newContact.telefone} onChange={e=>setNewContact({...newContact, telefone: e.target.value})} className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1.5 focus:border-blue-400 outline-none" /></div>
+                     </div>
+                     <button type="button" onClick={handleSaveContact} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded transition-colors mt-2 uppercase tracking-wide text-[10px]">Salvar na Base de Dados</button>
+                  </div>
+                )}
               </div>
               <div className="col-span-3 space-y-1">
                 <label className="text-[9px] font-bold text-slate-600 uppercase">E-mails do cliente (com ;)</label>

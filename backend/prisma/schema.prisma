@@ -86,6 +86,7 @@ model Cliente {
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
   centrosCusto        Json?
+  contatos            Json?
   matrizId            String?
   tipoCliente         String              @default("PADRAO")
   integracoesExigidas Json?
