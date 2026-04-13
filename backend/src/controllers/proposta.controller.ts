@@ -795,8 +795,12 @@ export const gerarPDFPropostaWeb = async (req: AuthRequest, res: Response) => {
 
     res.send(pdfBuffer);
   } catch (error: any) {
-    console.error('Erro ao gerar PDF da proposta:', error);
-    res.status(500).json({ error: 'Falha ao processar arquivo PDF', details: error.message });
+    console.error(`[PDF Error] Falha ao gerar PDF para proposta ${req.params.id}:`, error);
+    res.status(500).json({ 
+      error: 'Falha ao processar arquivo PDF', 
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
+    });
   }
 };
 

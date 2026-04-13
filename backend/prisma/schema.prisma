@@ -86,10 +86,10 @@ model Cliente {
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
   centrosCusto        Json?
-  contatos            Json?
   matrizId            String?
   tipoCliente         String              @default("PADRAO")
   integracoesExigidas Json?
+  contatos            Json?
   agendamentos        Agendamento[]
   matriz              Cliente?            @relation("ClienteHierarquia", fields: [matrizId], references: [id])
   filiais             Cliente[]           @relation("ClienteHierarquia")
@@ -858,38 +858,38 @@ model RDO {
 }
 
 model Faturamento {
-  id                String    @id @default(uuid())
-  medicaoId         String?
-  osId              String?
-  clienteId         String
-  tipo              String    @default("RL")
-  numero            String?
-  pedidoCompras     String?
-  dataEmissao       DateTime  @default(now())
-  dataVencimento    DateTime?
-  centroCusto       String?
-  valorBruto        Decimal   @default(0) @db.Decimal(12, 2)
-  percentualINSS    Decimal?  @default(3.5) @db.Decimal(5, 2)
-  valorINSS         Decimal?  @default(0) @db.Decimal(12, 2)
-  valorISS          Decimal?  @default(0) @db.Decimal(12, 2)
-  valorIR           Decimal?  @default(0) @db.Decimal(12, 2)
-  valorCSLL         Decimal?  @default(0) @db.Decimal(12, 2)
-  valorPIS          Decimal?  @default(0) @db.Decimal(12, 2)
-  valorCOFINS       Decimal?  @default(0) @db.Decimal(12, 2)
-  valorLiquido      Decimal   @default(0) @db.Decimal(12, 2)
-  cnpjFaturamento   String?
-  status            String    @default("EMITIDA")
-  observacoes       String?
-  emailEnviadoEm    DateTime?
-  emailDestinatario String?
-  dataPagamento     DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  focusRef          String?   @unique
-  focusStatus       String?
-  focusUrl          String?
+  id                 String    @id @default(uuid())
+  medicaoId          String?
+  osId               String?
+  clienteId          String
+  tipo               String    @default("RL")
+  numero             String?
+  pedidoCompras      String?
+  dataEmissao        DateTime  @default(now())
+  dataVencimento     DateTime?
+  centroCusto        String?
+  valorBruto         Decimal   @default(0) @db.Decimal(12, 2)
+  percentualINSS     Decimal?  @default(3.5) @db.Decimal(5, 2)
+  valorINSS          Decimal?  @default(0) @db.Decimal(12, 2)
+  valorISS           Decimal?  @default(0) @db.Decimal(12, 2)
+  valorIR            Decimal?  @default(0) @db.Decimal(12, 2)
+  valorCSLL          Decimal?  @default(0) @db.Decimal(12, 2)
+  valorPIS           Decimal?  @default(0) @db.Decimal(12, 2)
+  valorCOFINS        Decimal?  @default(0) @db.Decimal(12, 2)
+  valorLiquido       Decimal   @default(0) @db.Decimal(12, 2)
+  cnpjFaturamento    String?
+  status             String    @default("EMITIDA")
+  observacoes        String?
+  emailEnviadoEm     DateTime?
+  emailDestinatario  String?
+  dataPagamento      DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  focusRef           String?   @unique
+  focusStatus        String?
+  focusUrl           String?
   nfseCodVerificacao String?
-  cliente           Cliente   @relation(fields: [clienteId], references: [id])
+  cliente            Cliente   @relation(fields: [clienteId], references: [id])
 }
 
 model EmpresaCNPJ {
@@ -918,17 +918,14 @@ model EmpresaCNPJ {
   rntrc              String?
   telefone           String?
   uf                 String?
-  // Dados Bancários
-  banco              String?
   agencia            String?
+  banco              String?
   conta              String?
-
-  // Configurações NFS-e Campinas
-  nfseAtiva          Boolean  @default(false)
   nfseAmbient        String   @default("HOMOLOGACAO")
-  nfseCertificate    String?  @db.Text
-  nfsePrivateKey     String?  @db.Text
+  nfseAtiva          Boolean  @default(false)
+  nfseCertificate    String?
   nfsePassphrase     String?
+  nfsePrivateKey     String?
 }
 
 model Fornecedor {
@@ -1295,9 +1292,9 @@ model ResponsabilidadePadrao {
 model Cargo {
   id               String   @id @default(uuid())
   nome             String   @unique
-  unicoEquipamento Boolean  @default(false)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+  unicoEquipamento Boolean  @default(false)
 }
 
 model Admissao {

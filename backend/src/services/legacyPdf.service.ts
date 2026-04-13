@@ -301,7 +301,7 @@ export const gerarPdfProposta = async (proposta: any, cliente: any, itens: any[]
     const dataValidade = proposta.dataValidade ? moment(proposta.dataValidade).format('DD/MM/YYYY') : moment().add(30, 'days').format('DD/MM/YYYY');
     const validadeTexto = proposta.validadeDias ? `${proposta.validadeDias} dias corridos` : `Válida até ${dataValidade}`;
 
-    const mappedItens = itens.map(item => {
+    const mappedItens = (itens || []).map(item => {
         const vUnit = Number(item.valorAcobrar || 0);
         const qty   = Number(item.quantidade   || 1);
         const mob   = Number(item.mobilizacao  || 0);
@@ -335,14 +335,18 @@ export const gerarPdfProposta = async (proposta: any, cliente: any, itens: any[]
         });
     }
 
+    // Fallbacks para objetos nulos (comum em importações legadas)
+    const c = cliente || { nome: 'Cliente não informado', razaoSocial: 'Cliente não informado' };
+    const emp = empresa || { razaoSocial: 'Nacional Hidro', cnpj: '00.000.000/0000-00' };
+
     const view = {
         PropostaId:       proposta.codigo || 'S/N',
         DataHoje:         dataHoje,
-        ClienteNome:      cliente.razaoSocial || cliente.nome || 'Cliente',
-        ClienteDoc:       cliente.documento || '',
-        ClienteEndereco:  [cliente.logradouro, cliente.numero, cliente.complemento, cliente.bairro, cliente.cidade, cliente.estado].filter(Boolean).join(', '),
-        ClienteEmail:     cliente.email || '',
-        ContatoNome:      proposta.contato || cliente.nome || '',
+        ClienteNome:      c.razaoSocial || c.nome || 'Cliente',
+        ClienteDoc:       c.documento || '',
+        ClienteEndereco:  [c.endereco, c.logradouro, c.numero, c.complemento, c.bairro, c.cidade, c.estado].filter(Boolean).join(', '),
+        ClienteEmail:     c.email || '',
+        ContatoNome:      proposta.contato || c.nome || '',
         Introducao:       proposta.introducao || '',
         Objetivo:         proposta.objetivo ? proposta.objetivo.replace(/\n/g, '<br/>') : '',
         Itens:            mappedItens,
@@ -356,8 +360,8 @@ export const gerarPdfProposta = async (proposta: any, cliente: any, itens: any[]
         CondicoesPagamento: proposta.condicoesPagamento || '',
         ValidadeTexto:    validadeTexto,
         Vendedor:         proposta.vendedor || '',
-        EmpresaNome:      empresa.razaoSocial || empresa.nome || 'NACIONAL HIDROSANEAMENTO',
-        EmpresaDoc:       empresa.cnpj || empresa.documento || '',
+        EmpresaNome:      emp.razaoSocial || emp.nome || 'NACIONAL HIDROSANEAMENTO',
+        EmpresaDoc:       emp.cnpj || emp.documento || '',
         ValorTotalExtenso: numeroExtenso(proposta.valorTotal || 0)
     };
 
