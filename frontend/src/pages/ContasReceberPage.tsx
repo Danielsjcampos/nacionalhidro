@@ -4,7 +4,7 @@ import {
     Loader2, Plus, X, Search,
     CheckCircle, Edit3, Calendar,
     ChevronLeft, ChevronRight, RotateCcw,
-    Banknote, Download, CheckSquare
+    Banknote, CheckSquare
 } from 'lucide-react';
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string; label: string }> = {

@@ -1,8 +1,6 @@
 import { Response } from 'express';
 import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { registrarLog } from '../lib/auditLog';
-import { checkEmployeeAvailability } from '../services/rh.service';
 
 // ─── ESCALAS ────────────────────────────────────────────────────
 

@@ -3,8 +3,8 @@ import api from '../services/api';
 import {
   Plus, Search, Filter, ChevronRight, X,
   Calendar, Loader2,
-  Mail, AlertTriangle, Globe, MapPin,
-  CheckCircle2, XCircle, ChevronDown, Zap, Eye, RefreshCw, FolderOpen,
+  Mail, AlertTriangle, Globe,
+  CheckCircle2, ChevronDown, Zap, Eye, RefreshCw,
   Copy, Ban
 } from 'lucide-react';
 import { numeroExtenso } from '../utils/numeroExtenso';

@@ -5,7 +5,6 @@ import * as xlsx from 'xlsx';
 
 // Cast to any to support new models/fields added to schema
 const prisma = prismaClient as any;
-import { Decimal } from '@prisma/client/runtime/library';
 
 // ─── HELPERS ────────────────────────────────────────────────────
 const toNum = (v: any): number => Number(v) || 0;
@@ -562,8 +561,12 @@ export const createContaReceber = async (req: AuthRequest, res: Response) => {
 export const receberConta = async (req: AuthRequest, res: Response) => {
   try {
     const { valorRecebido, formaPagamento, valorDesconto, conta, observacoes } = req.body;
+    const { id } = req.params;
+    
+    const titulo = await prisma.contaReceber.findUnique({ where: { id } });
+    
     const c = await prisma.contaReceber.update({
-      where: { id: req.params.id as string },
+      where: { id },
       data: {
         status: 'RECEBIDO',
         valorRecebido: Number(valorRecebido),
@@ -571,7 +574,7 @@ export const receberConta = async (req: AuthRequest, res: Response) => {
         dataRecebimento: new Date(),
         formaPagamento,
         contaBancariaId: conta || undefined,
-        observacoes: observacoes ? `${req.body.observacoes || ''}\nBAIXA: ${observacoes}` : req.body.observacoes
+        observacoes: observacoes ? `${titulo?.observacoes || ''}\nBAIXA: ${observacoes}` : titulo?.observacoes
       }
     });
     res.json(c);
