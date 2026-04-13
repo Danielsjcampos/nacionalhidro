@@ -382,19 +382,19 @@ export const updateOS = async (req: AuthRequest, res: Response) => {
 
         // 2. Notificar Equipe/Motorista (quando entrar em Execução)
         if (rest.status === 'EM_EXECUCAO') {
-          const escala = await tx.escala.findFirst({ 
+          const escala = await prisma.escala.findFirst({ 
             where: { codigoOS: osCodigo },
             orderBy: { createdAt: 'desc' }
           });
           
           if (escala && Array.isArray(escala.funcionarios)) {
-             // Notifica o primeiro funcionário (geralmente o motorista/líder)
              const motorista = (escala.funcionarios as any[])[0];
-             const motoristaDb = await tx.funcionario.findUnique({ where: { id: motorista.id }, select: { telefone: true } });
-             
-             if (motoristaDb?.telefone) {
-               const msgMotorista = `📢 *NACIONAL HIDRO - NOVA OS EM EXECUÇÃO*\n\nEquipe, a OS *${osCodigo}* foi iniciada.\n\n*Cliente:* ${(result as any).cliente?.nome}\n*Status:* ${statusLabel}`;
-               enviarMensagemWhatsApp(motoristaDb.telefone, msgMotorista).catch(e => console.error('[T11] Erro WhatsApp Motorista:', e));
+             if (motorista?.id) {
+               const motoristaDb = await prisma.funcionario.findUnique({ where: { id: motorista.id }, select: { telefone: true } });
+               if (motoristaDb?.telefone) {
+                 const msgMotorista = `📢 *NACIONAL HIDRO - NOVA OS EM EXECUÇÃO*\n\nEquipe, a OS *${osCodigo}* foi iniciada.\n\n*Cliente:* ${(result as any).cliente?.nome}\n*Status:* ${statusLabel}`;
+                 enviarMensagemWhatsApp(motoristaDb.telefone, msgMotorista).catch(e => console.error('[T11] Erro WhatsApp Motorista:', e));
+               }
              }
           }
         }
