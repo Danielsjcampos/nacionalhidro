@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "EmpresaCNPJ" ADD COLUMN "banco" TEXT;
+ALTER TABLE "EmpresaCNPJ" ADD COLUMN "agencia" TEXT;
+ALTER TABLE "EmpresaCNPJ" ADD COLUMN "conta" TEXT;
