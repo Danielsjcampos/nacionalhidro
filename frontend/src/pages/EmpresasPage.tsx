@@ -14,9 +14,12 @@ export default function EmpresasPage() {
         nfseAmbient: 'HOMOLOGACAO',
         nfseCertificate: '',
         nfsePrivateKey: '',
-        nfsePassphrase: ''
+        nfsePassphrase: '',
+        banco: '',
+        agencia: '',
+        conta: ''
     });
-    const [newEmpresa, setNewEmpresa] = useState({ nome: '', cnpj: '', limiteMenusal: '500000', alertaPercentual: '80' });
+    const [newEmpresa, setNewEmpresa] = useState({ nome: '', cnpj: '', limiteMenusal: '500000', alertaPercentual: '80', banco: '', agencia: '', conta: '' });
 
     const fetchIndicadores = async () => {
         try {
@@ -41,7 +44,10 @@ export default function EmpresasPage() {
             nfseAmbient: emp.nfseAmbient || 'HOMOLOGACAO',
             nfseCertificate: emp.nfseCertificate || '',
             nfsePrivateKey: emp.nfsePrivateKey || '',
-            nfsePassphrase: emp.nfsePassphrase || ''
+            nfsePassphrase: emp.nfsePassphrase || '',
+            banco: emp.banco || '',
+            agencia: emp.agencia || '',
+            conta: emp.conta || ''
         });
         setEditingId(emp.id);
     };
@@ -55,7 +61,10 @@ export default function EmpresasPage() {
                 nfseAmbient: editForm.nfseAmbient,
                 nfseCertificate: editForm.nfseCertificate,
                 nfsePrivateKey: editForm.nfsePrivateKey,
-                nfsePassphrase: editForm.nfsePassphrase
+                nfsePassphrase: editForm.nfsePassphrase,
+                banco: editForm.banco,
+                agencia: editForm.agencia,
+                conta: editForm.conta
             });
             setEditingId(null);
             fetchIndicadores();
@@ -72,7 +81,7 @@ export default function EmpresasPage() {
             }
             await api.post('/empresas', newEmpresa);
             setIsAdding(false);
-            setNewEmpresa({ nome: '', cnpj: '', limiteMenusal: '500000', alertaPercentual: '80' });
+            setNewEmpresa({ nome: '', cnpj: '', limiteMenusal: '500000', alertaPercentual: '80', banco: '', agencia: '', conta: '' });
             fetchIndicadores();
         } catch (err: any) {
             alert('Falha ao adicionar empresa.');
@@ -203,6 +212,39 @@ export default function EmpresasPage() {
                                         </div>
                                     </div>
 
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div>
+                                            <label className="text-[10px] font-black uppercase text-slate-500">Banco</label>
+                                            <input 
+                                                type="text"
+                                                value={editForm.banco} 
+                                                onChange={e => setEditForm({...editForm, banco: e.target.value})}
+                                                placeholder="Ex: Itaú (341)"
+                                                className="w-full text-xs p-2 rounded border border-slate-200 outline-none focus:border-blue-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-black uppercase text-slate-500">Agência</label>
+                                            <input 
+                                                type="text"
+                                                value={editForm.agencia} 
+                                                onChange={e => setEditForm({...editForm, agencia: e.target.value})}
+                                                placeholder="Ex: 4009"
+                                                className="w-full text-xs p-2 rounded border border-slate-200 outline-none focus:border-blue-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-black uppercase text-slate-500">Conta/Pix</label>
+                                            <input 
+                                                type="text"
+                                                value={editForm.conta} 
+                                                onChange={e => setEditForm({...editForm, conta: e.target.value})}
+                                                placeholder="Ex: 55747-3"
+                                                className="w-full text-xs p-2 rounded border border-slate-200 outline-none focus:border-blue-500"
+                                            />
+                                        </div>
+                                    </div>
+
                                     <div className="pt-3 border-t border-blue-100">
                                         <div className="flex items-center gap-2 mb-3">
                                             <Settings className="w-4 h-4 text-blue-600" />
@@ -324,6 +366,38 @@ export default function EmpresasPage() {
                                         type="number"
                                         value={newEmpresa.alertaPercentual}
                                         onChange={e => setNewEmpresa({...newEmpresa, alertaPercentual: e.target.value})}
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase text-slate-500">Banco</label>
+                                    <input 
+                                        type="text"
+                                        value={newEmpresa.banco}
+                                        onChange={e => setNewEmpresa({...newEmpresa, banco: e.target.value})}
+                                        placeholder="Ex: Itaú"
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase text-slate-500">Agência</label>
+                                    <input 
+                                        type="text"
+                                        value={newEmpresa.agencia}
+                                        onChange={e => setNewEmpresa({...newEmpresa, agencia: e.target.value})}
+                                        placeholder="Ag"
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase text-slate-500">Conta</label>
+                                    <input 
+                                        type="text"
+                                        value={newEmpresa.conta}
+                                        onChange={e => setNewEmpresa({...newEmpresa, conta: e.target.value})}
+                                        placeholder="C/C ou Pix"
                                         className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none"
                                     />
                                 </div>

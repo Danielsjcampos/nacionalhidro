@@ -917,6 +917,11 @@ model EmpresaCNPJ {
   rntrc              String?
   telefone           String?
   uf                 String?
+  // Dados Bancários
+  banco              String?
+  agencia            String?
+  conta              String?
+
   // Configurações NFS-e Campinas
   nfseAtiva          Boolean  @default(false)
   nfseAmbient        String   @default("HOMOLOGACAO")

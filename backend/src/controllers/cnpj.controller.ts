@@ -63,7 +63,10 @@ export const getIndicadorFaturamento = async (req: AuthRequest, res: Response) =
                 nfseAmbient: emp.nfseAmbient,
                 nfseCertificate: emp.nfseCertificate,
                 nfsePrivateKey: emp.nfsePrivateKey,
-                nfsePassphrase: emp.nfsePassphrase
+                nfsePassphrase: emp.nfsePassphrase,
+                banco: emp.banco,
+                agencia: emp.agencia,
+                conta: emp.conta
             };
         });
 
@@ -97,7 +100,7 @@ export const updateEmpresa = async (req: AuthRequest, res: Response) => {
 // ─── CREATE EMPRESA ─────────────────────────────────────────────
 export const createEmpresa = async (req: AuthRequest, res: Response) => {
     try {
-        const { nome, cnpj, limiteMenusal, alertaPercentual } = req.body;
+        const { nome, cnpj, limiteMenusal, alertaPercentual, banco, agencia, conta } = req.body;
         
         if (!nome || !cnpj) {
             return res.status(400).json({ error: 'Nome e CNPJ são obrigatórios' });
@@ -109,6 +112,9 @@ export const createEmpresa = async (req: AuthRequest, res: Response) => {
                 cnpj,
                 limiteMenusal: limiteMenusal ? Number(limiteMenusal) : 500000,
                 alertaPercentual: alertaPercentual ? Number(alertaPercentual) : 80,
+                banco,
+                agencia,
+                conta,
                 ativa: true
             }
         });
@@ -158,6 +164,9 @@ export async function seedEmpresasHistoricas() {
             limiteMenusal:     500000,
             alertaPercentual:  80,
             ativa:             true,
+            banco:             'ITAU (341)',
+            agencia:           '4009',
+            conta:             '55747-3',
         },
         {
             nome:              'NACIONALHIDRO LOCACAO DE EQUIPAMENTOS EIRELI',
@@ -176,6 +185,9 @@ export async function seedEmpresasHistoricas() {
             limiteMenusal:     500000,
             alertaPercentual:  80,
             ativa:             true,
+            banco:             'ITAU (341)',
+            agencia:           '4009',
+            conta:             '55747-3',
         },
     ];
 
