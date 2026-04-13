@@ -134,6 +134,10 @@ export default function CRM() {
                 <div className="flex items-center gap-3">
                     <div className="flex bg-white rounded-lg border border-slate-200 p-1 shadow-sm">
                         <button 
+                            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${period === '0' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                            onClick={() => setPeriod('0')}
+                        >TUDO</button>
+                        <button 
                             className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${period === '7' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
                             onClick={() => setPeriod('7')}
                         >7D</button>
@@ -145,10 +149,6 @@ export default function CRM() {
                             className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${period === '90' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
                             onClick={() => setPeriod('90')}
                         >90D</button>
-                        <button 
-                            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${period === '0' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-                            onClick={() => setPeriod('0')}
-                        >TUDO</button>
                     </div>
                     <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all shadow-lg shadow-blue-500/20">
                         <Plus className="w-4 h-4" />
