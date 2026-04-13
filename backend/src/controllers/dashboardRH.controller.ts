@@ -151,3 +151,83 @@ export const getDashboardRH = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ error: 'Failed to fetch HR dashboard stats', details: error.message });
     }
 };
+
+export const getAlertasDetalhados = async (req: AuthRequest, res: Response) => {
+    try {
+        const { tipo } = req.query;
+        const now = new Date();
+        const next30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+        let data: any[] = [];
+
+        switch (tipo) {
+            case 'ASO':
+                data = await (prisma as any).aSOControle.findMany({
+                    where: { dataVencimento: { lte: next30Days, gte: now } },
+                    include: { funcionario: { select: { nome: true, cargo: true, departamento: true } } },
+                    orderBy: { dataVencimento: 'asc' }
+                });
+                break;
+
+            case 'CNH':
+                data = await (prisma as any).funcionario.findMany({
+                    where: { ativo: true, dataVencimentoCNH: { lte: next30Days, gte: now } },
+                    select: { nome: true, cargo: true, departamento: true, dataVencimentoCNH: true },
+                    orderBy: { dataVencimentoCNH: 'asc' }
+                });
+                break;
+
+            case 'FERIAS':
+                data = await (prisma as any).controleFerias.findMany({
+                    where: { status: 'A_VENCER', dataVencimento: { lte: next30Days, gte: now } },
+                    include: { funcionario: { select: { nome: true, cargo: true, departamento: true } } },
+                    orderBy: { dataVencimento: 'asc' }
+                });
+                break;
+
+            case 'EXPERIENCIA_45':
+                const employees45 = await (prisma as any).funcionario.findMany({
+                    where: {
+                        ativo: true,
+                        dataAdmissao: {
+                            lte: new Date(now.getTime() - (45 - 7) * 24 * 60 * 60 * 1000),
+                            gte: new Date(now.getTime() - 45 * 24 * 60 * 60 * 1000)
+                        }
+                    },
+                    select: { nome: true, cargo: true, departamento: true, dataAdmissao: true },
+                    orderBy: { dataAdmissao: 'asc' }
+                });
+                data = employees45.map((emp: any) => ({
+                    ...emp,
+                    dataVencimento: new Date(new Date(emp.dataAdmissao).getTime() + 45 * 24 * 60 * 60 * 1000)
+                }));
+                break;
+
+            case 'EXPERIENCIA_90':
+                const employees90 = await (prisma as any).funcionario.findMany({
+                    where: {
+                        ativo: true,
+                        dataAdmissao: {
+                            lte: new Date(now.getTime() - (90 - 7) * 24 * 60 * 60 * 1000),
+                            gte: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+                        }
+                    },
+                    select: { nome: true, cargo: true, departamento: true, dataAdmissao: true },
+                    orderBy: { dataAdmissao: 'asc' }
+                });
+                data = employees90.map((emp: any) => ({
+                    ...emp,
+                    dataVencimento: new Date(new Date(emp.dataAdmissao).getTime() + 90 * 24 * 60 * 60 * 1000)
+                }));
+                break;
+
+            default:
+                return res.status(400).json({ error: 'Tipo de alerta inválido' });
+        }
+
+        res.json(data);
+    } catch (error: any) {
+        console.error('getAlertasDetalhados error:', error);
+        res.status(500).json({ error: 'Failed to fetch detailed alerts', details: error.message });
+    }
+};

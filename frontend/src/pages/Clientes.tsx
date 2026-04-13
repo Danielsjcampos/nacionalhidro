@@ -533,7 +533,7 @@ export default function Clientes() {
                     {/* RH & Integrações Section */}
                     <section className="bg-slate-50 p-6 rounded-xl border border-slate-200 border-dashed">
                       <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-200/50">
-                        <Users className="w-4 h-4 text-purple-500" />
+                        <Users className="w-4 h-4 text-emerald-500" />
                         <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Integrações / Treinamentos Exigidos (RH)</h3>
                       </div>
                       <div className="space-y-4">
@@ -544,7 +544,7 @@ export default function Clientes() {
                         <div className="flex flex-col gap-2">
                           {(formData.integracoesExigidas || []).map((nomeItem: string, idx: number) => (
                             <div key={idx} className="flex items-center gap-2">
-                              <span className="bg-purple-100 text-purple-700 font-bold text-xs px-3 py-1.5 rounded-lg border border-purple-200 flex-1 flex items-center justify-between">
+                              <span className="bg-emerald-100 text-emerald-700 font-bold text-xs px-3 py-1.5 rounded-lg border border-emerald-200 flex-1 flex items-center justify-between">
                                 {nomeItem}
                                 <button
                                   type="button"
@@ -553,7 +553,7 @@ export default function Clientes() {
                                     newList.splice(idx, 1);
                                     setFormData({ ...formData, integracoesExigidas: newList });
                                   }}
-                                  className="text-purple-400 hover:text-red-500 transition-colors"
+                                  className="text-emerald-400 hover:text-red-500 transition-colors"
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </button>
@@ -567,7 +567,7 @@ export default function Clientes() {
                             type="text"
                             id="novaIntegracaoInput"
                             placeholder="Nome do Treinamento/Integração"
-                            className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all flex-1"
+                            className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all flex-1"
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 e.preventDefault();
@@ -584,7 +584,7 @@ export default function Clientes() {
                           />
                           <button
                             type="button"
-                            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 transition-colors"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 transition-colors"
                             onClick={() => {
                               const input = document.getElementById('novaIntegracaoInput') as HTMLInputElement;
                               const val = input?.value.trim();

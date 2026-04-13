@@ -102,8 +102,8 @@ def check_page(file_path: Path) -> dict:
     except Exception as e:
         return {"file": str(file_path.name), "issues": [f"Error: {e}"]}
     
-    # Detect if this is a layout/template file (has Head component)
-    is_layout = 'Head>' in content or '<head' in content.lower()
+    # Detect if this is a layout/template file (has Head component or real <head> tag)
+    is_layout = 'Head>' in content or '<head>' in content.lower() or '<head ' in content.lower() or '<head>' in content.lower()
     
     # 1. Title tag
     has_title = '<title' in content.lower() or 'title=' in content or 'Head>' in content

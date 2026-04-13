@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import {
   Users, Briefcase, UserPlus, Stethoscope, AlertTriangle, 
-  Loader2, RefreshCw, BarChart3, Palmtree, ArrowRight, ClipboardList, Clock
+  Loader2, RefreshCw, BarChart3, Palmtree, ArrowRight, ClipboardList, Clock, X
 } from 'lucide-react';
 
 interface StatCardProps {
@@ -42,11 +42,76 @@ const StatCard = ({ icon: Icon, value, label, color, bgColor, gradient, onClick,
     )}
   </div>
 );
+
+const AlertDetailsModal = ({ isOpen, onClose, title, type, data }: { isOpen: boolean, onClose: () => void, title: string, type: string, data: any[] }) => {
+    if (!isOpen) return null;
+
+    const formatDate = (date: any) => date ? new Date(date).toLocaleDateString('pt-BR') : '---';
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                    <div>
+                        <h3 className="text-lg font-black text-slate-800">{title}</h3>
+                        <p className="text-xs font-medium text-slate-500">{data.length} registros encontrados</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-xl transition-colors">
+                        <X className="w-5 h-5 text-slate-500" />
+                    </button>
+                </div>
+                
+                <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
+                    {data.length === 0 ? (
+                        <div className="py-12 text-center">
+                            <p className="text-slate-400 font-medium">Nenhum registro encontrado para este alerta.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {data.map((item, idx) => (
+                                <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-blue-200 transition-colors">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-white border border-slate-100 flex items-center justify-center font-bold text-slate-400">
+                                            {(item.funcionario?.nome || item.nome || '?').charAt(0)}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-slate-800">{item.funcionario?.nome || item.nome}</p>
+                                            <p className="text-xs text-slate-500">{item.funcionario?.cargo || item.cargo} • {item.funcionario?.departamento || item.departamento}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-[10px] uppercase font-bold text-slate-400">Vencimento</p>
+                                        <p className="text-xs font-black text-blue-600">
+                                            {formatDate(item.dataVencimento || item.dataVencimentoCNH || item.dataAdmissao || item.dataVencimentoMOPP)}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                    <button onClick={onClose} className="px-4 py-2 bg-slate-800 text-white text-xs font-bold rounded-xl hover:bg-slate-900 transition-all">
+                        Fechar
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 export default function RH() {
   const navigate = useNavigate();
   const [data, setData] = useState<any>(null);
   const [attendance, setAttendance] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Alerta Modal State
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalType, setModalType] = useState('');
+  const [modalData, setModalData] = useState<any[]>([]);
+  const [modalLoading, setModalLoading] = useState(false);
 
   const fetchDashboard = async () => {
     try {
@@ -60,6 +125,23 @@ export default function RH() {
       console.error('Failed to fetch RH dashboard', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openAlertDetails = async (type: string, title: string) => {
+    setModalTitle(title);
+    setModalType(type);
+    setModalOpen(true);
+    setModalLoading(true);
+    setModalData([]);
+    
+    try {
+        const res = await api.get(`/dashboard-rh/detalhes?tipo=${type}`);
+        setModalData(res.data);
+    } catch (err) {
+        console.error('Failed to fetch alert details', err);
+    } finally {
+        setModalLoading(false);
     }
   };
 
@@ -103,7 +185,11 @@ export default function RH() {
           >
             <Briefcase className="w-4 h-4" /> Vagas & Recrutamento
           </button>
-          <button onClick={fetchDashboard} className="p-2 border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 rounded-xl transition-all">
+          <button 
+            aria-label="Atualizar indicadores"
+            onClick={fetchDashboard} 
+            className="p-2 border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 rounded-xl transition-all"
+          >
             <RefreshCw className="w-4 h-4" />
           </button>
         </div>
@@ -144,7 +230,7 @@ export default function RH() {
       <h2 className="text-lg font-black text-slate-800 pt-4 border-b border-slate-200 pb-2">Detalhes Operacionais</h2>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between hover:border-blue-400 cursor-pointer transition-colors group" onClick={() => navigate('/aso-controle')}>
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between hover:border-blue-400 cursor-pointer transition-colors group" onClick={() => openAlertDetails('ASO', 'ASOs Vencendo (Próximos 30 dias)')}>
               <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
                       <Stethoscope className="w-5 h-5 text-blue-500" />
@@ -155,11 +241,11 @@ export default function RH() {
                   </div>
               </div>
               <div className="text-2xl font-black text-slate-800 bg-slate-50 w-12 h-12 rounded-xl flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-all">
-                  {alertas.asoVencendo || 0}
+                  {alertas.asoVencendo || d.experiencia45 || 0}
               </div>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between hover:border-cyan-400 cursor-pointer transition-colors group" onClick={() => navigate('/ferias')}>
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between hover:border-cyan-400 cursor-pointer transition-colors group" onClick={() => openAlertDetails('FERIAS', 'Colaboradores com Férias a Vencer')}>
               <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-full bg-cyan-50 flex items-center justify-center group-hover:bg-cyan-100 transition-colors">
                       <Palmtree className="w-5 h-5 text-cyan-500" />
@@ -174,17 +260,17 @@ export default function RH() {
               </div>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between hover:border-violet-400 cursor-pointer transition-colors group" onClick={() => navigate('/painel-motorista')}>
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between hover:border-cyan-400 cursor-pointer transition-colors group" onClick={() => openAlertDetails('CNH', 'CNHs dos Motoristas Vencendo')}>
               <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-violet-50 flex items-center justify-center group-hover:bg-violet-100 transition-colors">
-                      <ClipboardList className="w-5 h-5 text-violet-500" />
+                  <div className="w-10 h-10 rounded-full bg-cyan-50 flex items-center justify-center group-hover:bg-cyan-100 transition-colors">
+                      <ClipboardList className="w-5 h-5 text-cyan-500" />
                   </div>
                   <div>
-                      <h3 className="text-sm font-bold text-slate-700 group-hover:text-violet-600">CNHs Vencendo</h3>
+                      <h3 className="text-sm font-bold text-slate-700 group-hover:text-cyan-600">CNHs Vencendo</h3>
                       <p className="text-xs text-slate-500 mt-1">Documentos dos motoristas expirando</p>
                   </div>
               </div>
-              <div className="text-2xl font-black text-slate-800 bg-slate-50 w-12 h-12 rounded-xl flex items-center justify-center group-hover:bg-violet-500 group-hover:text-white transition-all">
+              <div className="text-2xl font-black text-slate-800 bg-slate-50 w-12 h-12 rounded-xl flex items-center justify-center group-hover:bg-cyan-500 group-hover:text-white transition-all">
                   {alertas.cnhVencendo || 0}
               </div>
           </div>
@@ -219,7 +305,7 @@ export default function RH() {
               </div>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between hover:border-indigo-400 cursor-pointer transition-colors group" onClick={() => navigate('/relatorios-rh')}>
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between hover:border-indigo-400 cursor-pointer transition-colors group" onClick={() => openAlertDetails('EXPERIENCIA_45', 'Vencimento de Experiência (45 Dias)')}>
               <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
                       <Clock className="w-5 h-5 text-indigo-500" />
@@ -230,8 +316,8 @@ export default function RH() {
                   </div>
               </div>
               <div className="flex flex-col items-center gap-1">
-                  <span className="text-xs font-bold text-slate-400">45d: {d.experiencia45 || 0}</span>
-                  <span className="text-xs font-bold text-slate-400">90d: {d.experiencia90 || 0}</span>
+                  <span className="text-xs font-bold text-slate-400 hover:text-indigo-600" onClick={(e) => { e.stopPropagation(); openAlertDetails('EXPERIENCIA_45', 'Vencimento de Experiência (45 Dias)'); }}>45d: {d.experiencia45 || 0}</span>
+                  <span className="text-xs font-bold text-slate-400 hover:text-indigo-600" onClick={(e) => { e.stopPropagation(); openAlertDetails('EXPERIENCIA_90', 'Vencimento de Experiência (90 Dias)'); }}>90d: {d.experiencia90 || 0}</span>
               </div>
           </div>
 
@@ -251,6 +337,14 @@ export default function RH() {
           </div>
 
       </div>
+
+      <AlertDetailsModal 
+        isOpen={modalOpen} 
+        onClose={() => setModalOpen(false)} 
+        title={modalTitle} 
+        type={modalType} 
+        data={modalData} 
+      />
     </div>
   );
 }

@@ -234,7 +234,7 @@ export default function WhatsAppPage() {
                 <button onClick={() => setTab('logs')} className={`px-4 py-1.5 rounded-md text-xs font-bold ${tab === 'logs' ? 'bg-white shadow text-emerald-600' : 'text-slate-500'}`}>
                     <Bell className="w-3.5 h-3.5 inline mr-1" /> Log de Envios
                 </button>
-                <button onClick={() => setTab('webhooks' as any)} className={`px-4 py-1.5 rounded-md text-xs font-bold ${tab === ('webhooks' as any) ? 'bg-white shadow text-purple-600' : 'text-slate-500'}`}>
+                <button onClick={() => setTab('webhooks' as any)} className={`px-4 py-1.5 rounded-md text-xs font-bold ${tab === ('webhooks' as any) ? 'bg-white shadow text-emerald-600' : 'text-slate-500'}`}>
                     <Globe className="w-3.5 h-3.5 inline mr-1" /> Webhooks
                 </button>
             </div>
@@ -478,25 +478,25 @@ export default function WhatsAppPage() {
                 {/* ═══ WEBHOOKS TAB ═══ */}
                 {tab === ('webhooks' as any) && (
                     <div className="space-y-4">
-                        <div className="bg-purple-50 border border-purple-200 rounded-xl p-5 space-y-3 relative overflow-hidden">
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 space-y-3 relative overflow-hidden">
                             <div className="absolute top-0 right-0 p-4 opacity-10">
-                                <Globe className="w-24 h-24 text-purple-600" />
+                                <Globe className="w-24 h-24 text-emerald-600" />
                             </div>
                             <div className="relative z-10">
-                                <h3 className="text-sm font-black text-purple-800 flex items-center gap-2">
+                                <h3 className="text-sm font-black text-emerald-800 flex items-center gap-2">
                                     <Globe className="w-4 h-4" /> Integração de Webhook
                                 </h3>
-                                <p className="text-xs text-purple-600">
+                                <p className="text-xs text-emerald-600">
                                     Use a URL abaixo no Fluent Forms (WordPress), Google Ads (Formulário de Leads) ou outras ferramentas externas. O sistema salvará o lead e alertará o grupo de atendimento no WhatsApp automaticamente.
                                 </p>
                                 <div className="mt-4 flex flex-col gap-2">
-                                    <label className="text-[10px] font-black uppercase text-purple-500 tracking-wider">URL do Webhook (Método POST)</label>
+                                    <label className="text-[10px] font-black uppercase text-emerald-500 tracking-wider">URL do Webhook (Método POST)</label>
                                     <div className="flex gap-2">
-                                        <code className="flex-1 bg-white border border-purple-200 p-3 rounded-lg text-xs text-slate-700 font-mono select-all font-bold">
+                                        <code className="flex-1 bg-white border border-emerald-200 p-3 rounded-lg text-xs text-slate-700 font-mono select-all font-bold">
                                             https://apievo.nacionalhidro.com.br/webhook/lead
                                         </code>
                                     </div>
-                                    <p className="text-[10px] text-purple-500 font-medium">
+                                    <p className="text-[10px] text-emerald-500 font-medium">
                                         <strong>WordPress:</strong> Campos: <code className="font-bold">nome</code>, <code className="font-bold">telefone</code>, <code className="font-bold">email</code>, <code className="font-bold">mensagem</code> &bull;
                                         <strong> Google Ads:</strong> Campos automáticos (FULL_NAME, PHONE_NUMBER, COMPANY_NAME). Chave: <code className="font-bold">nacionalhidroleads</code>
                                     </p>
@@ -523,7 +523,7 @@ export default function WhatsAppPage() {
                                                     <p className="text-[10px] text-slate-400">{data.whatsapp || data.telefone || data.email || 'N/A'}</p>
                                                 </td>
                                                 <td className="p-3">
-                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-700">
+                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">
                                                         {w.provider || 'Website Form'}
                                                     </span>
                                                 </td>

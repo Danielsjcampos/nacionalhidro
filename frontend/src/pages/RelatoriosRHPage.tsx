@@ -130,17 +130,29 @@ export default function RelatoriosRHPage() {
                                 <p className="text-xs text-slate-500">{report.desc}</p>
 
                                 {report.hasDateFilter && (
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="date" value={df.inicio}
-                                            onChange={e => setDateFilters({ ...dateFilters, [report.key]: { ...df, inicio: e.target.value } })}
-                                            className="flex-1 border border-slate-200 rounded-lg p-1.5 text-xs"
-                                        />
-                                        <input
-                                            type="date" value={df.fim}
-                                            onChange={e => setDateFilters({ ...dateFilters, [report.key]: { ...df, fim: e.target.value } })}
-                                            className="flex-1 border border-slate-200 rounded-lg p-1.5 text-xs"
-                                        />
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex gap-2">
+                                            <div className="flex-1">
+                                                <label htmlFor={`inicio-${report.key}`} className="sr-only">Data Início</label>
+                                                <input
+                                                    id={`inicio-${report.key}`}
+                                                    type="date" value={df.inicio}
+                                                    onChange={e => setDateFilters({ ...dateFilters, [report.key]: { ...df, inicio: e.target.value } })}
+                                                    className="w-full border border-slate-200 rounded-lg p-1.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+                                                    placeholder="Início"
+                                                />
+                                            </div>
+                                            <div className="flex-1">
+                                                <label htmlFor={`fim-${report.key}`} className="sr-only">Data Fim</label>
+                                                <input
+                                                    id={`fim-${report.key}`}
+                                                    type="date" value={df.fim}
+                                                    onChange={e => setDateFilters({ ...dateFilters, [report.key]: { ...df, fim: e.target.value } })}
+                                                    className="w-full border border-slate-200 rounded-lg p-1.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+                                                    placeholder="Fim"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
 

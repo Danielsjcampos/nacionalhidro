@@ -40,6 +40,7 @@ export default function Faturamento() {
     const [filterTipo, setFilterTipo] = useState('');
     const [actionModal, setActionModal] = useState<{ type: 'cce' | 'cancelar' | null, id: string, text: string }>({ type: null, id: '', text: '' });
     const [tetoFiscal, setTetoFiscal] = useState<any[]>([]);
+    const [activeTab, setActiveTab] = useState<'Status_do_Faturamento' | 'Cancelados'>('Status_do_Faturamento');
 
     const [form, setForm] = useState({
         clienteId: '', tipo: 'RL', numero: '', pedidoCompras: '',
@@ -206,6 +207,23 @@ export default function Faturamento() {
                 </div>
             </div>
 
+            {/* Tabs */}
+            <div className="flex border-b border-slate-200 mt-2">
+                {['Status_do_Faturamento', 'Cancelados'].map(tab => (
+                    <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab as any)}
+                        className={`py-3 px-6 font-bold text-sm border-b-2 transition-all ${
+                            activeTab === tab
+                                ? 'border-blue-600 text-blue-600'
+                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                        }`}
+                    >
+                        {tab.replace(/_/g, ' ')}
+                    </button>
+                ))}
+            </div>
+
             {/* Stats */}
             {stats && (
                 <div className="grid grid-cols-4 gap-3">
@@ -318,7 +336,7 @@ export default function Faturamento() {
                             </tr>
                         </thead>
                         <tbody>
-                            {faturas.map((f: any) => {
+                            {faturas.filter(f => activeTab === 'Cancelados' ? f.status === 'CANCELADA' || f.focusStatus === 'CANCELADA' : f.status !== 'CANCELADA' && f.focusStatus !== 'CANCELADA').map((f: any) => {
                                 const tipoInfo = TIPOS[f.tipo] || TIPOS.RL;
                                 const statusInfo = STATUS_MAP[f.status] || STATUS_MAP.EMITIDA;
                                 return (
@@ -384,7 +402,7 @@ export default function Faturamento() {
                                     </tr>
                                 );
                             })}
-                            {faturas.length === 0 && (
+                            {faturas.filter(f => activeTab === 'Cancelados' ? f.status === 'CANCELADA' || f.focusStatus === 'CANCELADA' : f.status !== 'CANCELADA' && f.focusStatus !== 'CANCELADA').length === 0 && (
                                 <tr><td colSpan={10} className="p-8 text-center text-slate-400">Nenhuma fatura encontrada</td></tr>
                             )}
                         </tbody>
@@ -400,37 +418,58 @@ export default function Faturamento() {
                             <h2 className="text-lg font-bold text-slate-800">Nova Fatura</h2>
                             <button onClick={() => setShowForm(false)}><X className="w-5 h-5 text-slate-400" /></button>
                         </div>
-                        <select value={form.clienteId} onChange={e => setForm({ ...form, clienteId: e.target.value })}
-                            className="w-full border border-slate-200 rounded-lg p-2.5 text-sm">
-                            <option value="">Selecione o Cliente *</option>
-                            {clientes.map((c: any) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                        </select>
-                        <select value={form.cnpjFaturamento} onChange={e => setForm({ ...form, cnpjFaturamento: e.target.value })}
-                            className="w-full border border-slate-200 rounded-lg p-2.5 text-sm">
-                            <option value="">CNPJ de Faturamento (Opcional)</option>
-                            {tetoFiscal.map((t: any) => <option key={t.cnpj} value={t.cnpj}>{t.nome} — {t.cnpj}</option>)}
-                        </select>
-                        <div className="grid grid-cols-2 gap-3">
-                            <select value={form.tipo} onChange={e => setForm({ ...form, tipo: e.target.value })}
-                                className="border border-slate-200 rounded-lg p-2.5 text-sm">
-                                <option value="RL">RL (Locação)</option>
-                                <option value="NFSE">NFS-e (Serviço)</option>
-                                <option value="CTE">CT-e (Transporte)</option>
+                        <div className="space-y-1">
+                            <label htmlFor="clienteId" className="text-[10px] font-bold text-slate-600 uppercase">Cliente</label>
+                            <select id="clienteId" value={form.clienteId} onChange={e => setForm({ ...form, clienteId: e.target.value })}
+                                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm">
+                                <option value="">Selecione o Cliente *</option>
+                                {clientes.map((c: any) => <option key={c.id} value={c.id}>{c.nome}</option>)}
                             </select>
-                            <input value={form.numero} onChange={e => setForm({ ...form, numero: e.target.value })}
-                                placeholder="Número da nota" className="border border-slate-200 rounded-lg p-2.5 text-sm" />
+                        </div>
+                        <div className="space-y-1">
+                            <label htmlFor="cnpjFaturamento" className="text-[10px] font-bold text-slate-600 uppercase">CNPJ de Faturamento</label>
+                            <select id="cnpjFaturamento" value={form.cnpjFaturamento} onChange={e => setForm({ ...form, cnpjFaturamento: e.target.value })}
+                                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm">
+                                <option value="">CNPJ de Faturamento (Opcional)</option>
+                                {tetoFiscal.map((t: any) => <option key={t.cnpj} value={t.cnpj}>{t.nome} — {t.cnpj}</option>)}
+                            </select>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
-                            <input type="date" value={form.dataEmissao} onChange={e => setForm({ ...form, dataEmissao: e.target.value })}
-                                className="border border-slate-200 rounded-lg p-2.5 text-sm" />
-                            <input type="date" value={form.dataVencimento} onChange={e => setForm({ ...form, dataVencimento: e.target.value })}
-                                className="border border-slate-200 rounded-lg p-2.5 text-sm" placeholder="Vencimento" />
+                            <div className="space-y-1">
+                                <label htmlFor="tipo" className="text-[10px] font-bold text-slate-600 uppercase">Tipo</label>
+                                <select id="tipo" value={form.tipo} onChange={e => setForm({ ...form, tipo: e.target.value })}
+                                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm">
+                                    <option value="RL">RL (Locação)</option>
+                                    <option value="NFSE">NFS-e (Serviço)</option>
+                                    <option value="CTE">CT-e (Transporte)</option>
+                                </select>
+                            </div>
+                            <div className="space-y-1">
+                                <label htmlFor="numero" className="text-[10px] font-bold text-slate-600 uppercase">Número</label>
+                                <input id="numero" value={form.numero} onChange={e => setForm({ ...form, numero: e.target.value })}
+                                    placeholder="Número da nota" className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" />
+                            </div>
                         </div>
-                        <select value={form.centroCusto} onChange={e => setForm({ ...form, centroCusto: e.target.value })}
-                            className="w-full border border-slate-200 rounded-lg p-2.5 text-sm">
-                            <option value="">Centro de Custo</option>
-                            {CENTROS_CUSTO.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
-                        </select>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <label htmlFor="dataEmissao" className="text-[10px] font-bold text-slate-600 uppercase">Data de Emissão</label>
+                                <input id="dataEmissao" type="date" value={form.dataEmissao} onChange={e => setForm({ ...form, dataEmissao: e.target.value })}
+                                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" />
+                            </div>
+                            <div className="space-y-1">
+                                <label htmlFor="dataVencimento" className="text-[10px] font-bold text-slate-600 uppercase">Vencimento</label>
+                                <input id="dataVencimento" type="date" value={form.dataVencimento} onChange={e => setForm({ ...form, dataVencimento: e.target.value })}
+                                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" placeholder="Vencimento" />
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <label htmlFor="centroCusto" className="text-[10px] font-bold text-slate-600 uppercase">Centro de Custo</label>
+                            <select id="centroCusto" value={form.centroCusto} onChange={e => setForm({ ...form, centroCusto: e.target.value })}
+                                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm">
+                                <option value="">Centro de Custo</option>
+                                {CENTROS_CUSTO.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                            </select>
+                        </div>
                         <div className="grid grid-cols-2 gap-3">
                             <input type="number" step="0.01" value={form.valorBruto} onChange={e => setForm({ ...form, valorBruto: e.target.value })}
                                 placeholder="Valor Bruto *" className="border border-slate-200 rounded-lg p-2.5 text-sm" />

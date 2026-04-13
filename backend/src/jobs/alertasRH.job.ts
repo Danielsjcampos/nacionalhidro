@@ -4,6 +4,7 @@ import {
     sendGEST06_Avaliacao1Periodo,
     sendGEST07_Avaliacao2Periodo,
 } from '../services/email.service';
+import { enviarMensagemWhatsApp } from '../services/whatsapp.service';
 
 // ─── T07: Cron de Alertas RH (ASO, Férias, Experiência) ────────────
 // Roda diariamente às 07:00 AM — verifica vencimentos e gera alertas
@@ -17,28 +18,42 @@ export const startAlertasRHJob = () => {
             const alertas = await verificarAlertasRH();
             console.log(`[CRON-RH] ${alertas.total} alertas encontrados: ${alertas.asoVencendo.length} ASO, ${alertas.feriasVencendo.length} Férias, ${alertas.experienciaVencendo.length} Experiência`);
 
+            // Buscar telefone do RH nas configurações para notificar o gestor
+            const config = await prisma.configuracao.findUnique({ where: { id: 'default' } });
+            const telefoneGestor = config?.telefone;
+
             // ═══════════════════════════════════════════════════════
-            // 📧 PIPEFY: Disparar e-mails de avaliação de experiência
+            // 📧 PIPEFY / WHATSAPP: Alertas de Experiência
             // ═══════════════════════════════════════════════════════
             for (const alerta of alertas.experienciaVencendo) {
-                // Dispara apenas quando faltam exatamente 5 dias para evitar spam diário
+                // Notificar quando faltam exatamente 5 dias
                 if (alerta.diasRestantes === 5) {
                     try {
+                        const dataFim = new Date(alerta.dataVencimento).toLocaleDateString('pt-BR');
+                        
+                        // 1. Notificação por E-mail (Pipefy Flow)
                         const emailData = {
                             nome: alerta.nome,
                             cargo: alerta.cargo || 'N/A',
-                            dataFinalizacao: new Date(alerta.dataVencimento).toLocaleDateString('pt-BR'),
+                            dataFinalizacao: dataFim,
                         };
 
                         if (alerta.tipoAlerta === '45_DIAS') {
-                            console.log(`[Pipefy Email] GEST-06 Avaliação 1º Período → ${alerta.nome}`);
                             await sendGEST06_Avaliacao1Periodo(emailData);
                         } else if (alerta.tipoAlerta === '90_DIAS') {
-                            console.log(`[Pipefy Email] GEST-07 Avaliação 2º Período → ${alerta.nome}`);
                             await sendGEST07_Avaliacao2Periodo(emailData);
                         }
+
+                        // 2. Notificação por WhatsApp para o GESTOR (Novo pedido do usuário)
+                        if (telefoneGestor) {
+                            const msgGestor = `🚨 *ALERTA RH: VENCIMENTO DE EXPERIÊNCIA*\n\n` +
+                                `O colaborador *${alerta.nome}* (${alerta.cargo}) completa seu período de *${alerta.tipoAlerta === '45_DIAS' ? '45 dias' : '90 dias'}* em: *${dataFim}*.\n\n` +
+                                `Por favor, realize a avaliação de desempenho no sistema.`;
+                            
+                            await enviarMensagemWhatsApp(telefoneGestor, msgGestor, 'RH_Oficial');
+                        }
                     } catch (e) {
-                        console.error(`[Pipefy Email - Experiência] Failed for ${alerta.nome}:`, e);
+                        console.error(`[Alerta RH] Failed for ${alerta.nome}:`, e);
                     }
                 }
             }

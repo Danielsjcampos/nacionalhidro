@@ -23,6 +23,7 @@ export default function Propostas() {
   const [showFilters, setShowFilters] = useState(false);
   const [expandedUnidades, setExpandedUnidades] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'EQUIPAMENTOS' | 'ACESSORIOS' | 'RESPONSABILIDADES' | 'EQUIPES'>('EQUIPAMENTOS');
+  const [selectedTipo, setSelectedTipo] = useState<'Em Aberto' | 'Aprovadas' | 'Reprovadas' | 'Canceladas'>('Em Aberto');
   const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
   const [dispatchData, setDispatchData] = useState({
     propostaId: '',
@@ -732,6 +733,23 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
             </button>
           </div>
 
+          {/* Legacy-style Tabs */}
+          <div className="flex border-b border-slate-200">
+            {['Em Aberto', 'Aprovadas', 'Reprovadas', 'Canceladas'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => setSelectedTipo(tab as any)}
+                className={`py-3 px-6 font-bold text-sm border-b-2 transition-all ${
+                  selectedTipo === tab
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
           {/* Search + Filters */}
           <div className="flex items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
             <div className="flex-1 relative">
@@ -806,7 +824,13 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {propostas.map((prop) => (
+                  {propostas.filter(p => {
+                    if (selectedTipo === 'Em Aberto') return ['RASCUNHO', 'ENVIADA', 'PENDENTE'].includes(p.status);
+                    if (selectedTipo === 'Aprovadas') return p.status === 'ACEITA';
+                    if (selectedTipo === 'Reprovadas') return p.status === 'RECUSADA';
+                    if (selectedTipo === 'Canceladas') return p.status === 'CANCELADA';
+                    return true;
+                  }).map((prop) => (
                     <tr key={prop.id}>
                       <td className="px-3 py-3">
                         <div className="flex flex-wrap items-center gap-1 min-w-[120px]">
@@ -818,7 +842,7 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
                           {prop.status === 'ACEITA' && prop.tipo === 'INDIVIDUAL' && (
                             <>
                               <button onClick={() => handleGerarOS(prop.id)} className="p-1 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-md" title="Gerar OS"><Zap className="w-4 h-4" /></button>
-                              <button onClick={() => handleOpenDispatch(prop)} className="p-1 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-md" title="Disparar p/ Equipe"><Globe className="w-4 h-4" /></button>
+                              <button onClick={() => handleOpenDispatch(prop)} className="p-1 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-md" title="Disparar p/ Equipe"><Globe className="w-4 h-4" /></button>
                             </>
                           )}
                           {prop.status === 'RASCUNHO' && (
@@ -1029,15 +1053,17 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
             {/* ROW 1: Código, Datas, Vendedor, Situação */}
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-2 space-y-1">
-                <label className="text-[9px] font-bold text-slate-600 uppercase">Código</label>
+                <label htmlFor="codigo" className="text-[9px] font-bold text-slate-600 uppercase">Código</label>
                 <input
+                  id="codigo"
                   type="text" disabled value={formData.codigo || ''}
                   className="w-full bg-slate-100 border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-500 font-medium outline-none"
                 />
               </div>
               <div className="col-span-2 space-y-1">
-                <label className="text-[9px] font-bold text-slate-600 uppercase">Classificação</label>
+                <label htmlFor="tipoProposta" className="text-[9px] font-bold text-slate-600 uppercase">Classificação</label>
                 <select
+                  id="tipoProposta"
                   value={formData.tipoProposta || 'COMERCIAL'}
                   onChange={(e) => setFormData({ ...formData, tipoProposta: e.target.value })}
                   className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400"
@@ -1047,24 +1073,27 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
                 </select>
               </div>
               <div className="col-span-2 space-y-1">
-                <label className="text-[9px] font-bold text-slate-600 uppercase">Data da Proposta</label>
+                <label htmlFor="dataProposta" className="text-[9px] font-bold text-slate-600 uppercase">Data da Proposta</label>
                 <input
+                  id="dataProposta"
                   type="date" value={formData.dataProposta || ''}
                   onChange={(e) => setFormData({ ...formData, dataProposta: e.target.value })}
                   className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400"
                 />
               </div>
               <div className="col-span-2 space-y-1">
-                <label className="text-[9px] font-bold text-slate-600 uppercase">Data de Validade</label>
+                <label htmlFor="dataValidade" className="text-[9px] font-bold text-slate-600 uppercase">Data de Validade</label>
                 <input
+                  id="dataValidade"
                   type="date" value={formData.dataValidade || ''}
                   onChange={(e) => setFormData({ ...formData, dataValidade: e.target.value })}
                   className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400"
                 />
               </div>
               <div className="col-span-3 space-y-1">
-                <label className="text-[9px] font-bold text-slate-600 uppercase">Vendedor</label>
+                <label htmlFor="vendedor" className="text-[9px] font-bold text-slate-600 uppercase">Vendedor</label>
                 <select
+                  id="vendedor"
                   value={formData.vendedor || ''}
                   onChange={(e) => setFormData({ ...formData, vendedor: e.target.value })}
                   className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400"
@@ -1074,8 +1103,9 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
                 </select>
               </div>
               <div className="col-span-3 space-y-1">
-                <label className="text-[9px] font-bold text-slate-600 uppercase">Situação</label>
+                <label htmlFor="status" className="text-[9px] font-bold text-slate-600 uppercase">Situação</label>
                 <select
+                  id="status"
                   value={formData.status || 'RASCUNHO'}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                   className="w-full bg-white border border-red-300 rounded px-2 py-1.5 text-xs text-red-600 font-medium outline-none focus:border-red-400"
@@ -1092,8 +1122,9 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
             {/* ROW 2: Cliente, Contato, Email, Não enviar p/ cliente */}
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-5 space-y-1">
-                <label className="text-[9px] font-bold text-slate-600 uppercase">Cliente</label>
+                <label htmlFor="clienteId" className="text-[9px] font-bold text-slate-600 uppercase">Cliente</label>
                 <select
+                  id="clienteId"
                   value={formData.clienteId || ''}
                   onChange={(e) => {
                     const id = e.target.value;
@@ -1112,8 +1143,9 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
                 </select>
               </div>
               <div className="col-span-3 space-y-1">
-                <label className="text-[9px] font-bold text-slate-600 uppercase">Contato (A/C)</label>
+                <label htmlFor="contato" className="text-[9px] font-bold text-slate-600 uppercase">Contato (A/C)</label>
                 <input
+                  id="contato"
                   type="text" value={formData.contato || ''}
                   onChange={(e) => setFormData({ ...formData, contato: e.target.value })}
                   className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400"
@@ -1164,16 +1196,18 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
             {/* ROW 3: Intro & Objective / Técnicos */}
             <div className="grid grid-cols-2 gap-3 mt-2">
               <div className="space-y-1">
-                <label className="text-[9px] font-bold text-slate-600 uppercase">Introdução</label>
+                <label htmlFor="introducao" className="text-[9px] font-bold text-slate-600 uppercase">Introdução</label>
                 <textarea
+                  id="introducao"
                   value={formData.introducao || ''}
                   onChange={(e) => setFormData({ ...formData, introducao: e.target.value })}
                   className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400 min-h-[50px] resize-none"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[9px] font-bold text-slate-600 uppercase">Objetivo / Escopo</label>
+                <label htmlFor="objetivo" className="text-[9px] font-bold text-slate-600 uppercase">Objetivo / Escopo</label>
                 <textarea
+                  id="objetivo"
                   value={formData.objetivo || ''}
                   onChange={(e) => setFormData({ ...formData, objetivo: e.target.value })}
                   className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400 min-h-[50px] resize-none"
@@ -1188,9 +1222,10 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
               </div>
               <div className="grid grid-cols-5 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-slate-600 uppercase">Franquia de Horas / dia</label>
+                  <label htmlFor="franquiaHoras" className="text-[9px] font-bold text-slate-600 uppercase">Franquia de Horas / dia</label>
                   <div className="flex items-center gap-1">
                     <input
+                      id="franquiaHoras"
                       type="number"
                       min="1"
                       max="24"
@@ -1205,9 +1240,10 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
                   <p className="text-[9px] text-slate-400 italic">Horas incluídas sem adicional</p>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-slate-600 uppercase">Adicional H. Extra (%)</label>
+                  <label htmlFor="adicionalHoraExtra" className="text-[9px] font-bold text-slate-600 uppercase">Adicional H. Extra (%)</label>
                   <div className="flex items-center gap-1">
                     <input
+                      id="adicionalHoraExtra"
                       type="number"
                       min="0"
                       max="200"
@@ -1222,9 +1258,10 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
                   <p className="text-[9px] text-slate-400 italic">Após franquia</p>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-slate-600 uppercase">Adicional Noturno (%)</label>
+                  <label htmlFor="adicionalNoturno" className="text-[9px] font-bold text-slate-600 uppercase">Adicional Noturno (%)</label>
                   <div className="flex items-center gap-1">
                     <input
+                      id="adicionalNoturno"
                       type="number"
                       min="0"
                       max="200"
@@ -1239,9 +1276,10 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
                   <p className="text-[9px] text-slate-400 italic">22h–05h</p>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-slate-600 uppercase">Adicional Fim de Semana (%)</label>
+                  <label htmlFor="adicionalFimSemana" className="text-[9px] font-bold text-slate-600 uppercase">Adicional Fim de Semana (%)</label>
                   <div className="flex items-center gap-1">
                     <input
+                      id="adicionalFimSemana"
                       type="number"
                       min="0"
                       max="200"
@@ -1256,9 +1294,10 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
                   <p className="text-[9px] text-slate-400 italic">Sáb, Dom e Feriados</p>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-slate-600 uppercase">Min. Cobrável / chamado</label>
+                  <label htmlFor="minimoHorasChamado" className="text-[9px] font-bold text-slate-600 uppercase">Min. Cobrável / chamado</label>
                   <div className="flex items-center gap-1">
                     <input
+                      id="minimoHorasChamado"
                       type="number"
                       min="0"
                       max="24"

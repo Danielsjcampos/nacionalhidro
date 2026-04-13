@@ -397,7 +397,7 @@ export default function Dashboard() {
           title="Taxa de Conversão"
           value={`${data.propostas.total > 0 ? Math.round((data.propostas.aceitas / data.propostas.total) * 100) : 0}%`}
           icon={PieIcon}
-          color="bg-violet-500"
+          color="bg-cyan-500"
           subtext="Aceitas vs Total"
         />
       </div>

@@ -185,7 +185,7 @@ export const gerarPdfMedicao = async (medicao: any, empresa: any, cliente: any, 
         // Cabeçalho — idêntico ao legado
         Medicao:         medicao.codigo,
         Revisao:         medicao.revisao > 0 ? `R${medicao.revisao}` : null,
-        Proposta:        'S/N',
+        Proposta:        ordens.find(o => o.proposta)?.proposta?.codigo || 'S/N',
         Cliente:         { RazaoSocial: cliente?.razaoSocial || cliente?.nome || '' },
         ContatoNome:     cliente?.nome     || '',
         ContatoEmail:    cliente?.email    || '',
@@ -217,6 +217,39 @@ export const gerarPdfMedicao = async (medicao: any, empresa: any, cliente: any, 
     };
 
     const templateHtml = await getTemplateHtml('relatorio_cobranca.html');
+    const rendered = mustache.render(templateHtml, view);
+    return generatePdfFromHtml(rendered);
+};
+
+// ==========================================
+// ORDEM DE SERVIÇO — idêntico ao legado
+// ==========================================
+export const gerarPdfOrdemServico = async (ordem: any, cliente: any, servicos: any[]): Promise<Buffer> => {
+    const view = {
+        NumeroOS:   ordem.codigo || 'S/N',
+        Data:       moment(ordem.dataInicial).format('DD/MM/YYYY'),
+        Cliente: {
+            RazaoSocial: cliente?.razaoSocial || cliente?.nome || '',
+            Endereco:    cliente?.endereco || '',
+            Numero:      cliente?.numero || '',
+            Cnpj:        cliente?.documento || '',
+            Ie:          cliente?.inscricaoEstadual || '',
+            Telefone:    cliente?.telefone || '',
+            Bairro:      cliente?.bairro || '',
+            Cidade:      cliente?.cidade || '',
+            EstadoSigla: cliente?.estado || cliente?.uf || ''
+        },
+        Contato: {
+            Nome: ordem.contato || cliente?.nome || ''
+        },
+        Servicos: servicos.map(s => ({
+            Equipamento:  s.equipamento || ordem.equipamento || '-',
+            Discriminacao: s.descricao || '-'
+        })),
+        Observacao: ordem.observacoes || ''
+    };
+
+    const templateHtml = await getTemplateHtml('ordem_servico.html');
     const rendered = mustache.render(templateHtml, view);
     return generatePdfFromHtml(rendered);
 };
@@ -295,6 +328,76 @@ export const gerarPdfProposta = async (proposta: any, cliente: any, itens: any[]
     };
 
     const templateHtml = await getTemplateHtml('proposta.html');
+    const rendered = mustache.render(templateHtml, view);
+    return generatePdfFromHtml(rendered);
+};
+
+// ==========================================
+// FICHA DE REGISTRO DE EMPREGADO (RH)
+// ==========================================
+export const gerarPdfFichaRegistro = async (admissao: any): Promise<Buffer> => {
+    const formatDate = (date: any) => date ? moment(date).format('DD/MM/YYYY') : '---';
+    const formatCurrency = (val: any) => val ? `R$ ${formatNumberReal(val)}` : 'R$ 0,00';
+
+    const checklistPadrao = [
+        { key: 'RG', label: 'Cópia do RG' },
+        { key: 'CPF', label: 'Cópia do CPF' },
+        { key: 'PIS', label: 'Cartão PIS ou Consulta Qualificação' },
+        { key: 'CTPS', label: 'CTPS (Digital ou Física)' },
+        { key: 'RESIDENCIA', label: 'Comprovante de Residência' },
+        { key: 'ESCOLARIDADE', label: 'Comprovante de Escolaridade' },
+        { key: 'ASO', label: 'ASO Admissional' },
+        { key: 'FOTO', label: 'Foto 3x4' },
+        { key: 'CNH', label: 'Cópia da CNH (se houver)' },
+        { key: 'DEPENDENTES', label: 'Docs Dependentes (se houver)' },
+    ];
+
+    const docsEnviados = Array.isArray(admissao.documentosEnviados) ? admissao.documentosEnviados : [];
+    const checklistDocs = (admissao.checklistDocumentos as any) || {};
+
+    const checklistMapped = checklistPadrao.map(item => ({
+        label: item.label,
+        checked: checklistDocs[item.key] === true || docsEnviados.some((d: any) => d.nome.toUpperCase().includes(item.key))
+    }));
+
+    const view = {
+        Nome:              admissao.nome?.toLocaleUpperCase(),
+        CPF:               admissao.cpf || '---',
+        DataNascimento:    formatDate(admissao.dataNascimento),
+        Genero:            admissao.genero || '---',
+        EstadoCivil:       admissao.estadoCivil || '---',
+        Nacionalidade:     admissao.nacionalidade || 'Brasileira',
+        GrauInstrucao:     admissao.grauInstrucao || '---',
+        NomeMae:           admissao.nomeMae?.toLocaleUpperCase() || '---',
+        NomePai:           admissao.nomePai?.toLocaleUpperCase() || '---',
+        RG:                admissao.rg || '---',
+        RGOrgao:           admissao.rgOrgaoEmissor || '---',
+        RGData:            formatDate(admissao.rgDataEmissao),
+        PIS:               admissao.pisPasep || '---',
+        TituloEleitor:     admissao.tituloEleitor || '---',
+        Telefone:          admissao.telefone || '---',
+        Email:             admissao.email || '---',
+        EnderecoCompleto:  admissao.enderecoCompleto || '---',
+        CEP:               admissao.cep || '---',
+        Cargo:             admissao.cargo || '---',
+        CBO:               admissao.numeroRegistroCBO || '---',
+        Departamento:      admissao.departamento || '---',
+        DataAdmissao:      formatDate(admissao.dataAdmissaoPrevista),
+        SalarioBase:       formatCurrency(admissao.salarioBase),
+        TipoContrato:      admissao.tipoContrato || 'CLT',
+        Banco:             admissao.banco || '---',
+        Agencia:           admissao.agencia || '---',
+        Conta:             admissao.conta || '---',
+        ChavePix:          admissao.chavePix || '---',
+        OptanteAdiantamento: admissao.optanteAdiantamentoSalarial ? 'SIM' : 'NÃO',
+        OptanteVT:         admissao.optanteValeTransporte === 'SIM' ? 'OPTANTE' : 'NÃO OPTANTE',
+        IsOptanteVT:       admissao.optanteValeTransporte === 'SIM',
+        DataHoje:          moment().format('DD/MM/YYYY'),
+        Checklist:         checklistMapped,
+        Observacoes:       admissao.observacoes || ''
+    };
+
+    const templateHtml = await getTemplateHtml('ficha_registro.html');
     const rendered = mustache.render(templateHtml, view);
     return generatePdfFromHtml(rendered);
 };

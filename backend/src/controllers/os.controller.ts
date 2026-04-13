@@ -2,6 +2,7 @@ import { Response } from 'express';
 import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { registrarLog } from '../lib/auditLog';
+import { gerarPdfOrdemServico } from '../services/legacyPdf.service';
 
 export const listOS = async (req: AuthRequest, res: Response) => {
   try {
@@ -356,27 +357,47 @@ export const updateOS = async (req: AuthRequest, res: Response) => {
     });
 
     // T11: WhatsApp automático ao mudar status da OS
-    if (rest.status && rest.status !== before.status && (result as any).cliente?.telefone) {
+    if (rest.status && rest.status !== before.status) {
       const statusLabels: Record<string, string> = {
         'ABERTA': '📋 Aberta',
         'EM_ANDAMENTO': '🔧 Em Andamento',
-        'EM_EXECUCAO': '🔧 Em Execução',
+        'EM_EXECUCAO': '🚜 Em Execução / Iniciada',
+        'BAIXADA': '✅ Baixada (Concluída)',
         'CONCLUIDA': '✅ Concluída',
         'FINALIZADA': '🏁 Finalizada',
         'CANCELADA': '❌ Cancelada',
         'AGUARDANDO': '⏳ Aguardando',
         'PAUSADA': '⏸️ Pausada',
       };
+      
       const statusLabel = statusLabels[rest.status] || rest.status;
-      const msg = `Olá! A Ordem de Serviço *${before.codigo}* teve seu status atualizado para: *${statusLabel}*.\n\nSe tiver dúvidas, entre em contato conosco.\n— Nacional Hidrosaneamento`;
+      const osCodigo = (result as any).codigo || before.codigo;
 
-      // Fire-and-forget — não bloqueia a resposta
-      import('../services/whatsapp.service').then(({ enviarMensagemWhatsApp }) => {
-        enviarMensagemWhatsApp((result as any).cliente.telefone, msg)
-          .then(r => {
-            if (r.success) console.log(`[T11] WhatsApp enviado para ${(result as any).cliente.telefone} - OS ${before.codigo} → ${rest.status}`);
-          })
-          .catch(err => console.error('[T11] Erro WhatsApp OS:', err));
+      import('../services/whatsapp.service').then(async ({ enviarMensagemWhatsApp }) => {
+        // 1. Notificar Cliente (sempre que mudar p/ status relevante)
+        if ((result as any).cliente?.telefone) {
+          const msgCliente = `Olá! A Ordem de Serviço *${osCodigo}* da Nacional Hidro teve seu status atualizado para: *${statusLabel}*.\n\nMais detalhes em nosso portal.`;
+          enviarMensagemWhatsApp((result as any).cliente.telefone, msgCliente).catch(e => console.error('[T11] Erro WhatsApp Cliente:', e));
+        }
+
+        // 2. Notificar Equipe/Motorista (quando entrar em Execução)
+        if (rest.status === 'EM_EXECUCAO') {
+          const escala = await tx.escala.findFirst({ 
+            where: { codigoOS: osCodigo },
+            orderBy: { createdAt: 'desc' }
+          });
+          
+          if (escala && Array.isArray(escala.funcionarios)) {
+             // Notifica o primeiro funcionário (geralmente o motorista/líder)
+             const motorista = (escala.funcionarios as any[])[0];
+             const motoristaDb = await tx.funcionario.findUnique({ where: { id: motorista.id }, select: { telefone: true } });
+             
+             if (motoristaDb?.telefone) {
+               const msgMotorista = `📢 *NACIONAL HIDRO - NOVA OS EM EXECUÇÃO*\n\nEquipe, a OS *${osCodigo}* foi iniciada.\n\n*Cliente:* ${(result as any).cliente?.nome}\n*Status:* ${statusLabel}`;
+               enviarMensagemWhatsApp(motoristaDb.telefone, msgMotorista).catch(e => console.error('[T11] Erro WhatsApp Motorista:', e));
+             }
+          }
+        }
       });
     }
 
@@ -443,6 +464,30 @@ export const printOS = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Print OS error:', error);
     res.status(500).json({ error: 'Failed to prepare OS for printing' });
+  }
+};
+
+export const downloadPdfOS = async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const os = await prisma.ordemServico.findUnique({
+      where: { id },
+      include: {
+        cliente: true,
+        servicos: true
+      }
+    });
+
+    if (!os) return res.status(404).json({ error: 'Ordem de Serviço não encontrada' });
+
+    const pdfBuffer = await gerarPdfOrdemServico(os, os.cliente, os.servicos);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=OS_${os.codigo}.pdf`);
+    res.send(pdfBuffer);
+  } catch (error: any) {
+    console.error('Download OS PDF error:', error);
+    res.status(500).json({ error: 'Falha ao gerar PDF da OS', details: error.message });
   }
 };
 

@@ -61,12 +61,20 @@ export default function DrePage() {
                     <p className="text-sm text-slate-500">D.R.E. {mes ? 'Mensal' : 'Anual'} — {data.periodo}</p>
                 </div>
                 <div className="flex gap-2 items-center">
-                    <select value={mes} onChange={e => setMes(e.target.value)}
-                        className="border border-slate-200 rounded-lg p-2 text-sm">
+                    <select 
+                        aria-label="Selecionar mês"
+                        value={mes} 
+                        onChange={e => setMes(e.target.value)}
+                        className="border border-slate-200 rounded-lg p-2 text-sm"
+                    >
                         {MESES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                     </select>
-                    <select value={ano} onChange={e => setAno(Number(e.target.value))}
-                        className="border border-slate-200 rounded-lg p-2 text-sm">
+                    <select 
+                        aria-label="Selecionar ano"
+                        value={ano} 
+                        onChange={e => setAno(Number(e.target.value))}
+                        className="border border-slate-200 rounded-lg p-2 text-sm"
+                    >
                         {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
                     <button onClick={fetchDre} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2">

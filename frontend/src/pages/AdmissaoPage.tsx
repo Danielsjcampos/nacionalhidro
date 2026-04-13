@@ -530,8 +530,8 @@ export default function AdmissaoPage() {
                                                         <option value="N/A">N/A</option><option value="APTO">Apto</option><option value="NAO_APTO">Não Apto</option>
                                                     </select>
                                                 </div>
-                                                <div className="bg-purple-50 p-3 rounded border border-purple-100">
-                                                    <label className="text-[10px] font-bold text-purple-700 uppercase">Avaliação Psico</label>
+                                                <div className="bg-emerald-50 p-3 rounded border border-emerald-100">
+                                                    <label className="text-[10px] font-bold text-emerald-700 uppercase">Avaliação Psico</label>
                                                     <select className="w-full mt-1 p-2 text-sm rounded bg-white" value={drawerForm.retornoPsicossocial} onChange={e => setDrawerForm({...drawerForm, retornoPsicossocial: e.target.value})}>
                                                         <option value="N/A">N/A</option><option value="APTO">Apto</option><option value="NAO_APTO">Não Apto</option>
                                                     </select>

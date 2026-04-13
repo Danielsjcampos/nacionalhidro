@@ -133,6 +133,7 @@ export default function Monitor() {
              {[2000, 5000].map(val => (
                 <button 
                   key={val}
+                  aria-label={`Atualizar a cada ${val/1000} segundos`}
                   onClick={() => setRefreshInterval(val)}
                   className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${refreshInterval === val ? 'bg-white text-blue-600 shadow-sm border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
                 >
@@ -141,6 +142,7 @@ export default function Monitor() {
              ))}
           </div>
           <button 
+            aria-label="Atualizar dados agora"
             onClick={fetchStats}
             className="w-12 h-12 bg-white border border-slate-200 rounded-2xl flex items-center justify-center hover:bg-slate-50 transition-all shadow-sm group active:scale-95"
           >
@@ -171,7 +173,7 @@ export default function Monitor() {
           title="Memory Consumption"
           value={`${Math.round((data?.system.memory.processHeap || 0) / 1024 / 1024)} MB`}
           icon={DiskIcon}
-          color="violet"
+          color="cyan"
           trend="RESOURCES"
           subtext={`Free System: ${Math.round((data?.system.memory.free || 0) / 1024 / 1024 / 1024)} GB`}
         />
@@ -200,7 +202,7 @@ export default function Monitor() {
                 </div>
                 <div className="flex gap-2">
                    <span className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest"><div className="w-2 h-2 rounded-full bg-blue-500" /> Latência</span>
-                   <span className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4"><div className="w-2 h-2 rounded-full bg-violet-500" /> Memória</span>
+                   <span className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4"><div className="w-2 h-2 rounded-full bg-cyan-500" /> Memória</span>
                 </div>
              </div>
              <div className="h-[350px]">
@@ -212,8 +214,8 @@ export default function Monitor() {
                             <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
                          </linearGradient>
                          <linearGradient id="memoryGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2}/>
-                            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                            <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.2}/>
+                            <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
                          </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -224,7 +226,7 @@ export default function Monitor() {
                         itemStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}
                       />
                       <Area type="monotone" dataKey="latency" stroke="#3b82f6" strokeWidth={3} fill="url(#latencyGrad)" />
-                      <Area type="monotone" dataKey="memory" stroke="#8b5cf6" strokeWidth={3} fill="url(#memoryGrad)" />
+                      <Area type="monotone" dataKey="memory" stroke="#06b6d4" strokeWidth={3} fill="url(#memoryGrad)" />
                    </AreaChart>
                 </ResponsiveContainer>
              </div>
@@ -360,7 +362,7 @@ const StatusCard = ({ title, value, subtext, icon: Icon, color, trend }: any) =>
     const colorClasses: any = {
         blue: 'from-blue-600 to-blue-700 text-white shadow-blue-500/30',
         emerald: 'from-emerald-600 to-emerald-700 text-white shadow-emerald-500/30',
-        violet: 'from-violet-600 to-violet-700 text-white shadow-violet-500/30',
+        cyan: 'from-cyan-600 to-cyan-700 text-white shadow-cyan-500/30',
         orange: 'from-orange-600 to-orange-700 text-white shadow-orange-500/30',
         red: 'from-red-600 to-red-700 text-white shadow-red-500/30',
     };
@@ -368,7 +370,7 @@ const StatusCard = ({ title, value, subtext, icon: Icon, color, trend }: any) =>
     const iconBg: any = {
         blue: 'bg-blue-400/20',
         emerald: 'bg-emerald-400/20',
-        violet: 'bg-violet-400/20',
+        cyan: 'bg-cyan-400/20',
         orange: 'bg-orange-400/20',
         red: 'bg-red-400/20',
     };

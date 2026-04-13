@@ -18,7 +18,8 @@ interface AvailabilityResult {
 export const checkEmployeeAvailability = async (
   funcionarioId: string,
   dataString?: string | Date,
-  clienteId?: string
+  clienteId?: string,
+  veiculoId?: string
 ): Promise<AvailabilityResult> => {
   const func = await prisma.funcionario.findUnique({
     where: { id: funcionarioId }
@@ -30,17 +31,38 @@ export const checkEmployeeAvailability = async (
 
   // 1. Validar Status do RH (Férias, Atestado, Desligado)
   const statusCriticos = ['FERIAS', 'ATESTADO', 'AFASTADO', 'DESLIGADO'];
-  if (statusCriticos.includes(func.status)) {
+  if (statusCriticos.includes(func.status) || !func.ativo) {
     return { 
       disponivel: false, 
-      motivoIndisponibilidade: `Funcionário com status impeditivo no RH: ${func.status}` 
+      motivoIndisponibilidade: `Funcionário com status impeditivo no RH: ${func.status || 'INATIVO'}` 
     };
   }
 
-  // Se uma data específica for passada, verificar os afastamentos detalhados (ex: período de férias agendado)
+  // 2. Verificar CNH para Motoristas/Operadores
+  const isMotorista = func.cargo.toLowerCase().includes('motorista') || func.cargo.toLowerCase().includes('operador');
+  if (isMotorista) {
+    if (!func.dataVencimentoCNH) {
+      return { disponivel: false, motivoIndisponibilidade: 'Motorista sem data de vencimento de CNH cadastrada.' };
+    }
+    if (new Date(func.dataVencimentoCNH) < new Date()) {
+      return { disponivel: false, motivoIndisponibilidade: `CNH Vencida em ${new Date(func.dataVencimentoCNH).toLocaleDateString('pt-BR')}.` };
+    }
+
+    // Verificar MOPP se o veículo for um caminhão ou similar
+    if (veiculoId) {
+        const veiculo = await prisma.veiculo.findUnique({ where: { id: veiculoId } });
+        if (veiculo && (veiculo.tipo === 'CAMINHAO' || veiculo.tipoEquipamento?.includes('VACUO'))) {
+            if (!func.mopp) {
+                return { disponivel: false, motivoIndisponibilidade: 'Este veículo exige motorista com certificado MOPP ativo.' };
+            }
+        }
+    }
+  }
+
+  // 3. Se uma data específica for passada, verificar os afastamentos detalhados
   if (dataString) {
     const checkDate = new Date(dataString);
-    const afastamento = await prisma.afastamento.findFirst({
+    const afastamento = await (prisma as any).afastamento.findFirst({
       where: {
         funcionarioId,
         dataInicio: { lte: checkDate },
@@ -69,7 +91,7 @@ export const checkEmployeeAvailability = async (
     disponivel: true,
   };
 
-  // 2. Verificar ASO
+  // 4. Verificar ASO
   const aso = await prisma.aSOControle.findFirst({
     where: { funcionarioId },
     orderBy: { dataVencimento: 'desc' }
@@ -81,14 +103,14 @@ export const checkEmployeeAvailability = async (
     vencimento: aso?.dataVencimento || undefined
   };
 
-  if (result.aso.status === 'VENCIDO') {
+  if (result.aso.status === 'VENCIDO' || result.aso.status === 'INEXISTENTE') {
     return { 
       disponivel: false, 
-      motivoIndisponibilidade: 'Atestado de Saúde Ocupacional (ASO) Vencido.' 
+      motivoIndisponibilidade: `ASO (Atestado Saúde Ocupacional) ${result.aso.status === 'VENCIDO' ? 'Vencido' : 'Pendente'}.` 
     };
   }
 
-  // 3. Verificar Integração com Cliente (se o cliente final foi fornecido)
+  // 5. Verificar Integração com Cliente
   if (clienteId && clienteId !== 'undefined' && clienteId !== 'null') {
     const integracao = await prisma.integracaoCliente.findFirst({
       where: {

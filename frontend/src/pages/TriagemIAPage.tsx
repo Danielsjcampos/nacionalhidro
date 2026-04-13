@@ -60,7 +60,7 @@ export default function TriagemIAPage() {
         <div className="h-full flex flex-col space-y-4 overflow-hidden">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Brain className="w-6 h-6 text-violet-500" /> IA Triagem de Candidatos</h1>
+                    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Brain className="w-6 h-6 text-cyan-500" /> IA Triagem de Candidatos</h1>
                     <p className="text-sm text-slate-500">Análise automática e aprovação de admissões em andamento</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -82,7 +82,7 @@ export default function TriagemIAPage() {
 
             {/* Stats */}
             <div className="grid grid-cols-5 gap-3">
-                <div className="bg-gradient-to-br from-violet-500 to-violet-600 rounded-xl p-4 text-white">
+                <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl p-4 text-white">
                     <p className="text-[10px] font-black uppercase opacity-70">Total</p>
                     <p className="text-2xl font-black">{data.stats.total}</p>
                 </div>

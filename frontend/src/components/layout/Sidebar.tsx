@@ -46,7 +46,7 @@ const menuGroups: MenuGroup[] = [
       { label: 'Logística Diária', path: '/logistica' },
       { label: 'Hospedagem & Viagens', path: '/hospedagens' },
       { label: 'Painel Logística', path: '/dashboard-logistica' },
-      { label: 'Histograma', path: '/histograma' },
+      { label: 'Escala', path: '/escala' },
       { label: 'Escalas & RDO', path: '/rdo' },
       { label: 'Painel Motorista', path: '/painel-motorista' },
     ]

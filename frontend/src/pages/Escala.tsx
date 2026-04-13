@@ -117,6 +117,8 @@ export default function Histograma() {
     const [viewMode, setViewMode] = useState<ViewMode>('mes');
     const [currentDate, setCurrentDate] = useState(new Date());
 
+    const [selectedTipo, setSelectedTipo] = useState<'Abertas' | 'Canceladas'>('Abertas');
+
     // ── Filters ─────────────────────────────────────────────────────────────
     const [filtroTipos, setFiltroTipos] = useState<Set<string>>(new Set());
 
@@ -445,6 +447,23 @@ export default function Histograma() {
                     </p>
                 </div>
 
+                <div className="flex border-b border-slate-200">
+                    {['Abertas', 'Canceladas'].map(tab => (
+                        <button
+                            key={tab}
+                            onClick={() => setSelectedTipo(tab as any)}
+                            className={`py-3 px-6 font-bold text-sm border-b-2 transition-all ${
+                                selectedTipo === tab
+                                    ? 'border-blue-600 text-blue-600'
+                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                            }`}
+                        >
+                            {tab}
+                        </button>
+                    ))}
+                </div>
+
+                {selectedTipo === 'Abertas' && (
                 <div className="flex items-center gap-2">
                     {/* View Mode Toggle */}
                     <div className="bg-white rounded-xl border border-slate-200 p-1 flex gap-1 shadow-sm">
@@ -490,9 +509,11 @@ export default function Histograma() {
                         {headerLabel}
                     </span>
                 </div>
+                )}
             </header>
 
             {/* ─── Legend ──────────────────────────────────────────────────────── */}
+            {selectedTipo === 'Abertas' && (
             <nav className="flex items-center gap-4 flex-wrap text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 <span className="flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded-sm bg-sky-200 border border-sky-300" />
@@ -519,8 +540,10 @@ export default function Histograma() {
                     Manutenção
                 </span>
             </nav>
+            )}
 
             {/* ─── Equipment Type Filters ──────────────────────────────────────── */}
+            {selectedTipo === 'Abertas' && (
             <nav className="flex items-center gap-2 flex-wrap">
                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mr-1">Filtrar:</span>
                 {TIPOS_EQUIPAMENTO.map(t => (
@@ -547,8 +570,40 @@ export default function Histograma() {
                     {filteredVeiculos.length} veículo(s)
                 </span>
             </nav>
+            )}
+
+            {/* ─── Canceladas View ─────────────────────────────────────────────── */}
+            {selectedTipo === 'Canceladas' && (
+                <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <table className="w-full text-sm">
+                        <thead className="bg-[#1e3a5f] text-white">
+                            <tr>
+                                <th className="px-4 py-3 text-left font-bold uppercase text-[11px]">Equipamento</th>
+                                <th className="px-4 py-3 text-left font-bold uppercase text-[11px]">Cliente</th>
+                                <th className="px-4 py-3 text-left font-bold uppercase text-[11px]">Data</th>
+                                <th className="px-4 py-3 text-left font-bold uppercase text-[11px]">OS</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {escalas.filter(e => e.status === 'CANCELADO').length === 0 ? (
+                                <tr>
+                                    <td colSpan={4} className="py-8 text-center text-slate-400 italic">Nenhuma escala cancelada encontrada.</td>
+                                </tr>
+                            ) : escalas.filter(e => e.status === 'CANCELADO').map(esc => (
+                                <tr key={esc.id} className="hover:bg-slate-50">
+                                    <td className="px-4 py-3 font-semibold text-slate-700">{esc.equipamento || '—'}</td>
+                                    <td className="px-4 py-3 text-slate-600">{esc.cliente?.nome || '—'}</td>
+                                    <td className="px-4 py-3 text-slate-500">{new Date(esc.data).toLocaleDateString('pt-BR')}</td>
+                                    <td className="px-4 py-3 font-medium text-slate-800">{esc.codigoOS || '—'}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
             {/* ─── Grid ────────────────────────────────────────────────────────── */}
+            {selectedTipo === 'Abertas' && (
             <section className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
                 <div className="overflow-auto h-full">
                     <table className="w-full border-collapse min-w-max">
@@ -746,6 +801,7 @@ export default function Histograma() {
                     </div>
                 )}
             </section>
+            )}
 
             {/* ═══ Modal ═══════════════════════════════════════════════════════════ */}
             {modalOpen && modalEscala && (

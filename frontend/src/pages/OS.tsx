@@ -143,7 +143,7 @@ export default function OS() {
 
   useEffect(() => { fetchData(); }, []);
 
-  // Auto-open modal from external navigation (e.g. Histograma → Gerar OS)
+  // Auto-open modal from external navigation (e.g. Escala → Gerar OS)
   useEffect(() => {
     if (loading) return;
     const params = new URLSearchParams(window.location.search);

@@ -60,12 +60,12 @@ export const createEscala = async (req: AuthRequest, res: Response) => {
     }
 
     // BUG FIX #9: Check employee availability (férias/atestado/ASO/Integracao)
+    const { force } = req.body;
     if (funcionarios && Array.isArray(funcionarios)) {
       for (const funcParam of funcionarios) {
         let funcId = typeof funcParam === 'object' && funcParam.id ? funcParam.id : null;
         
         if (!funcId && typeof funcParam === 'string') {
-           // Fallback se mandaram o array de nomes velhos
            const func = await (prisma.funcionario as any).findFirst({
              where: { nome: { contains: funcParam, mode: 'insensitive' } }
            });
@@ -73,11 +73,20 @@ export const createEscala = async (req: AuthRequest, res: Response) => {
         }
 
         if (funcId) {
-          const availability = await checkEmployeeAvailability(funcId, dataEscala, rest.clienteId);
+          const availability = await checkEmployeeAvailability(funcId, dataEscala, rest.clienteId, veiculoId);
           if (!availability.disponivel) {
-             return res.status(409).json({
-               error: availability.motivoIndisponibilidade || `O funcionário não está disponível para escalar.`
-             });
+             // T09: Soft Block logic - Only block if NOT forced AND it's a documentation issue
+             const isCritical = availability.motivoIndisponibilidade?.includes('status impeditivo') || 
+                                availability.motivoIndisponibilidade?.includes('afastamento') ||
+                                availability.motivoIndisponibilidade?.includes('férias');
+
+             if (!force || isCritical) {
+                return res.status(409).json({
+                  error: availability.motivoIndisponibilidade || `O funcionário não está disponível para escalar.`,
+                  critico: isCritical
+                });
+             }
+             console.log(`[T09] Escalação forçada para funcionário ${funcId} apesar do aviso: ${availability.motivoIndisponibilidade}`);
           }
         }
       }

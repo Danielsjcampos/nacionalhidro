@@ -9,7 +9,7 @@ import {
 const ETAPAS = [
     { key: 'TRIAGEM', label: 'Triagem', color: 'bg-slate-500' },
     { key: 'ENTREVISTA_RH', label: 'Entrevista - RH', color: 'bg-indigo-500' },
-    { key: 'ENTREVISTA_GESTOR', label: 'Entrevista - Gestor', color: 'bg-purple-500' },
+    { key: 'ENTREVISTA_GESTOR', label: 'Entrevista - Gestor', color: 'bg-emerald-500' },
     { key: 'TESTE_PRATICO', label: 'Teste Prático', color: 'bg-blue-300' },
     { key: 'AGUARDANDO_PROPOSTA', label: 'Aguardando aceite da proposta', color: 'bg-blue-500' },
     { key: 'ADMITIDO', label: 'Proposta aceita/Admissão', color: 'bg-emerald-500' },
@@ -254,12 +254,12 @@ export default function Recrutamento() {
                 <div className="bg-white rounded-xl border border-slate-200 p-3 flex-shrink-0">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                            <TrendingUp className="w-4 h-4 text-violet-500" />
+                            <TrendingUp className="w-4 h-4 text-cyan-500" />
                             <span className="text-xs font-black text-slate-600 uppercase">Funil de Conversão</span>
                         </div>
                         {stats.tempoMedio > 0 && (
                             <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
-                                ⏱️ Tempo médio: <span className="text-violet-600">{stats.tempoMedio} dias</span>
+                                ⏱️ Tempo médio: <span className="text-cyan-600">{stats.tempoMedio} dias</span>
                             </span>
                         )}
                     </div>

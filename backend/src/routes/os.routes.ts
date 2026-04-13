@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import {
-    listOS, getOS, createOS, updateOS, deleteOS, printOS,
+    listOS, getOS, createOS, updateOS, deleteOS, printOS, downloadPdfOS,
     listItensCobranca, createItemCobranca, updateItemCobranca, deleteItemCobranca,
     duplicateOS
 } from '../controllers/os.controller';
@@ -16,6 +16,7 @@ router.get('/', listOS);
 router.get('/:id', getOS);
 router.post('/', createOS);
 router.post('/print', printOS);
+router.get('/:id/pdf', downloadPdfOS);
 router.patch('/:id', updateOS);
 router.delete('/:id', deleteOS);
 

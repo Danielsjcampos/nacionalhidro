@@ -68,6 +68,7 @@ export const getMedicao = async (req: AuthRequest, res: Response) => {
                     include: {
                         itensCobranca: true,
                         servicos: true,
+                        proposta: true,
                     }
                 }
             }
@@ -288,7 +289,7 @@ export const updateMedicaoStatus = async (req: AuthRequest, res: Response) => {
             where: { id },
             include: {
                 cliente: true,
-                ordensServico: { include: { itensCobranca: true, servicos: true } }
+                ordensServico: { include: { itensCobranca: true, servicos: true, proposta: true } }
             }
         });
         if (!currentMedicao) return res.status(404).json({ error: 'Medição não encontrada' });
@@ -507,7 +508,7 @@ export const enviarAoCliente = async (req: AuthRequest, res: Response) => {
             where: { id },
             include: {
                 cliente: true,
-                ordensServico: { include: { itensCobranca: true, servicos: true } }
+                ordensServico: { include: { itensCobranca: true, servicos: true, proposta: true } }
             }
         });
 
@@ -581,7 +582,7 @@ export const gerarPdfMedicaoBaixar = async (req: AuthRequest, res: Response) => 
             where: { id },
             include: {
                 cliente: true,
-                ordensServico: { include: { itensCobranca: true, servicos: true } }
+                ordensServico: { include: { itensCobranca: true, servicos: true, proposta: true } }
             }
         });
         if (!medicao) return res.status(404).json({ error: 'Medição não encontrada' });

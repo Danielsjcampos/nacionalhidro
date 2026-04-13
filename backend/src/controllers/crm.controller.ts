@@ -17,7 +17,7 @@ export const getLeads = async (req: Request, res: Response) => {
     }
     if (origin) where.origem = origin as string;
 
-    if (period) {
+    if (period && period !== '0') {
         const days = parseInt(String(period));
         if (!isNaN(days)) {
             const date = new Date();

@@ -26,6 +26,12 @@ export default function Logistica() {
    // Team Availability
    const [teamAvailability, setTeamAvailability] = useState<any[]>([]);
 
+   // Doc Warning Modal (T09)
+   const [docWarning, setDocWarning] = useState<{ open: boolean, data: any }>({
+      open: false,
+      data: null
+   });
+
    const fetchData = async () => {
       try {
          setLoading(true);
@@ -107,9 +113,9 @@ export default function Logistica() {
          const endpoint = activeTab === 'escala' ? 'escalas' : 'veiculos';
 
          if (selectedItem.id) {
-            await api.patch(`/logistica/${endpoint}/${selectedItem.id}`, selectedItem);
+            await api.patch(`/logistica/${endpoint}/${selectedItem.id}`, { ...selectedItem, force: true });
          } else {
-            await api.post(`/logistica/${endpoint}`, selectedItem);
+            await api.post(`/logistica/${endpoint}`, { ...selectedItem, force: true });
          }
 
          setIsEditing(false);
@@ -454,16 +460,23 @@ export default function Logistica() {
                                              <button
                                                 key={func.id}
                                                 type="button"
-                                                disabled={isUnavailable || isBlockedByDoc}
+                                                disabled={isUnavailable}
                                                 onClick={() => {
-                                                   if (isBlockedByDoc) {
-                                                      alert(`Escalação bloqueada: ${func.statusMessage}. Regularize no módulo RH.`);
+                                                   if (isBlockedByDoc && !isSelected) {
+                                                      setDocWarning({ 
+                                                         open: true, 
+                                                         data: { 
+                                                            funcionario: func, 
+                                                            message: func.statusMessage 
+                                                         } 
+                                                      });
                                                       return;
                                                    }
                                                    toggleFuncionario(func.nome, isUnavailable);
                                                 }}
-                                                className={`flex flex-col items-start p-3 rounded-2xl border text-left transition-all ${(isUnavailable || isBlockedByDoc) ? 'opacity-50 cursor-not-allowed bg-slate-50 border-slate-200' :
-                                                   isSelected ? 'bg-blue-50 border-blue-400 shadow-inner' : 'bg-white border-slate-200 hover:border-slate-300'
+                                                className={`flex flex-col items-start p-3 rounded-2xl border text-left transition-all ${isUnavailable ? 'opacity-50 cursor-not-allowed bg-slate-50 border-slate-200' :
+                                                   isSelected ? 'bg-blue-50 border-blue-400 shadow-inner' : 
+                                                   isBlockedByDoc ? 'bg-red-50/50 border-red-200' : 'bg-white border-slate-200 hover:border-slate-300'
                                                    }`}
                                              >
                                                 <div className="flex items-center justify-between w-full mb-1">
@@ -608,13 +621,13 @@ export default function Logistica() {
                               <label className="flex items-center gap-4 cursor-pointer group p-4 bg-blue-50 rounded-2xl border-2 border-blue-100 hover:border-blue-300 transition-all">
                                  <input
                                     type="checkbox"
-                                    checked={selectedItem.exibirNoHistograma !== false}
-                                    onChange={e => setSelectedItem({ ...selectedItem, exibirNoHistograma: e.target.checked })}
+                                    checked={selectedItem.exibirNaEscala !== false}
+                                    onChange={e => setSelectedItem({ ...selectedItem, exibirNaEscala: e.target.checked })}
                                     className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500 border-slate-300 accent-blue-600"
                                  />
                                  <div>
-                                    <span className="text-sm font-black text-blue-700 uppercase italic tracking-tight">Exibir no Histograma</span>
-                                    <p className="text-[10px] text-slate-400 font-bold mt-0.5">Quando ativo, este veículo aparecerá na grade de pré-reservas e agendamentos do Histograma.</p>
+                                    <span className="text-sm font-black text-blue-700 uppercase italic tracking-tight">Exibir na Escala</span>
+                                    <p className="text-[10px] text-slate-400 font-bold mt-0.5">Quando ativo, este veículo aparecerá na grade de pré-reservas e agendamentos da Escala.</p>
                                  </div>
                               </label>
                            </div>
@@ -672,6 +685,56 @@ export default function Logistica() {
                         className="bg-slate-800 hover:bg-slate-900 text-white px-10 py-3.5 rounded-2xl flex items-center gap-2 transition-all shadow-xl shadow-slate-500/20 text-[10px] font-black uppercase italic tracking-widest"
                      >
                         <Send className="w-5 h-5" /> Enviar para Manutenção
+                     </button>
+                  </div>
+               </div>
+            </div>
+         )}
+
+         {/* Modal Aviso Documentação (T09) */}
+         {docWarning.open && (
+            <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[60] flex items-center justify-center p-4">
+               <div className="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border-4 border-red-500">
+                  <div className="bg-red-500 p-8 flex items-center gap-6 italic">
+                     <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-white">
+                        <X className="w-10 h-10" />
+                     </div>
+                     <div>
+                        <h2 className="font-black uppercase tracking-tighter text-white text-2xl leading-none">Aviso de Pendência</h2>
+                        <p className="text-xs text-white/80 font-bold uppercase mt-1 tracking-widest">Segurança & Conformidade RH</p>
+                     </div>
+                  </div>
+
+                  <div className="p-10 space-y-6">
+                     <p className="text-slate-500 font-bold text-sm leading-relaxed italic">
+                        O funcionário <span className="text-red-600 font-black uppercase underline">{docWarning.data?.funcionario?.nome}</span> possui a seguinte irregularidade detectada:
+                     </p>
+                     
+                     <div className="bg-red-50 p-6 rounded-3xl border-2 border-red-100 flex items-start gap-4">
+                        <div className="w-2 h-2 rounded-full bg-red-500 mt-2 flex-shrink-0" />
+                        <p className="text-red-700 font-black uppercase text-xs italic tracking-tight">{docWarning.data?.message}</p>
+                     </div>
+
+                     <div className="bg-slate-50 p-4 rounded-2xl text-[10px] text-slate-400 font-bold uppercase italic leading-tight">
+                        A escalação deste colaborador sem a documentação em dia pode gerar multas e riscos jurídicos para a Nacional Hidro.
+                     </div>
+                  </div>
+
+                  <div className="p-8 bg-slate-50 border-t border-slate-100 flex flex-col gap-3">
+                     <button
+                        onClick={() => {
+                           toggleFuncionario(docWarning.data.funcionario.nome, false);
+                           setDocWarning({ open: false, data: null });
+                        }}
+                        className="w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-xl shadow-red-500/20 text-xs font-black uppercase italic tracking-widest"
+                     >
+                        <Save className="w-5 h-5" /> Entendo o Risco e Desejo Escalar
+                     </button>
+                     <button 
+                        onClick={() => setDocWarning({ open: false, data: null })} 
+                        className="w-full py-3 text-xs font-black uppercase text-slate-400 hover:text-slate-800 transition-all italic tracking-widest"
+                     >
+                        Cancelar e Escolher Outro
                      </button>
                   </div>
                </div>

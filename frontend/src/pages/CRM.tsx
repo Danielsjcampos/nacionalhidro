@@ -38,7 +38,7 @@ export default function CRM() {
     const [, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [origemFilter, setOrigemFilter] = useState('TODOS');
-    const [period, setPeriod] = useState('30');
+    const [period, setPeriod] = useState('0');
     const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
     const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
@@ -145,6 +145,10 @@ export default function CRM() {
                             className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${period === '90' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
                             onClick={() => setPeriod('90')}
                         >90D</button>
+                        <button 
+                            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${period === '0' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                            onClick={() => setPeriod('0')}
+                        >TUDO</button>
                     </div>
                     <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all shadow-lg shadow-blue-500/20">
                         <Plus className="w-4 h-4" />

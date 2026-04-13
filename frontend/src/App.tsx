@@ -8,7 +8,7 @@ import OS from './pages/OS';
 import EstoqueEquipamentos from './pages/EstoqueEquipamentos';
 import EstoqueControle from './pages/EstoqueControle';
 import Logistica from './pages/Logistica';
-import Histograma from './pages/Histograma';
+import Escala from './pages/Escala';
 import FrotaMonitoramento from './pages/FrotaMonitoramento';
 import FrotaVeiculos from './pages/FrotaVeiculos';
 
@@ -66,7 +66,7 @@ const routePermissions: Record<string, string[]> = {
   '/os': ['logistica', 'operacao'], '/logistica': ['logistica', 'operacao'],
   '/agendamentos': ['logistica', 'operacao'],
   '/hospedagens': ['logistica', 'operacao'], '/dashboard-logistica': ['logistica', 'operacao'],
-  '/histograma': ['logistica', 'operacao'], '/rdo': ['logistica', 'operacao'],
+  '/escala': ['logistica', 'operacao'], '/rdo': ['logistica', 'operacao'],
   '/painel-motorista': ['logistica', 'operacao'],
   '/frota/mapa': ['frota'], '/frota/veiculos': ['frota'],
   '/manutencao': ['frota', 'manutencao'],
@@ -130,7 +130,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/inscricao/:vagaId" element={<InscricaoPublica />} />
         <Route path="/admissao-portal/:id" element={<PortalAdmissao />} />
-        <Route path="/escala" element={<ProtectedRoute><Histograma /></ProtectedRoute>} />
+        <Route path="/escala" element={<ProtectedRoute><Escala /></ProtectedRoute>} />
         <Route path="/contratos" element={<ProtectedRoute><Contratos /></ProtectedRoute>} />
 
 
@@ -139,7 +139,7 @@ function App() {
         <Route path="/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
         <Route path="/os" element={<ProtectedRoute><OS /></ProtectedRoute>} />
         <Route path="/logistica" element={<ProtectedRoute><Logistica /></ProtectedRoute>} />
-        <Route path="/histograma" element={<ProtectedRoute><Histograma /></ProtectedRoute>} />
+
         <Route path="/manutencao" element={<ProtectedRoute><Manutencao /></ProtectedRoute>} />
         <Route path="/estoque/controle" element={<ProtectedRoute><EstoqueControle /></ProtectedRoute>} />
         <Route path="/estoque/equipamentos" element={<ProtectedRoute><EstoqueEquipamentos /></ProtectedRoute>} />

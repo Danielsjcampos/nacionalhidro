@@ -1,0 +1,242 @@
+<!doctype html>
+<html>
+<head>
+    <title>Ficha de Registro de Empregado - Nacional Hidro</title>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css">
+    <style>
+        @page { size: A4; margin: 10mm; }
+        body { font-family: 'Open Sans', sans-serif; font-size: 11px; color: #333; }
+        .header-table { width: 100%; border-bottom: 2px solid #0891b2; margin-bottom: 20px; }
+        .header-logo { width: 150px; }
+        .header-info { text-align: right; font-size: 10px; color: #666; }
+        .section-title { 
+            background-color: #f1f5f9; 
+            padding: 5px 10px; 
+            font-weight: 800; 
+            color: #0891b2; 
+            text-transform: uppercase; 
+            border-left: 4px solid #0891b2;
+            margin: 15px 0 10px 0;
+        }
+        .data-row { display: flex; flex-wrap: wrap; margin-bottom: 8px; }
+        .data-field { flex: 1; min-width: 150px; margin-bottom: 5px; }
+        .label { font-weight: bold; color: #64748b; font-size: 9px; text-transform: uppercase; display: block; }
+        .value { font-size: 11px; color: #1e293b; font-weight: 600; }
+        .table-custom { border-collapse: collapse; width: 100%; margin-top: 10px; }
+        .table-custom th, .table-custom td { border: 1px solid #e2e8f0; padding: 6px; text-align: left; }
+        .table-custom th { background-color: #f8fafc; font-size: 9px; color: #64748b; }
+        .signature-box { margin-top: 40px; border-top: 1px solid #333; width: 250px; text-align: center; padding-top: 5px; }
+        .page-break { page-break-before: always; }
+        .checklist-item { display: flex; items-center: center; gap: 10px; margin-bottom: 5px; }
+        .checkbox { width: 12px; height: 12px; border: 1px solid #333; display: inline-block; margin-right: 5px; vertical-align: middle; }
+        .checkbox.checked { background-color: #0891b2; position: relative; }
+        .checkbox.checked::after { content: '✓'; color: white; font-size: 10px; position: absolute; top: -2px; left: 1px; }
+    </style>
+</head>
+<body>
+    <!-- PÁGINA 1: FICHA DE REGISTRO -->
+    <table class="header-table">
+        <tr>
+            <td class="header-logo">
+                <img src="https://prodnhidro.blob.core.windows.net/storage/logo.jpg" style="width: 120px;" alt="Logo">
+            </td>
+            <td class="header-info">
+                <strong>NACIONAL HIDRO OPERACOES E SANEAMENTO LTDA</strong><br>
+                Rua Diaconisa Alice Ana da Silva, 279 - Campinas/SP<br>
+                CNPJ: 08.916.132/0001-40 | Fone: (19) 3243-1320
+            </td>
+        </tr>
+    </table>
+
+    <div style="text-align: center; margin-bottom: 20px;">
+        <h4 style="font-weight: 900; color: #0891b2; margin: 0;">FICHA DE REGISTRO DE EMPREGADO</h4>
+        <small style="color: #64748b;">(Conforme Portaria MTP nº 671/2021)</small>
+    </div>
+
+    <div class="section-title">Dados Pessoais</div>
+    <div class="data-row">
+        <div class="data-field" style="flex: 2;">
+            <span class="label">Nome Completo</span>
+            <span class="value">{{Nome}}</span>
+        </div>
+        <div class="data-field">
+            <span class="label">CPF</span>
+            <span class="value">{{CPF}}</span>
+        </div>
+        <div class="data-field">
+            <span class="label">Data de Nascimento</span>
+            <span class="value">{{DataNascimento}}</span>
+        </div>
+    </div>
+    <div class="data-row">
+        <div class="data-field">
+            <span class="label">Gênero</span>
+            <span class="value">{{Genero}}</span>
+        </div>
+        <div class="data-field">
+            <span class="label">Estado Civil</span>
+            <span class="value">{{EstadoCivil}}</span>
+        </div>
+        <div class="data-field">
+            <span class="label">Nacionalidade</span>
+            <span class="value">{{Nacionalidade}}</span>
+        </div>
+        <div class="data-field">
+            <span class="label">Grau de Instrução</span>
+            <span class="value">{{GrauInstrucao}}</span>
+        </div>
+    </div>
+    <div class="data-row">
+        <div class="data-field">
+            <span class="label">Nome da Mãe</span>
+            <span class="value">{{NomeMae}}</span>
+        </div>
+        <div class="data-field">
+            <span class="label">Nome do Pai</span>
+            <span class="value">{{NomePai}}</span>
+        </div>
+    </div>
+
+    <div class="section-title">Documentação</div>
+    <div class="data-row">
+        <div class="data-field">
+            <span class="label">RG</span>
+            <span class="value">{{RG}}</span>
+        </div>
+        <div class="data-field">
+            <span class="label">Orgão/Data Emissão</span>
+            <span class="value">{{RGOrgao}} - {{RGData}}</span>
+        </div>
+        <div class="data-field">
+            <span class="label">PIS/PASEP</span>
+            <span class="value">{{PIS}}</span>
+        </div>
+    </div>
+    <div class="data-row">
+        <div class="data-field">
+            <span class="label">Título de Eleitor</span>
+            <span class="value">{{TituloEleitor}}</span>
+        </div>
+        <div class="data-field">
+            <span class="label">Telefone</span>
+            <span class="value">{{Telefone}}</span>
+        </div>
+        <div class="data-field">
+            <span class="label">E-mail</span>
+            <span class="value">{{Email}}</span>
+        </div>
+    </div>
+
+    <div class="section-title">Endreço</div>
+    <div class="data-row">
+        <div class="data-field" style="flex: 3;">
+            <span class="label">Logradouro / Bairro / Cidade</span>
+            <span class="value">{{EnderecoCompleto}}</span>
+        </div>
+        <div class="data-field">
+            <span class="label">CEP</span>
+            <span class="value">{{CEP}}</span>
+        </div>
+    </div>
+
+    <div class="section-title">Dados Contratuais</div>
+    <div class="data-row">
+        <div class="data-field">
+            <span class="label">Cargo</span>
+            <span class="value">{{Cargo}}</span>
+        </div>
+        <div class="data-field">
+            <span class="label">CBO</span>
+            <span class="value">{{CBO}}</span>
+        </div>
+        <div class="data-field">
+            <span class="label">Departamento</span>
+            <span class="value">{{Departamento}}</span>
+        </div>
+    </div>
+    <div class="data-row">
+        <div class="data-field">
+            <span class="label">Data de Admissão</span>
+            <span class="value">{{DataAdmissao}}</span>
+        </div>
+        <div class="data-field">
+            <span class="label">Salário Base</span>
+            <span class="value">{{SalarioBase}}</span>
+        </div>
+        <div class="data-field">
+            <span class="label">Tipo de Contrato</span>
+            <span class="value">{{TipoContrato}}</span>
+        </div>
+    </div>
+
+    <div class="section-title">Dados Bancários / Pagamento</div>
+    <div class="data-row">
+        <div class="data-field">
+            <span class="label">Banco / Agência / Conta</span>
+            <span class="value">{{Banco}} / AG: {{Agencia}} / CC: {{Conta}}</span>
+        </div>
+        <div class="data-field">
+            <span class="label">Chave PIX</span>
+            <span class="value">{{ChavePix}}</span>
+        </div>
+        <div class="data-field">
+            <span class="label">Adiantamento Salarial?</span>
+            <span class="value">{{OptanteAdiantamento}}</span>
+        </div>
+    </div>
+
+    <div style="margin-top: 50px;">
+        <table style="width: 100%;">
+            <tr>
+                <td>
+                    <div class="signature-box" style="margin: 0 auto;">
+                        Assinatura do Empregador
+                    </div>
+                </td>
+                <td>
+                    <div class="signature-box" style="margin: 0 auto;">
+                        Assinatura do Empregado
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- PÁGINA 2: VT E CHECKLIST -->
+    <div class="page-break"></div>
+    
+    <div class="section-title">Declaração de Opção de Vale Transporte</div>
+    <div style="border: 1px solid #e2e8f0; padding: 15px; border-radius: 5px; line-height: 1.6;">
+        <p>Declaro para os devidos fins que sou <strong>{{OptanteVT}}</strong> do benefício do Vale Transporte, instituído pela Lei nº 7.418 de 16 de dezembro de 1985.</p>
+        
+        {{#IsOptanteVT}}
+        <p>Comprometo-me a utilizar o Vale Transporte exclusivamente para o meu deslocamento residência-trabalho e vice-versa. Autorizo, nos termos da lei, o desconto de 6% (seis por cento) sobre o meu salário base mensal pela concessão do benefício.</p>
+        {{/IsOptanteVT}}
+        {{^IsOptanteVT}}
+        <p>Declaro que utilizo meios próprios para o meu deslocamento, não necessitando, portanto, do benefício acima citado, isentando a empresa de qualquer responsabilidade sobre o transporte.</p>
+        {{/IsOptanteVT}}
+
+        <div style="margin-top: 30px;">
+            <p>Campinas, {{DataHoje}}</p>
+            <div class="signature-box">Assinatura do Empregado</div>
+        </div>
+    </div>
+
+    <div class="section-title">Checklist de Documentação Admitida</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        {{#Checklist}}
+        <div class="checklist-item">
+            <div class="checkbox {{#checked}}checked{{/checked}}"></div>
+            <span>{{label}}</span>
+        </div>
+        {{/Checklist}}
+    </div>
+
+    <div class="section-title">Observações do RH</div>
+    <div style="height: 100px; border: 1px solid #e2e8f0; padding: 10px; border-radius: 5px;">
+        {{Observacoes}}
+    </div>
+
+</body>
+</html>

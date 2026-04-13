@@ -397,11 +397,11 @@ export default function FuncionarioForm({ initialData, onClose, onSave }: Funcio
 
           {/* INTEGRAÇÕES */}
           <div className={activeTab === 'integracoes' ? 'block space-y-6 animate-in slide-in-from-right-4 duration-300' : 'hidden'}>
-            <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 mb-4 flex items-start gap-3">
-              <Shield className="w-5 h-5 text-purple-600 mt-0.5" />
+            <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 mb-4 flex items-start gap-3">
+              <Shield className="w-5 h-5 text-emerald-600 mt-0.5" />
               <div>
-                <h4 className="font-bold text-purple-800 text-sm">Controle de Integrações (Clientes)</h4>
-                <p className="text-xs text-purple-600 mt-1">Gerencie os treinamentos, permissões e aptidões exigidas pelas empresas/clientes para liberar acesso do profissional.</p>
+                <h4 className="font-bold text-emerald-800 text-sm">Controle de Integrações (Clientes)</h4>
+                <p className="text-xs text-emerald-600 mt-1">Gerencie os treinamentos, permissões e aptidões exigidas pelas empresas/clientes para liberar acesso do profissional.</p>
               </div>
             </div>
 
@@ -432,7 +432,7 @@ export default function FuncionarioForm({ initialData, onClose, onSave }: Funcio
                </div>
 
                <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
-                   <button type="button" onClick={() => alert('Para adicionar integrações, salve o cadastro primeiro e use o Painel Operacional ou RH > Ficha de Integrações (em breve)')} className="px-4 py-2 bg-purple-600 text-white text-xs font-bold rounded-lg hover:bg-purple-700 transition">
+                   <button type="button" onClick={() => alert('Para adicionar integrações, salve o cadastro primeiro e use o Painel Operacional ou RH > Ficha de Integrações (em breve)')} className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition">
                      + Lançar Integração
                    </button>
                </div>

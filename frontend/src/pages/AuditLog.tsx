@@ -7,7 +7,7 @@ import {
 
 const ENTIDADE_LABELS: Record<string, { label: string; color: string; icon: any }> = {
     OS: { label: 'Ordem de Serviço', color: 'bg-blue-100 text-blue-700', icon: ClipboardList },
-    ESCALA: { label: 'Escala', color: 'bg-purple-100 text-purple-700', icon: Clock },
+    ESCALA: { label: 'Escala', color: 'bg-emerald-100 text-emerald-700', icon: Clock },
     PROPOSTA: { label: 'Proposta', color: 'bg-emerald-100 text-emerald-700', icon: FileText },
     MEDICAO: { label: 'Medição', color: 'bg-amber-100 text-amber-700', icon: DollarSign },
     FUNCIONARIO: { label: 'Funcionário', color: 'bg-cyan-100 text-cyan-700', icon: Users },

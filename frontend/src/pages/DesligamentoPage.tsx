@@ -12,7 +12,7 @@ const ETAPAS_PRINCIPAL = [
     { key: 'NOVA_SOLICITACAO', label: 'Nova Solicitação', dot: 'bg-amber-500', color: 'text-amber-600', bg: 'bg-amber-50' },
     { key: 'APURACAO_RESCISAO', label: 'Apuração Rescisão', dot: 'bg-blue-500', color: 'text-blue-600', bg: 'bg-blue-50' },
     { key: 'ENVIADO_CONTABILIDADE', label: 'Contabilidade', dot: 'bg-indigo-500', color: 'text-indigo-600', bg: 'bg-indigo-50' },
-    { key: 'ENVIADO_SIN', label: 'Enviado SIN', dot: 'bg-violet-500', color: 'text-violet-600', bg: 'bg-violet-50' },
+    { key: 'ENVIADO_SIN', label: 'Enviado SIN', dot: 'bg-cyan-500', color: 'text-cyan-600', bg: 'bg-cyan-50' },
     { key: 'ASSINATURA_DOCUMENTOS', label: 'Assinatura Docs', dot: 'bg-teal-500', color: 'text-teal-600', bg: 'bg-teal-50' },
     { key: 'CONCLUIDO', label: 'Concluídos', dot: 'bg-slate-400', color: 'text-slate-500', bg: 'bg-slate-50' },
 ];
@@ -366,7 +366,7 @@ export default function DesligamentoPage() {
                             ['RECEBIMENTO_NOTIFICACAO', 'PRE_ANALISE_JURIDICA', 'PROVIDENCIANDO_DOCUMENTACAO', 'AUDIENCIA_AGENDADA', 'PROCESSO_ANDAMENTO', 'PROCESSO_ACORDO', 'LANCADO_SIN_JURIDICO'].includes(showDetail.etapa) ? 'bg-rose-600' :
                             showDetail.etapa === 'NOVA_SOLICITACAO' ? 'bg-blue-600' :
                             showDetail.etapa === 'APURACAO_RESCISAO' ? 'bg-indigo-600' :
-                            showDetail.etapa === 'ENVIADO_CONTABILIDADE' ? 'bg-violet-600' :
+                            showDetail.etapa === 'ENVIADO_CONTABILIDADE' ? 'bg-cyan-600' :
                             showDetail.etapa === 'ENVIADO_SIN' ? 'bg-teal-600' :
                             showDetail.etapa === 'ASSINATURA_DOCUMENTOS' ? 'bg-slate-800' :
                             'bg-slate-600'
@@ -426,7 +426,7 @@ export default function DesligamentoPage() {
                                 <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
                                     {showDetail.etapa === 'NOVA_SOLICITACAO' && <><CheckCircle2 className="w-4 h-4 text-blue-500" /> Preparar Apuração</>}
                                     {showDetail.etapa === 'APURACAO_RESCISAO' && <><FileText className="w-4 h-4 text-indigo-500" /> Apurar Rescisão</>}
-                                    {showDetail.etapa === 'ENVIADO_CONTABILIDADE' && <><Building2 className="w-4 h-4 text-violet-500" /> Retorno Contabilidade</>}
+                                    {showDetail.etapa === 'ENVIADO_CONTABILIDADE' && <><Building2 className="w-4 h-4 text-cyan-500" /> Retorno Contabilidade</>}
                                     {showDetail.etapa === 'ENVIADO_SIN' && <><FileText className="w-4 h-4 text-teal-500" /> Dados para Pagamento</>}
                                     {showDetail.etapa === 'ASSINATURA_DOCUMENTOS' && <><CheckCircle2 className="w-4 h-4 text-slate-700" /> Assinatura</>}
                                     {showDetail.etapa === 'RECEBIMENTO_NOTIFICACAO' && <><Scale className="w-4 h-4 text-rose-500" /> Registrar Notificação</>}
@@ -687,7 +687,7 @@ export default function DesligamentoPage() {
                                 </button>
                             )}
                             {showDetail.etapa === 'ENVIADO_CONTABILIDADE' && (
-                                <button onClick={() => handleMover(showDetail.id, 'ENVIADO_SIN', drawerForm)} className="w-full bg-violet-600 text-white py-3.5 rounded-2xl text-xs font-black shadow-lg shadow-violet-600/20 hover:bg-violet-700 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest">
+                                <button onClick={() => handleMover(showDetail.id, 'ENVIADO_SIN', drawerForm)} className="w-full bg-cyan-600 text-white py-3.5 rounded-2xl text-xs font-black shadow-lg shadow-cyan-600/20 hover:bg-cyan-700 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest">
                                     Lançar no SIN <ChevronRight className="w-4 h-4" />
                                 </button>
                             )}
