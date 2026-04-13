@@ -31,6 +31,7 @@ import recrutamentoRoutes from './routes/recrutamento.routes';
 import rdoRoutes from './routes/rdo.routes';
 import faturamentoRoutes from './routes/faturamento.routes';
 import cnpjRoutes from './routes/cnpj.routes';
+import { seedEmpresasHistoricas } from './controllers/cnpj.controller';
 import dashLogisticaRoutes from './routes/dashboardLogistica.routes';
 import fornecedorRoutes from './routes/fornecedor.routes';
 import financeiroRoutes from './routes/financeiro.routes';
@@ -251,8 +252,10 @@ startCobrancaMensagensJob();
 startAlertasRHJob();
 startDREMensalJob();
 
-httpServer.listen(port, () => {
+httpServer.listen(port, async () => {
   console.log(`Server is running on port ${port}`);
   console.log(`Socket.io server initialized`);
   logSystemEvent('SERVER_START', `Servidor iniciado na porta ${port}`, 'INFO');
+  // Bootstrap: garante empresas históricas no banco
+  await seedEmpresasHistoricas();
 });

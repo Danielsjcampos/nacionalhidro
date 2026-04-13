@@ -137,3 +137,58 @@ export const deleteEmpresa = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ error: 'Failed to delete company', details: error.message });
     }
 };
+
+// ─── SEED AUTOMÁTICO: Empresas históricas da Nacional Hidro ──────
+export async function seedEmpresasHistoricas() {
+    const empresas = [
+        {
+            nome:              'NACIONAL HIDROSSANEAMENTO EIRELI EPP',
+            cnpj:              '04.315.038/0001-04',
+            razaoSocial:       'NACIONAL HIDROSSANEAMENTO EIRELI EPP',
+            logradouro:        'R. DIACONISA ALICE A. DA SILVA',
+            numero:            '279',
+            bairro:            'PARQUE MARIA HELENA',
+            municipio:         'CAMPINAS',
+            uf:                'SP',
+            cep:               '13.067-841',
+            telefone:          '(19) 3203-3301',
+            inscricaoEstadual: '244.796.656.112',
+            regimeTributario:  5,
+            naturezaOperacao:  'Remessa',
+            limiteMenusal:     500000,
+            alertaPercentual:  80,
+            ativa:             true,
+        },
+        {
+            nome:              'NACIONALHIDRO LOCACAO DE EQUIPAMENTOS EIRELI',
+            cnpj:              '24.840.094/0001-75',
+            razaoSocial:       'NACIONALHIDRO LOCACAO DE EQUIPAMENTOS EIRELI',
+            logradouro:        'R. DIACONISA ALICE A. DA SILVA',
+            numero:            '259',
+            bairro:            'PARQUE MARIA HELENA',
+            municipio:         'CAMPINAS',
+            uf:                'SP',
+            cep:               '13.067-841',
+            telefone:          '(19) 3203-3301',
+            inscricaoEstadual: '795.785.647.112',
+            regimeTributario:  5,
+            naturezaOperacao:  'Locação de Bens Móveis',
+            limiteMenusal:     500000,
+            alertaPercentual:  80,
+            ativa:             true,
+        },
+    ];
+
+    for (const empresa of empresas) {
+        try {
+            const exists = await (prisma as any).empresaCNPJ.findFirst({ where: { cnpj: empresa.cnpj } });
+            if (!exists) {
+                await (prisma as any).empresaCNPJ.create({ data: empresa });
+                console.log(`[Bootstrap] ✅ Empresa inserida: ${empresa.nome}`);
+            }
+        } catch (e) {
+            console.error(`[Bootstrap] Erro ao inserir empresa ${empresa.cnpj}:`, e);
+        }
+    }
+}
+
