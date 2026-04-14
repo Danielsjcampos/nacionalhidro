@@ -1552,8 +1552,9 @@ model Workflow {
   updatedAt   DateTime             @updatedAt
   stages      WorkflowStage[]
   fields      WorkflowField[]
-  cards       WorkflowCard[]
-  automations WorkflowAutomation[]
+  cards          WorkflowCard[]
+  automations    WorkflowAutomation[]
+  emailTemplates WorkflowEmailTemplate[]
 }
 
 model WorkflowStage {
@@ -1594,13 +1595,27 @@ model WorkflowCard {
 }
 
 model WorkflowAutomation {
-  id         String         @id @default(uuid())
-  workflowId String
-  stageId    String?
-  tipo       String         @default("WHATSAPP")
-  evento     String         @default("ENTRADA_FASE")
-  config     Json           @default("{}")
-  ativo      Boolean        @default(true)
-  workflow   Workflow       @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  stage      WorkflowStage? @relation(fields: [stageId], references: [id])
+  id              String                 @id @default(uuid())
+  workflowId      String
+  stageId         String?
+  emailTemplateId String?
+  tipo            String                 @default("WHATSAPP")
+  evento          String                 @default("ENTRADA_FASE")
+  config          Json                   @default("{}")
+  ativo           Boolean                @default(true)
+  workflow        Workflow               @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  stage           WorkflowStage?         @relation(fields: [stageId], references: [id])
+  emailTemplate   WorkflowEmailTemplate? @relation(fields: [emailTemplateId], references: [id])
+}
+
+model WorkflowEmailTemplate {
+  id          String               @id @default(uuid())
+  workflowId  String
+  nome        String
+  assunto     String
+  corpo       String               @db.Text
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  workflow    Workflow             @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  automations WorkflowAutomation[]
 }

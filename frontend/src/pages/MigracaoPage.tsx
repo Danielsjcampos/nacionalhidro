@@ -101,6 +101,8 @@ export default function MigracaoPage() {
 
 function PipefyImportCard() {
     const [pipeId, setPipeId] = useState('');
+    const [importCards, setImportCards] = useState(true);
+    const [importTemplates, setImportTemplates] = useState(true);
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<any>(null);
 
@@ -109,8 +111,12 @@ function PipefyImportCard() {
         setLoading(true);
         setResult(null);
         try {
-            const res = await api.post('/workflows/bootstrap', { pipeId });
-            setResult({ success: true, message: `Fluxo "${res.data.workflowId}" importado com sucesso!` });
+            const res = await api.post('/workflow/bootstrap', { 
+                pipeId,
+                importCards,
+                importTemplates
+            });
+            setResult({ success: true, message: `Fluxo "${res.data.workflowId}" importado/sincronizado com sucesso!` });
             setPipeId('');
         } catch (err: any) {
             setResult({ error: err.response?.data?.details || err.message });
@@ -122,10 +128,10 @@ function PipefyImportCard() {
     return (
         <div className="bg-white rounded-xl border border-blue-100 p-4 space-y-3 shadow-sm">
             <h2 className="text-xs font-black text-blue-500 uppercase flex items-center gap-1">
-                <Database className="w-3.5 h-3.5" /> Sincronização de Workflows (Pipefy)
+                <Database className="w-3.5 h-3.5" /> Sincronização Completa (Pipefy)
             </h2>
             <p className="text-[11px] text-slate-500 leading-relaxed">
-                Insira o ID do Pipe para importar automaticamente todas as **fases e campos** para o motor nativo da Nacional Hidro.
+                Importe a **estrutura (fases/campos)**, **cards (dados)** e **templates de e-mail** diretamente do Pipefy para o motor nativo.
             </p>
             
             <div className="pt-2">
@@ -142,13 +148,24 @@ function PipefyImportCard() {
                 </div>
             </div>
 
+            <div className="grid grid-cols-2 gap-2">
+                <label className="flex items-center gap-2 p-2 rounded-lg border border-slate-100 bg-slate-50/50 cursor-pointer hover:bg-slate-50 select-none">
+                    <input type="checkbox" checked={importCards} onChange={e => setImportCards(e.target.checked)} className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                    <span className="text-[10px] font-bold text-slate-600 uppercase">Importar Cards</span>
+                </label>
+                <label className="flex items-center gap-2 p-2 rounded-lg border border-slate-100 bg-slate-50/50 cursor-pointer hover:bg-slate-50 select-none">
+                    <input type="checkbox" checked={importTemplates} onChange={e => setImportTemplates(e.target.checked)} className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                    <span className="text-[10px] font-bold text-slate-600 uppercase">E-mail Templates</span>
+                </label>
+            </div>
+
             <button 
                 onClick={handlePipefyBootstrap}
                 disabled={!pipeId || loading}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 disabled:opacity-50 transition-all"
             >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                {loading ? 'Sincronizando...' : 'Sincronizar Estrutura do Pipe'}
+                {loading ? 'Sincronizando...' : 'Iniciar Sincronização Total'}
             </button>
 
             {result && (

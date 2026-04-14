@@ -4,7 +4,7 @@ import api from '../../services/api';
 import { 
   Plus, Loader2, MoreVertical, ChevronRight, 
   Settings, Database, Filter, Search, X, 
-  Save, AlertCircle, CheckCircle2, Layout
+  Save, AlertCircle, CheckCircle2, Layout, Mail
 } from 'lucide-react';
 import FormRenderer from '../../components/Workflow/FormRenderer';
 
@@ -17,6 +17,8 @@ export default function WorkflowBoard() {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [selectedStageId, setSelectedStageId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showTemplatesModal, setShowTemplatesModal] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
 
   useEffect(() => {
     if (workflowId) {
@@ -119,6 +121,14 @@ export default function WorkflowBoard() {
             />
           </div>
           <button 
+            onClick={() => setShowTemplatesModal(true)}
+            className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-100 rounded-lg text-gray-600 text-xs font-bold transition-all border border-gray-200"
+            title="Templates de E-mail"
+          >
+            <Mail className="w-4 h-4 text-blue-500" />
+            Templates
+          </button>
+          <button 
             onClick={() => window.location.href = `/workflows/${workflowId}/settings`}
             className="p-2 hover:bg-gray-100 rounded-full text-gray-600"
           >
@@ -197,6 +207,84 @@ export default function WorkflowBoard() {
         </div>
       </div>
 
+      {/* Email Templates Modal */}
+      {showTemplatesModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-50 rounded-lg">
+                  <Mail className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-800">Templates de E-mail</h2>
+                  <p className="text-xs text-gray-500 uppercase font-black tracking-widest">Sincronizados do Pipefy</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowTemplatesModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full text-gray-400"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-hidden flex">
+              {/* List */}
+              <div className="w-1/3 border-r border-gray-100 overflow-y-auto p-4 space-y-2 bg-gray-50/50">
+                {workflow.emailTemplates?.map((template: any) => (
+                  <button
+                    key={template.id}
+                    onClick={() => setSelectedTemplate(template)}
+                    className={`w-full text-left p-3 rounded-xl transition-all border ${
+                      selectedTemplate?.id === template.id 
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/30' 
+                        : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300 hover:shadow-sm'
+                    }`}
+                  >
+                    <p className="font-bold text-xs truncate uppercase tracking-tight">{template.nome}</p>
+                    <p className={`text-[10px] truncate mt-1 ${selectedTemplate?.id === template.id ? 'text-blue-100 font-medium' : 'text-gray-400'}`}>
+                      {template.assunto}
+                    </p>
+                  </button>
+                ))}
+                {!workflow.emailTemplates?.length && (
+                  <div className="p-8 text-center text-gray-400 italic text-sm">Nenhum template importado</div>
+                )}
+              </div>
+
+              {/* Preview */}
+              <div className="flex-1 bg-white overflow-y-auto p-8">
+                {selectedTemplate ? (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div>
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Assunto do E-mail</label>
+                      <h3 className="text-xl font-bold text-gray-800 border-b border-gray-100 pb-4">{selectedTemplate.assunto}</h3>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Corpo da Mensagem</label>
+                      <div className="bg-gray-50 rounded-2xl p-6 text-sm text-gray-700 leading-relaxed font-serif min-h-[300px] whitespace-pre-wrap border border-gray-100">
+                        {selectedTemplate.corpo}
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-3">
+                      <button className="px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-100 transition-all uppercase tracking-wider">
+                        Usar como Base
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
+                    <Mail className="w-16 h-16 text-gray-300 mb-4" />
+                    <p className="text-gray-500 font-medium">Selecione um template para visualizar o conteúdo</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+ 
       {/* Card Modal (Editor) */}
       {showCardModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-end">

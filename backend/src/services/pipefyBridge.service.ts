@@ -179,20 +179,23 @@ export class PipefyBridgeService {
     const metadata = await this.fetchPipeMetadata(pipeId);
 
     // 1. Criar ou atualizar o Workflow
-    const workflow = await (prisma as any).workflow.upsert({
+    const workflow = await prisma.workflow.upsert({
       where: { id: metadata.id },
       update: { nome: metadata.name },
       create: {
         id: metadata.id,
         nome: metadata.name,
-        setor: 'RH', // Default
+        setor: 'RH',
       },
     });
 
-    // 2. Criar as fases (Stages)
+    // 2. Importar Templates de E-mail
+    await this.importEmailTemplates(workflow.id, pipeId);
+
+    // 3. Criar as fases (Stages)
     for (let i = 0; i < metadata.phases.length; i++) {
       const phase = metadata.phases[i];
-      const stage = await (prisma as any).workflowStage.upsert({
+      const stage = await prisma.workflowStage.upsert({
         where: { id: phase.id },
         update: { nome: phase.name, ordem: i },
         create: {
@@ -203,17 +206,20 @@ export class PipefyBridgeService {
         },
       });
 
-      // 3. Criar os campos (Fields)
+      // 4. Importar Automações para esta fase
+      await this.importAutomationsForStage(workflow.id, stage.id, pipeId);
+
+      // 5. Criar os campos (Fields)
       for (let j = 0; j < phase.fields.length; j++) {
         const field = phase.fields[j];
-        await (prisma as any).workflowField.upsert({
+        await prisma.workflowField.upsert({
           where: { id: field.id },
           update: { 
             nome: field.id, 
             label: field.label, 
             tipo: this.mapType(field.type), 
             obrigatorio: field.required || false,
-            opcoes: field.options,
+            opcoes: field.options as any,
             ordem: j 
           },
           create: {
@@ -222,16 +228,144 @@ export class PipefyBridgeService {
             label: field.label,
             tipo: this.mapType(field.type),
             obrigatorio: field.required || false,
-            opcoes: field.options,
+            opcoes: field.options as any,
             ordem: j,
             workflow: { connect: { id: workflow.id } },
-            stage: stage.id ? { connect: { id: stage.id } } : undefined
+            stage: { connect: { id: stage.id } }
           },
         });
       }
     }
 
+    // 6. Importar Cards (Dados)
+    await this.importCards(workflow.id, pipeId);
+
     return workflow.id;
+  }
+
+  private async importEmailTemplates(workflowId: string, pipeId: string) {
+    const query = `
+      query GetTemplates($pipeId: ID!) {
+        emailTemplates(repoId: $pipeId) {
+          edges {
+            node {
+              id
+              name
+              subject
+              body
+            }
+          }
+        }
+      }
+    `;
+
+    try {
+      const token = await this.getAccessToken();
+      const response = await axios.post(PIPEFY_API_URL, { query, variables: { pipeId } }, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const templates = response.data?.data?.emailTemplates?.edges || [];
+      for (const edge of templates) {
+        const t = edge.node;
+        await prisma.workflowEmailTemplate.upsert({
+          where: { id: t.id },
+          update: { nome: t.name, assunto: t.subject, corpo: t.body },
+          create: {
+            id: t.id,
+            workflowId,
+            nome: t.name,
+            assunto: t.subject,
+            corpo: t.body
+          }
+        });
+      }
+      console.log(`[PipefyBridge] Importados ${templates.length} templates de e-mail para o pipe ${pipeId}.`);
+    } catch (error) {
+      console.warn('[PipefyBridge] Falha ao importar templates:', error);
+    }
+  }
+
+  private async importAutomationsForStage(workflowId: string, stageId: string, pipeId: string) {
+    // Nota: Pipefy API de automações é complexa e muitas vezes inacessível via Service Account comum.
+    // Implementamos um placeholder que o usuário pode expandir.
+  }
+
+  private async importCards(workflowId: string, pipeId: string) {
+    let hasNextPage = true;
+    let after = null;
+
+    console.log(`[PipefyBridge] Iniciando importação de cards para pipe ${pipeId}...`);
+
+    while (hasNextPage) {
+      const query = `
+        query GetCards($pipeId: ID!, $after: String) {
+          allCards(pipeId: $pipeId, first: 50, after: $after) {
+            pageInfo { hasNextPage endCursor }
+            edges {
+              node {
+                id
+                title
+                current_phase { id }
+                fields {
+                  field { id }
+                  value
+                }
+              }
+            }
+          }
+        }
+      `;
+
+      try {
+        const token = await this.getAccessToken();
+        const response = await axios.post(PIPEFY_API_URL, 
+          { query, variables: { pipeId, after } }, 
+          { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } }
+        );
+
+        const data = response.data?.data?.allCards;
+        if (!data) break;
+
+        for (const edge of data.edges) {
+          const card = edge.node;
+          const stageId = card.current_phase?.id;
+          
+          if (!stageId) continue;
+
+          const dados: Record<string, any> = {};
+          card.fields.forEach((f: any) => {
+            dados[f.field.id] = f.value;
+          });
+
+          await prisma.workflowCard.upsert({
+            where: { id: card.id },
+            update: { 
+              titulo: card.title,
+              stageId,
+              dados
+            },
+            create: {
+              id: card.id,
+              workflowId,
+              stageId,
+              titulo: card.title,
+              dados
+            }
+          });
+        }
+
+        hasNextPage = data.pageInfo.hasNextPage;
+        after = data.pageInfo.endCursor;
+      } catch (error) {
+        console.error('[PipefyBridge] Erro ao importar cards:', error);
+        hasNextPage = false;
+      }
+    }
   }
 
   private mapType(pipefyType: string): string {

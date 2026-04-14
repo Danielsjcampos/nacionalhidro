@@ -42,7 +42,8 @@ export const getWorkflow = async (req: AuthRequest, res: Response) => {
             automations: true
           }
         },
-        fields: { orderBy: { ordem: 'asc' } }
+        fields: { orderBy: { ordem: 'asc' } },
+        emailTemplates: true
       }
     });
 
