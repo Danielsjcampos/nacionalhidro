@@ -59,6 +59,9 @@ import PreReservaPage from './pages/PreReservaPage';
 import Contratos from './pages/Contratos';
 import GestaoColaboradoresPage from './pages/GestaoColaboradoresPage';
 import Agendamentos from './pages/Agendamentos';
+import WorkflowList from './pages/Workflow/WorkflowList';
+import WorkflowBoard from './pages/Workflow/WorkflowBoard';
+import WorkflowSettings from './pages/Workflow/WorkflowSettings';
 
 // Route-to-permission mapping
 const routePermissions: Record<string, string[]> = {
@@ -86,6 +89,7 @@ const routePermissions: Record<string, string[]> = {
   '/ferias': ['rh', 'dp'], '/desligamento': ['rh', 'dp'],
   '/aso-controle': ['rh'], '/relatorios-rh': ['rh', 'dp'],
   '/ponto': ['rh', 'dp'], '/triagem-ia': ['rh'],
+  '/workflows': ['rh', 'dp', 'admin'],
 };
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -182,6 +186,9 @@ function App() {
         <Route path="/relatorios-rh" element={<ProtectedRoute><RelatoriosRHPage /></ProtectedRoute>} />
         <Route path="/aso-controle" element={<ProtectedRoute><ASOControlePage /></ProtectedRoute>} />
         <Route path="/agendamentos" element={<ProtectedRoute><Agendamentos /></ProtectedRoute>} />
+        <Route path="/workflows" element={<ProtectedRoute><WorkflowList /></ProtectedRoute>} />
+        <Route path="/workflows/:id" element={<ProtectedRoute><WorkflowBoard /></ProtectedRoute>} />
+        <Route path="/workflows/:id/settings" element={<ProtectedRoute><WorkflowSettings /></ProtectedRoute>} />
 
         <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
         <Route path="/usuarios" element={<ProtectedRoute><Usuarios /></ProtectedRoute>} />

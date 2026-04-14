@@ -163,10 +163,12 @@ app.use('/webhook', webhookRoutes);  // Alias sem 'S' — usado pelo Google Ads
 app.use('/upload', uploadRoutes);
 app.use('/cargos', cargoRoutes);
 app.use('/pedidos-compra', pedidoCompraRoutes);
-import gestaoColaboradoresRoutes from './routes/gestaoColaboradores.routes';
-app.use('/gestao-colaboradores', gestaoColaboradoresRoutes);
 import agendamentoRoutes from './routes/agendamento.routes';
+import workflowRoutes from './routes/workflow.routes';
+
+app.use('/gestao-colaboradores', gestaoColaboradoresRoutes);
 app.use('/agendamentos', agendamentoRoutes);
+app.use('/workflows', workflowRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

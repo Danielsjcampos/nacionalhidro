@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://neondb_owner:npg_QzkomiupH0Z1@ep-calm-breeze-aciek47r.sa-east-1.aws.neon.tech/neondb?sslmode=require"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -1536,4 +1536,69 @@ model AgendamentoTarefa {
   concluidaPor  String?
   createdAt     DateTime    @default(now())
   agendamento   Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
+}
+
+// ─── WORKFLOW ENGINE MODELS ─────────────────────────────────────
+
+model Workflow {
+  id          String               @id @default(uuid())
+  nome        String
+  setor       String?
+  descricao   String?
+  ativo       Boolean              @default(true)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  stages      WorkflowStage[]
+  fields      WorkflowField[]
+  cards       WorkflowCard[]
+  automations WorkflowAutomation[]
+}
+
+model WorkflowStage {
+  id          String               @id @default(uuid())
+  workflowId  String
+  nome        String
+  ordem       Int                  @default(0)
+  workflow    Workflow             @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  cards       WorkflowCard[]
+  automations WorkflowAutomation[]
+  fields      WorkflowField[]
+}
+
+model WorkflowField {
+  id          String         @id @default(uuid())
+  workflowId  String
+  stageId     String?
+  nome        String
+  label       String
+  tipo        String         @default("TEXT")
+  obrigatorio Boolean        @default(false)
+  opcoes      Json?
+  ordem       Int            @default(0)
+  workflow    Workflow       @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  stage       WorkflowStage? @relation(fields: [stageId], references: [id])
+}
+
+model WorkflowCard {
+  id         String        @id @default(uuid())
+  workflowId String
+  stageId    String
+  titulo     String
+  dados      Json          @default("{}")
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  workflow   Workflow      @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  stage      WorkflowStage @relation(fields: [stageId], references: [id])
+}
+
+model WorkflowAutomation {
+  id         String         @id @default(uuid())
+  workflowId String
+  stageId    String?
+  tipo       String         @default("WHATSAPP")
+  evento     String         @default("ENTRADA_FASE")
+  config     Json           @default("{}")
+  ativo      Boolean        @default(true)
+  workflow   Workflow       @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  stage      WorkflowStage? @relation(fields: [stageId], references: [id])
 }

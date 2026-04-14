@@ -122,6 +122,7 @@ const menuGroups: MenuGroup[] = [
       { label: 'Monitoramento', path: '/monitor' },
       { label: 'Log de Alterações', path: '/audit-log' },
       { label: 'WhatsApp', path: '/whatsapp' },
+      { label: 'Workflows Nativos', path: '/workflows' },
       { label: 'Migração de Dados', path: '/migracao' },
     ]
   },
