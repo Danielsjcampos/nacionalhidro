@@ -118,7 +118,7 @@ export const moveCard = async (req: AuthRequest, res: Response) => {
     });
 
     // ─── LÓGICA DE AUTOMAÇÃO (Trigger Engine) ──────────────────────
-    workflowAutomationService.processMove(cardId, stageId);
+    workflowAutomationService.processMove(cardId as string, stageId);
 
     res.json(cardAfter);
   } catch (error: any) {

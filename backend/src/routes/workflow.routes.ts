@@ -7,11 +7,11 @@ import {
   bootstrapFromPipefy, 
   updateFields 
 } from '../controllers/workflow.controller';
-import { authMiddleware } from '../middleware/auth.middleware';
+import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
 
-router.use(authMiddleware);
+router.use(authenticate);
 
 router.get('/', listWorkflows);
 router.get('/:id', getWorkflow);
