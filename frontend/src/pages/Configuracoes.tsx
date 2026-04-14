@@ -7,7 +7,7 @@ const ConfigForm = () => {
     const { register, handleSubmit, setValue, watch } = useForm();
     const [loading, setLoading] = useState(true);
     const [showPassword, setShowPassword] = useState(false);
-    const [activeTab, setActiveTab] = useState<'empresa' | 'fiscal' | 'whatsapp' | 'nfe' | 'sistema'>('empresa');
+    const [activeTab, setActiveTab] = useState<'empresa' | 'fiscal' | 'whatsapp' | 'nfe' | 'integracoes' | 'sistema'>('empresa');
     const [whatsappStatus, setWhatsappStatus] = useState<any>(null);
     const [qrCode, setQrCode] = useState<string | null>(null);
     const [statusLoading, setStatusLoading] = useState(false);
@@ -120,6 +120,7 @@ const ConfigForm = () => {
                 <TabButton id="fiscal" label="Dados Fiscais" icon={Receipt} colorClass="text-emerald-600" />
                 <TabButton id="whatsapp" label="WhatsApp API" icon={MessageSquare} colorClass="text-green-600" />
                 <TabButton id="nfe" label="NF-e & Webhooks" icon={Globe} colorClass="text-indigo-600" />
+                <TabButton id="integracoes" label="Integrações" icon={RefreshCw} colorClass="text-orange-600" />
                 <TabButton id="sistema" label="Ajustes do Sistema" icon={Palette} colorClass="text-slate-600" />
             </div>
 
@@ -507,6 +508,58 @@ const ConfigForm = () => {
                             </div>
                         </div>
 
+                    </div>
+                )}
+
+                {activeTab === 'integracoes' && (
+                    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                        {/* Pipefy OAuth */}
+                        <div className="p-6 bg-slate-50 rounded-xl border border-slate-200 shadow-sm transition-all hover:shadow-md">
+                            <h3 className="font-bold text-slate-800 text-lg mb-4 flex items-center gap-2">
+                                <Database className="w-5 h-5 text-blue-600" />
+                                Integração Pipefy (Workflow Nativo)
+                            </h3>
+                            <p className="text-sm text-slate-600 mb-8 leading-relaxed">
+                                Configure as credenciais do seu **Service Account** do Pipefy para permitir a sincronização automática de pipes, campos e automações.
+                            </p>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="md:col-span-2">
+                                    <label className={labelClass}>Client ID</label>
+                                    <input 
+                                        {...register('pipefyClientId')} 
+                                        className={inputClass} 
+                                        placeholder="Ex: ctMajuCvilt0_A9QyL0t7BZJ8K0fL4Hi7..." 
+                                    />
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className={labelClass}>Client Secret</label>
+                                    <div className="relative">
+                                        <input
+                                            type={showPassword ? "text" : "password"}
+                                            {...register('pipefyClientSecret')}
+                                            className={inputClass}
+                                            placeholder="Ex: U5FnlghqEVeGAiX9DLQKlY2EcqMTKG..."
+                                        />
+                                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600">
+                                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-8 flex items-start gap-3 bg-blue-50/50 p-4 rounded-lg border border-blue-100">
+                                <CheckCircle2 className="w-5 h-5 text-blue-500 shrink-0" />
+                                <div className="space-y-1">
+                                    <p className="text-xs text-blue-900 font-bold">Instruções de Configuração:</p>
+                                    <p className="text-[11px] text-blue-700 leading-relaxed">
+                                        1. No Pipefy, vá em **Recursos de Organização** > **Service Accounts**.<br />
+                                        2. Crie ou selecione uma conta e gere as credenciais **OAuth 2.0**.<br />
+                                        3. Insira o Client ID e Secret acima e clique em **Salvar Alterações**.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
 

@@ -707,6 +707,8 @@ model Configuracao {
   whatsappUrl           String?
   whatsappApiKey        String?
   whatsappInstanceName  String?
+  pipefyClientId        String?
+  pipefyClientSecret    String?
   webhookUrl            String?
   apiKey                String?
   updatedAt             DateTime  @updatedAt

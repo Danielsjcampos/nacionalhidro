@@ -1,0 +1,44 @@
+model Configuracao {
+  id                    String    @id @default("default")
+  nomeEmpresa           String    @default("Minha Empresa")
+  razaoSocial           String?
+  nomeFantasia          String?
+  cnpj                  String?
+  inscricaoEstadual     String?
+  inscricaoMunicipal    String?
+  dataAbertura          DateTime?
+  cep                   String?
+  logradouro            String?
+  numero                String?
+  complemento           String?
+  bairro                String?
+  cidade                String?
+  estado                String?
+  endereco              String?
+  emailComercial        String?
+  emailFiscal           String?
+  emailFinanceiro       String?
+  telefone              String?
+  regimeTributario      String?
+  cnaePrincipal         String?
+  listaServicos         String?
+  aliquotaIss           Decimal?  @db.Decimal(5, 2)
+  incentivadorCultural  Boolean   @default(false)
+  optanteSimples        Boolean   @default(true)
+  naturezaOperacao      String?
+  tributacaoMunicipio   String?
+  responsavelTributario String?
+  certificadoA1         String?
+  senhaCertificado      String?
+  ambienteNFe           String    @default("HOMOLOGACAO")
+  whatsappUrl           String?
+  whatsappApiKey        String?
+  whatsappInstanceName  String?
+  pipefyClientId        String?
+  pipefyClientSecret    String?
+  webhookUrl            String?
+  apiKey                String?
+  updatedAt             DateTime  @updatedAt
+  favicon               String?
+  logo                  String?
+}

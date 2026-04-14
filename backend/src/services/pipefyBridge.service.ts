@@ -29,8 +29,10 @@ export class PipefyBridgeService {
   async getAccessToken(): Promise<string> {
     if (this.apiToken) return this.apiToken;
 
-    const clientId = process.env.PIPEFY_CLIENT_ID;
-    const clientSecret = process.env.PIPEFY_CLIENT_SECRET;
+    const config = await prisma.configuracao.findUnique({ where: { id: 'default' } });
+    
+    const clientId = config?.pipefyClientId || process.env.PIPEFY_CLIENT_ID;
+    const clientSecret = config?.pipefyClientSecret || process.env.PIPEFY_CLIENT_SECRET;
     const oauthUrl = process.env.PIPEFY_OAUTH_URL || 'https://app.pipefy.com/oauth/token';
 
     if (process.env.PIPEFY_API_TOKEN) {
@@ -39,7 +41,7 @@ export class PipefyBridgeService {
     }
 
     if (!clientId || !clientSecret) {
-      throw new Error('Pipefy Client ID or Secret not configured in .env');
+      throw new Error('Pipefy Client ID ou Secret não configurado (Verifique Configurações do Sistema)');
     }
 
     try {
