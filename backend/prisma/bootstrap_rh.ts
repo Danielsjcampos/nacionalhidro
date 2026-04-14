@@ -3,7 +3,6 @@ import { PipefyBridgeService } from '../src/services/pipefyBridge.service';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 
-// Carregar .env explicitamente
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const prisma = new PrismaClient();
@@ -14,10 +13,15 @@ async function main() {
   console.log(`🚀 Iniciando bootstrap do Pipe RH (${pipeId})...`);
   
   try {
+    // Forçar uso das credenciais do banco
+    const config = await prisma.configuracao.findUnique({ where: { id: 'default' } });
+    if (config?.pipefyClientId) {
+      console.log('📝 Usando credenciais do banco de dados...');
+    }
+
     const workflowId = await pipefyBridge.bootstrapWorkflowFromPipe(pipeId);
     console.log(`✅ Sucesso! Workflow criado/atualizado com ID: ${workflowId}`);
     
-    // Listar fases criadas para confirmação
     const stages = await (prisma as any).workflowStage.findMany({
       where: { workflowId },
       orderBy: { ordem: 'asc' }

@@ -52,9 +52,13 @@ export class PipefyBridgeService {
       });
 
       this.apiToken = response.data.access_token;
+      console.log('[DEBUG] Token obtained (prefix):', this.apiToken?.substring(0, 10));
       return this.apiToken!;
     } catch (error: any) {
       console.error('[PipefyBridge] OAuth Error:', error.response?.data || error.message);
+      if (error.response?.data && typeof error.response.data === 'string' && error.response.data.includes('Sign in')) {
+        console.error('[PipefyBridge] OAuth returned Login Page HTML instead of JSON!');
+      }
       throw new Error('Falha na autenticação com Pipefy (OAuth)');
     }
   }
@@ -89,6 +93,7 @@ export class PipefyBridgeService {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
+            'Accept': 'application/json'
           },
         }
       );
@@ -99,14 +104,73 @@ export class PipefyBridgeService {
       }
 
       const pipeData = response.data?.data?.pipe;
+      
       if (!pipeData) {
-        console.error('[PipefyBridge] Full Response:', JSON.stringify(response.data, null, 2));
-        throw new Error('Pipe não encontrado ou acesso negado (data.pipe is null)');
+        console.warn(`[PipefyBridge] Direct pipe lookup returned null for ID ${pipeId}. Searching through organizations...`);
+        
+        // Fallback: Buscar nas organizações se o ID direto falhar (comum em Contas de Serviço)
+        const searchQuery = `
+          {
+            organizations {
+              pipes {
+                id
+                name
+                phases {
+                  id
+                  name
+                }
+                start_form_fields {
+                  id
+                  label
+                  type
+                  required
+                  options
+                }
+              }
+            }
+          }
+        `;
+        
+        const orgResponse = await axios.post(
+          'https://api.pipefy.com/graphql',
+          { query: searchQuery },
+          { 
+            headers: { 
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            } 
+          }
+        );
+        
+        if (orgResponse.data.errors) {
+          console.error('[PipefyBridge] Fallback Query Errors:', JSON.stringify(orgResponse.data.errors, null, 2));
+          throw new Error(`Erro na busca por organizações: ${orgResponse.data.errors[0].message}`);
+        }
+
+        const data = orgResponse.data?.data;
+        if (!data?.organizations) {
+          console.error('[PipefyBridge] Fallback Data missing organizations:', JSON.stringify(orgResponse.data, null, 2));
+          throw new Error('Não foi possível listar organizações no fallback');
+        }
+
+        const allPipes = data.organizations.flatMap((o: any) => o.pipes || []);
+        const foundPipe = allPipes.find((p: any) => p.id === pipeId);
+        
+        if (!foundPipe) {
+          throw new Error(`Pipe ${pipeId} não encontrado nas organizações acessíveis`);
+        }
+        
+        console.log(`✅ Pipe ${pipeId} ("${foundPipe.name}") encontrado via busca em organizações.`);
+        return foundPipe;
       }
 
       return pipeData;
     } catch (error: any) {
-      console.error('[PipefyBridge] Error fetching metadata:', error.response?.data || error.message);
+      console.error('[PipefyBridge] Error fetching metadata:', error.message);
+      if (error.response?.data) {
+        console.error('[PipefyBridge] API Error Data:', JSON.stringify(error.response.data, null, 2));
+      }
       throw error;
     }
   }
@@ -133,9 +197,9 @@ export class PipefyBridgeService {
         update: { nome: phase.name, ordem: i },
         create: {
           id: phase.id,
-          workflowId: workflow.id,
           nome: phase.name,
           ordem: i,
+          workflow: { connect: { id: workflow.id } }
         },
       });
 
@@ -148,20 +212,20 @@ export class PipefyBridgeService {
             nome: field.id, 
             label: field.label, 
             tipo: this.mapType(field.type), 
-            obrigatorio: field.required,
+            obrigatorio: field.required || false,
             opcoes: field.options,
             ordem: j 
           },
           create: {
             id: field.id,
-            workflowId: workflow.id,
-            stageId: stage.id,
             nome: field.id,
             label: field.label,
             tipo: this.mapType(field.type),
-            obrigatorio: field.required,
+            obrigatorio: field.required || false,
             opcoes: field.options,
             ordem: j,
+            workflow: { connect: { id: workflow.id } },
+            stage: stage.id ? { connect: { id: stage.id } } : undefined
           },
         });
       }
