@@ -65,30 +65,101 @@ export default function MigracaoPage() {
             </div>
 
             {/* Import tool */}
-            <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
-                <h2 className="text-xs font-black text-slate-400 uppercase flex items-center gap-1"><Upload className="w-3.5 h-3.5" /> Importar Dados (JSON)</h2>
-                <select value={tipo} onChange={e => setTipo(e.target.value)}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm">
-                    <option value="clientes">Clientes</option>
-                    <option value="funcionarios">Funcionários</option>
-                    <option value="veiculos">Veículos</option>
-                    <option value="fornecedores">Fornecedores</option>
-                </select>
-                <textarea value={jsonInput} onChange={e => setJsonInput(e.target.value)}
-                    placeholder={'[\n  { "nome": "...", "email": "..." },\n  { "nome": "...", "cnpj": "..." }\n]'}
-                    rows={6} className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-mono" />
-                <button onClick={handleImport} disabled={!jsonInput || importing}
-                    className="bg-blue-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 disabled:opacity-50">
-                    {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                    {importing ? 'Importando...' : 'Importar Dados'}
-                </button>
-                {result && (
-                    <div className={`p-3 rounded-lg text-xs flex items-center gap-2 ${result.error ? 'bg-slate-50 text-slate-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                        {result.error ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
-                        {result.error ? result.error : `Importados: ${result.importados} | Erros: ${result.erros} | Total: ${result.total}`}
-                    </div>
-                )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-shrink-0">
+                {/* JSON Import (Existing) */}
+                <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+                    <h2 className="text-xs font-black text-slate-400 uppercase flex items-center gap-1"><Upload className="w-3.5 h-3.5" /> Importar Dados (JSON)</h2>
+                    <select value={tipo} onChange={e => setTipo(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
+                        <option value="clientes">Clientes</option>
+                        <option value="funcionarios">Funcionários</option>
+                        <option value="veiculos">Veículos</option>
+                        <option value="fornecedores">Fornecedores</option>
+                    </select>
+                    <textarea value={jsonInput} onChange={e => setJsonInput(e.target.value)}
+                        placeholder={'[\n  { "nome": "...", "email": "..." },\n  { "nome": "...", "cnpj": "..." }\n]'}
+                        rows={6} className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-mono outline-none focus:ring-2 focus:ring-blue-500/20" />
+                    <button onClick={handleImport} disabled={!jsonInput || importing}
+                        className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-all">
+                        {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                        {importing ? 'Importando...' : 'Importar Dados'}
+                    </button>
+                    {result && (
+                        <div className={`p-3 rounded-lg text-xs flex items-center gap-2 ${result.error ? 'bg-slate-50 text-slate-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                            {result.error ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                            {result.error ? result.error : `Importados: ${result.importados} | Erros: ${result.erros} | Total: ${result.total}`}
+                        </div>
+                    )}
+                </div>
+
+                {/* Pipefy Workflow Import (New) */}
+                <PipefyImportCard />
             </div>
+        </div>
+    );
+}
+
+function PipefyImportCard() {
+    const [pipeId, setPipeId] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [result, setResult] = useState<any>(null);
+
+    const handlePipefyBootstrap = async () => {
+        if (!pipeId) return;
+        setLoading(true);
+        setResult(null);
+        try {
+            const res = await api.post('/workflows/bootstrap', { pipeId });
+            setResult({ success: true, message: `Fluxo "${res.data.workflowId}" importado com sucesso!` });
+            setPipeId('');
+        } catch (err: any) {
+            setResult({ error: err.response?.data?.details || err.message });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="bg-white rounded-xl border border-blue-100 p-4 space-y-3 shadow-sm">
+            <h2 className="text-xs font-black text-blue-500 uppercase flex items-center gap-1">
+                <Database className="w-3.5 h-3.5" /> Sincronização de Workflows (Pipefy)
+            </h2>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+                Insira o ID do Pipe para importar automaticamente todas as **fases e campos** para o motor nativo da Nacional Hidro.
+            </p>
+            
+            <div className="pt-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Pipe ID</label>
+                <div className="relative">
+                    <input 
+                        type="text" 
+                        value={pipeId}
+                        onChange={e => setPipeId(e.target.value)}
+                        placeholder="Ex: 305769026"
+                        className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-bold pl-10 outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                    <Database className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                </div>
+            </div>
+
+            <button 
+                onClick={handlePipefyBootstrap}
+                disabled={!pipeId || loading}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 disabled:opacity-50 transition-all"
+            >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                {loading ? 'Sincronizando...' : 'Sincronizar Estrutura do Pipe'}
+            </button>
+
+            {result && (
+                <div className={`p-3 rounded-lg text-xs flex items-center gap-2 ${result.error ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                    {result.error ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                    {result.error || result.message}
+                </div>
+            )}
+        </div>
+    );
+}
         </div>
     );
 }

@@ -92,12 +92,19 @@ export class PipefyBridgeService {
       );
 
       if (response.data.errors) {
+        console.error('[PipefyBridge] API Errors:', JSON.stringify(response.data.errors, null, 2));
         throw new Error(`Pipefy API Error: ${JSON.stringify(response.data.errors)}`);
       }
 
-      return response.data.data.pipe;
+      const pipeData = response.data?.data?.pipe;
+      if (!pipeData) {
+        console.error('[PipefyBridge] Full Response:', JSON.stringify(response.data, null, 2));
+        throw new Error('Pipe não encontrado ou acesso negado (data.pipe is null)');
+      }
+
+      return pipeData;
     } catch (error: any) {
-      console.error('[PipefyBridge] Error fetching metadata:', error.message);
+      console.error('[PipefyBridge] Error fetching metadata:', error.response?.data || error.message);
       throw error;
     }
   }
