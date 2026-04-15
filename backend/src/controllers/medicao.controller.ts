@@ -814,7 +814,7 @@ export const enviarDocumentacaoFinal = async (req: AuthRequest, res: Response) =
             clienteNome: medicao.cliente.nome,
             medicaoCodigo: medicao.codigo,
             periodo: medicao.periodo || 'N/A',
-            valorTotal: medicao.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+            valorTotal: Number(medicao.valorTotal).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
             empresaLogo: empresa.logo || '',
             hasNotaFiscal: faturamentosValidos.length > 0,
             docLabel

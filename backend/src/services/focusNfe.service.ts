@@ -223,7 +223,3 @@ export const focusNfeService = {
         return response.data;
     }
 };
-error.message)}`);
-        }
-    }
-};
