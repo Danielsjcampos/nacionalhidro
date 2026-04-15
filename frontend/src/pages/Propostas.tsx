@@ -67,7 +67,7 @@ O total dos serviços será emitido em nota de serviço.`;
     try {
       const existing = typeof cliente.contatos === 'string' ? JSON.parse(cliente.contatos) : (cliente.contatos || []);
       const updated = [...existing, { id: Math.random().toString(36).substring(2,9), ...newContact }];
-      await api.put(`/clientes/${cliente.id}`, { contatos: updated });
+      await api.patch(`/clientes/${cliente.id}`, { contatos: updated });
       setClientes(clientes.map((c: any) => c.id === cliente.id ? { ...c, contatos: updated } : c));
       let currentEmails = formData.cc || '';
       if(newContact.email && !currentEmails.includes(newContact.email)) {
@@ -1302,104 +1302,6 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
               </div>
             </div>
 
-            {/* ─── ROW: Franquia de Horas e Adicionais ─── */}
-            <div className="border border-blue-200 bg-blue-50/40 rounded p-3 mt-2">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-[9px] font-black text-blue-700 uppercase tracking-wider">⏱ Condições de Franquia e Adicionais (Alimenta o RDO automaticamente)</span>
-              </div>
-              <div className="grid grid-cols-5 gap-3">
-                <div className="space-y-1">
-                  <label htmlFor="franquiaHoras" className="text-[9px] font-bold text-slate-600 uppercase">Franquia de Horas / dia</label>
-                  <div className="flex items-center gap-1">
-                    <input
-                      id="franquiaHoras"
-                      type="number"
-                      min="1"
-                      max="24"
-                      step="0.5"
-                      value={formData.franquiaHoras || ''}
-                      onChange={(e) => setFormData({ ...formData, franquiaHoras: e.target.value })}
-                      placeholder="8"
-                      className="w-full bg-white border border-blue-200 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-500 font-bold text-center"
-                    />
-                    <span className="text-[10px] text-slate-400 font-bold">h</span>
-                  </div>
-                  <p className="text-[9px] text-slate-400 italic">Horas incluídas sem adicional</p>
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="adicionalHoraExtra" className="text-[9px] font-bold text-slate-600 uppercase">Adicional H. Extra (%)</label>
-                  <div className="flex items-center gap-1">
-                    <input
-                      id="adicionalHoraExtra"
-                      type="number"
-                      min="0"
-                      max="200"
-                      step="5"
-                      value={formData.adicionalHoraExtra || ''}
-                      onChange={(e) => setFormData({ ...formData, adicionalHoraExtra: e.target.value })}
-                      placeholder="35"
-                      className="w-full bg-white border border-blue-200 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-500 font-bold text-center"
-                    />
-                    <span className="text-[10px] text-slate-400 font-bold">%</span>
-                  </div>
-                  <p className="text-[9px] text-slate-400 italic">Após franquia</p>
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="adicionalNoturno" className="text-[9px] font-bold text-slate-600 uppercase">Adicional Noturno (%)</label>
-                  <div className="flex items-center gap-1">
-                    <input
-                      id="adicionalNoturno"
-                      type="number"
-                      min="0"
-                      max="200"
-                      step="5"
-                      value={formData.adicionalNoturno || ''}
-                      onChange={(e) => setFormData({ ...formData, adicionalNoturno: e.target.value })}
-                      placeholder="35"
-                      className="w-full bg-white border border-indigo-200 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 font-bold text-center"
-                    />
-                    <span className="text-[10px] text-slate-400 font-bold">%</span>
-                  </div>
-                  <p className="text-[9px] text-slate-400 italic">22h–05h</p>
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="adicionalFimSemana" className="text-[9px] font-bold text-slate-600 uppercase">Adicional Fim de Semana (%)</label>
-                  <div className="flex items-center gap-1">
-                    <input
-                      id="adicionalFimSemana"
-                      type="number"
-                      min="0"
-                      max="200"
-                      step="5"
-                      value={formData.adicionalFimSemana || ''}
-                      onChange={(e) => setFormData({ ...formData, adicionalFimSemana: e.target.value })}
-                      placeholder="50"
-                      className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-slate-400 font-bold text-center"
-                    />
-                    <span className="text-[10px] text-slate-400 font-bold">%</span>
-                  </div>
-                  <p className="text-[9px] text-slate-400 italic">Sáb, Dom e Feriados</p>
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="minimoHorasChamado" className="text-[9px] font-bold text-slate-600 uppercase">Min. Cobrável / chamado</label>
-                  <div className="flex items-center gap-1">
-                    <input
-                      id="minimoHorasChamado"
-                      type="number"
-                      min="0"
-                      max="24"
-                      step="0.5"
-                      value={formData.minimoHorasChamado || ''}
-                      onChange={(e) => setFormData({ ...formData, minimoHorasChamado: e.target.value })}
-                      placeholder="10"
-                      className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-slate-400 font-bold text-center"
-                    />
-                    <span className="text-[10px] text-slate-400 font-bold">h</span>
-                  </div>
-                  <p className="text-[9px] text-slate-400 italic">Mínimo por acionamento</p>
-                </div>
-              </div>
-            </div>
 
             {formData.tipoProposta === 'TECNICA' && (
               <div className="grid grid-cols-3 gap-3 mt-2 bg-slate-50 border border-slate-200 p-3 rounded">

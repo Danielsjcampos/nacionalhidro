@@ -144,21 +144,21 @@ export const createProposta = async (req: AuthRequest, res: Response) => {
           itens: {
             create: itens?.map((i: any) => ({
               equipamento: i.equipamento,
-              quantidade: i.quantidade,
+              quantidade: parseFloat(i.quantidade) || 1,
               area: i.area,
               tipoCobranca: i.tipoCobranca,
-              valorAcobrar: i.valorAcobrar,
-              horasPorDia: i.horasPorDia,
-              usoPrevisto: i.usoPrevisto,
-              mobilizacao: i.mobilizacao,
-              valorTotal: i.valorTotal
+              valorAcobrar: parseFloat(i.valorAcobrar) || 0,
+              horasPorDia: parseFloat(i.horasPorDia) || null,
+              usoPrevisto: parseFloat(i.usoPrevisto) || null,
+              mobilizacao: parseFloat(i.mobilizacao) || 0,
+              valorTotal: parseFloat(i.valorTotal) || 0
             }))
           },
           acessorios: {
             create: acessorios?.map((a: any) => ({
               acessorio: a.acessorio,
-              quantidade: a.quantidade,
-              valor: a.valor
+              quantidade: parseFloat(a.quantidade) || 1,
+              valor: parseFloat(a.valor) || 0
             }))
           },
           responsabilidades: {
@@ -340,21 +340,21 @@ export const updateProposta = async (req: AuthRequest, res: Response) => {
           itens: {
             create: itens?.map((i: any) => ({
               equipamento: i.equipamento,
-              quantidade: i.quantidade,
+              quantidade: parseFloat(i.quantidade) || 1,
               area: i.area,
               tipoCobranca: i.tipoCobranca,
-              valorAcobrar: i.valorAcobrar,
-              horasPorDia: i.horasPorDia,
-              usoPrevisto: i.usoPrevisto,
-              mobilizacao: i.mobilizacao,
-              valorTotal: i.valorTotal
+              valorAcobrar: parseFloat(i.valorAcobrar) || 0,
+              horasPorDia: parseFloat(i.horasPorDia) || null,
+              usoPrevisto: parseFloat(i.usoPrevisto) || null,
+              mobilizacao: parseFloat(i.mobilizacao) || 0,
+              valorTotal: parseFloat(i.valorTotal) || 0
             }))
           },
           acessorios: {
             create: acessorios?.map((a: any) => ({
               acessorio: a.acessorio,
-              quantidade: a.quantidade,
-              valor: a.valor
+              quantidade: parseFloat(a.quantidade) || 1,
+              valor: parseFloat(a.valor) || 0
             }))
           },
           responsabilidades: {
