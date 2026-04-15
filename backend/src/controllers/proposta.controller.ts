@@ -132,14 +132,29 @@ export const createProposta = async (req: AuthRequest, res: Response) => {
       // Create the main proposal
       const novaProposta = await tx.proposta.create({
         data: {
-          ...rest,
           codigo,
+          tipo: rest.tipo || 'INDIVIDUAL',
+          status: rest.status || 'RASCUNHO',
           introducao: rest.introducao || '',
           objetivo: rest.objetivo || '',
+          descricaoValores: rest.descricaoValores || '',
           descricaoGarantia: rest.descricaoGarantia || '',
           condicoesPagamento: rest.condicoesPagamento || '',
           dataProposta: dataProposta ? new Date(dataProposta) : new Date(),
           dataValidade: dataValidade ? new Date(dataValidade) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          tipoProposta: rest.tipoProposta || 'COMERCIAL',
+          escopoTecnico: rest.escopoTecnico || '',
+          dimensionamentoEquipe: rest.dimensionamentoEquipe || '',
+          qtdEquipamentos: rest.qtdEquipamentos || '',
+          diasTrabalho: rest.diasTrabalho || '',
+          pRL: rest.pRL != null ? Number(rest.pRL) : undefined,
+          cTe: rest.cTe,
+          pagamentoAntecipado: rest.pagamentoAntecipado,
+          valorTotal: typeof rest.valorTotal === 'number' ? rest.valorTotal : parseFloat(rest.valorTotal) || 0,
+          vendedor: rest.vendedor,
+          empresa: rest.empresa,
+          contato: rest.contato,
+          cc: rest.cc,
           cliente: { connect: { id: clienteId } },
           itens: {
             create: itens?.map((i: any) => ({
@@ -148,8 +163,8 @@ export const createProposta = async (req: AuthRequest, res: Response) => {
               area: i.area,
               tipoCobranca: i.tipoCobranca,
               valorAcobrar: parseFloat(i.valorAcobrar) || 0,
-              horasPorDia: parseFloat(i.horasPorDia) || null,
-              usoPrevisto: parseFloat(i.usoPrevisto) || null,
+              horasPorDia: i.horasPorDia ? parseInt(i.horasPorDia) : null,
+              usoPrevisto: i.usoPrevisto ? String(i.usoPrevisto) : null,
               mobilizacao: parseFloat(i.mobilizacao) || 0,
               valorTotal: parseFloat(i.valorTotal) || 0
             }))
@@ -329,13 +344,28 @@ export const updateProposta = async (req: AuthRequest, res: Response) => {
       const updated = await tx.proposta.update({
         where: { id },
         data: {
-          ...rest,
-          introducao: rest.introducao,
-          objetivo: rest.objetivo,
-          descricaoGarantia: rest.descricaoGarantia,
-          condicoesPagamento: rest.condicoesPagamento,
+          tipo: rest.tipo || 'INDIVIDUAL',
+          status: rest.status || 'RASCUNHO',
+          introducao: rest.introducao || '',
+          objetivo: rest.objetivo || '',
+          descricaoValores: rest.descricaoValores || '',
+          descricaoGarantia: rest.descricaoGarantia || '',
+          condicoesPagamento: rest.condicoesPagamento || '',
           dataProposta: dataProposta ? new Date(dataProposta) : undefined,
           dataValidade: dataValidade ? new Date(dataValidade) : undefined,
+          tipoProposta: rest.tipoProposta || 'COMERCIAL',
+          escopoTecnico: rest.escopoTecnico || '',
+          dimensionamentoEquipe: rest.dimensionamentoEquipe || '',
+          qtdEquipamentos: rest.qtdEquipamentos || '',
+          diasTrabalho: rest.diasTrabalho || '',
+          pRL: rest.pRL != null ? Number(rest.pRL) : undefined,
+          cTe: rest.cTe,
+          pagamentoAntecipado: rest.pagamentoAntecipado,
+          valorTotal: typeof rest.valorTotal === 'number' ? rest.valorTotal : (rest.valorTotal != null ? parseFloat(rest.valorTotal) : undefined),
+          vendedor: rest.vendedor,
+          empresa: rest.empresa,
+          contato: rest.contato,
+          cc: rest.cc,
           cliente: clienteId ? { connect: { id: clienteId } } : undefined,
           itens: {
             create: itens?.map((i: any) => ({
@@ -344,8 +374,8 @@ export const updateProposta = async (req: AuthRequest, res: Response) => {
               area: i.area,
               tipoCobranca: i.tipoCobranca,
               valorAcobrar: parseFloat(i.valorAcobrar) || 0,
-              horasPorDia: parseFloat(i.horasPorDia) || null,
-              usoPrevisto: parseFloat(i.usoPrevisto) || null,
+              horasPorDia: i.horasPorDia ? parseInt(i.horasPorDia) : null,
+              usoPrevisto: i.usoPrevisto ? String(i.usoPrevisto) : null,
               mobilizacao: parseFloat(i.mobilizacao) || 0,
               valorTotal: parseFloat(i.valorTotal) || 0
             }))
