@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState } from 'react';
 import api from '../services/api';
 import {
@@ -57,6 +58,7 @@ const CARGOS_DISPONIVEIS = [
 ];
 
 export default function Recrutamento() {
+    const { showToast } = useToast();
     const [vagas, setVagas] = useState<any[]>([]);
     const [candidatos, setCandidatos] = useState<any[]>([]);
     const [stats, setStats] = useState<any>(null);
@@ -102,16 +104,16 @@ export default function Recrutamento() {
             fetchAll();
         } catch (err: any) {
              console.error(err);
-             alert('Erro ao criar vaga: ' + (err.response?.data?.error || err.message));
+             showToast('Erro ao criar vaga: ' + (err.response?.data?.error || err.message));
         }
     };
 
     const copyToClipboard = (text: string) => {
         if (navigator.clipboard && window.isSecureContext) {
             navigator.clipboard.writeText(text).then(() => {
-                alert(`Link copiado!\n${text}`);
+                showToast(`Link copiado!\n${text}`);
             }).catch(() => {
-                alert(`Erro ao copiar link automaticamente. Por favor copie manualmente:\n\n${text}`);
+                showToast(`Erro ao copiar link automaticamente. Por favor copie manualmente:\n\n${text}`);
             });
         } else {
             // Fallback for non-HTTPS environments (e.g. testing in local network by IP)
@@ -125,9 +127,9 @@ export default function Recrutamento() {
             textArea.select();
             try {
                 document.execCommand('copy');
-                alert(`Link copiado!\n${text}`);
+                showToast(`Link copiado!\n${text}`);
             } catch (err) {
-                alert(`Erro ao copiar link automaticamente. Por favor copie manualmente:\n\n${text}`);
+                showToast(`Erro ao copiar link automaticamente. Por favor copie manualmente:\n\n${text}`);
             }
             textArea.remove();
         }
@@ -181,10 +183,10 @@ export default function Recrutamento() {
         setIsEvaluating(candId);
         try {
             const res = await api.post(`/recrutamento/candidatos/${candId}/triagem-ia`);
-            alert(res.data.message + '\\n\\nParecer IA:\\n' + res.data.result.avaliacaoIA);
+            showToast(res.data.message + '\\n\\nParecer IA:\\n' + res.data.result.avaliacaoIA);
             fetchAll();
         } catch (err: any) {
-             alert('❌ Erro na avaliação por IA: ' + (err.response?.data?.error || err.message));
+             showToast('❌ Erro na avaliação por IA: ' + (err.response?.data?.error || err.message));
         } finally {
             setIsEvaluating(null);
         }

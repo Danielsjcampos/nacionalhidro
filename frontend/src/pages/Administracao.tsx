@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
@@ -28,6 +29,7 @@ const adminModules = [
 ];
 
 const Administracao = () => {
+    const { showToast } = useToast();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string | null>(null);
 
@@ -119,13 +121,13 @@ const AcessoriosTab = () => {
 
   const onSubmit = async (data: any) => {
     try { await api.post('/acessorios', data); reset(); fetchItems(); }
-    catch (e) { alert('Erro ao salvar acessório.'); }
+    catch (e) { showToast('Erro ao salvar acessório.'); }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Deseja realmente excluir este acessório?')) return;
     try { await api.delete(`/acessorios/${id}`); fetchItems(); }
-    catch (e) { alert('Erro ao excluir acessório.'); }
+    catch (e) { showToast('Erro ao excluir acessório.'); }
   };
 
   if (loading) return <div className="flex justify-center p-12"><Loader2 className="w-10 h-10 animate-spin text-blue-600" /></div>;
@@ -191,13 +193,13 @@ const ResponsabilidadesTab = () => {
 
   const onSubmit = async (data: any) => {
     try { await api.post('/responsabilidades', data); reset(); fetchItems(); }
-    catch (e) { alert('Erro ao salvar responsabilidade.'); }
+    catch (e) { showToast('Erro ao salvar responsabilidade.'); }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Deseja realmente excluir esta responsabilidade?')) return;
     try { await api.delete(`/responsabilidades/${id}`); fetchItems(); }
-    catch (e) { alert('Erro ao excluir responsabilidade.'); }
+    catch (e) { showToast('Erro ao excluir responsabilidade.'); }
   };
 
   if (loading) return <div className="flex justify-center p-12"><Loader2 className="w-10 h-10 animate-spin text-blue-600" /></div>;
@@ -291,7 +293,7 @@ const CargosTab = () => {
       reset(); 
       fetchItems(); 
     }
-    catch (e) { alert('Erro ao salvar cargo.'); }
+    catch (e) { showToast('Erro ao salvar cargo.'); }
   };
 
   const toggleUnico = async (item: any) => {
@@ -301,14 +303,14 @@ const CargosTab = () => {
       });
       fetchItems();
     } catch (e) {
-      alert('Erro ao atualizar cargo.');
+      showToast('Erro ao atualizar cargo.');
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Deseja realmente excluir este cargo?')) return;
     try { await api.delete(`/cargos/${id}`); fetchItems(); }
-    catch (e) { alert('Erro ao excluir cargo.'); }
+    catch (e) { showToast('Erro ao excluir cargo.'); }
   };
 
   if (loading) return <div className="flex justify-center p-12"><Loader2 className="w-10 h-10 animate-spin text-blue-600" /></div>;

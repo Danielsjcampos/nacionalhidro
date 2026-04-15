@@ -1,3 +1,4 @@
+import { useToast } from '../../contexts/ToastContext';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
@@ -7,6 +8,7 @@ import {
 } from 'lucide-react';
 
 export default function WorkflowSettings() {
+    const { showToast } = useToast();
   const { id: workflowId } = useParams();
   const navigate = useNavigate();
   const [workflow, setWorkflow] = useState<any>(null);
@@ -24,7 +26,7 @@ export default function WorkflowSettings() {
       setWorkflow(res.data);
       setFields(res.data.fields || []);
     } catch (error) {
-      alert('Erro ao carregar workflow');
+      showToast('Erro ao carregar workflow');
     } finally {
       setLoading(false);
     }
@@ -60,10 +62,10 @@ export default function WorkflowSettings() {
       }));
       
       await api.put(`/workflows/${workflowId}/fields`, { fields: fieldsToSave });
-      alert('Configurações salvas com sucesso!');
+      showToast('Configurações salvas com sucesso!');
       navigate(`/workflows/${workflowId}`);
     } catch (error) {
-      alert('Erro ao salvar campos');
+      showToast('Erro ao salvar campos');
     } finally {
       setSaving(false);
     }

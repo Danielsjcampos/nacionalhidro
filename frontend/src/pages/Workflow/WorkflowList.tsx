@@ -1,3 +1,4 @@
+import { useToast } from '../../contexts/ToastContext';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
@@ -7,6 +8,7 @@ import {
 } from 'lucide-react';
 
 export default function WorkflowList() {
+    const { showToast } = useToast();
   const [workflows, setWorkflows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showBootstrapModal, setShowBootstrapModal] = useState(false);
@@ -30,16 +32,16 @@ export default function WorkflowList() {
   };
 
   const handleBootstrap = async () => {
-    if (!pipeId) return alert('Insira o ID do Pipe');
+    if (!pipeId) return showToast('Insira o ID do Pipe');
     setBootstrapping(true);
     try {
       const res = await api.post('/workflows/bootstrap', { pipeId });
-      alert('Pipe importado com sucesso!');
+      showToast('Pipe importado com sucesso!');
       setShowBootstrapModal(false);
       fetchWorkflows();
       navigate(`/workflows/${res.data.workflowId}`);
     } catch (error: any) {
-      alert(`Erro: ${error.response?.data?.details || error.message}`);
+      showToast(`Erro: ${error.response?.data?.details || error.message}`);
     } finally {
       setBootstrapping(false);
     }

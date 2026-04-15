@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
@@ -6,6 +7,7 @@ import { Loader2, CheckCircle2, AlertTriangle, Paperclip } from 'lucide-react';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export default function InscricaoPublica() {
+    const { showToast } = useToast();
     const { vagaId } = useParams<{ vagaId: string }>();
     const [vaga, setVaga] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -51,7 +53,7 @@ export default function InscricaoPublica() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!form.aceitouTermos) {
-            alert('Você precisa aceitar os termos para prosseguir.');
+            showToast('Você precisa aceitar os termos para prosseguir.');
             return;
         }
         if (!form.nome.trim()) return;

@@ -1,8 +1,10 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState } from 'react';
 import api from '../services/api';
 import { Loader2, Building2, AlertTriangle, CheckCircle, Settings, Edit3 } from 'lucide-react';
 
 export default function EmpresasPage() {
+    const { showToast } = useToast();
     const [indicadores, setIndicadores] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -69,14 +71,14 @@ export default function EmpresasPage() {
             setEditingId(null);
             fetchIndicadores();
         } catch (err: any) {
-            alert('Falha ao salvar configurações.');
+            showToast('Falha ao salvar configurações.');
         }
     };
 
     const handleCreate = async () => {
         try {
             if (!newEmpresa.nome || !newEmpresa.cnpj) {
-                alert('Nome e CNPJ são obrigatórios');
+                showToast('Nome e CNPJ são obrigatórios');
                 return;
             }
             await api.post('/empresas', newEmpresa);
@@ -84,7 +86,7 @@ export default function EmpresasPage() {
             setNewEmpresa({ nome: '', cnpj: '', limiteMenusal: '500000', alertaPercentual: '80', banco: '', agencia: '', conta: '' });
             fetchIndicadores();
         } catch (err: any) {
-            alert('Falha ao adicionar empresa.');
+            showToast('Falha ao adicionar empresa.');
         }
     };
 
@@ -94,7 +96,7 @@ export default function EmpresasPage() {
             await api.delete(`/empresas/${id}`);
             fetchIndicadores();
         } catch (err: any) {
-            alert('Falha ao remover empresa.');
+            showToast('Falha ao remover empresa.');
         }
     };
 

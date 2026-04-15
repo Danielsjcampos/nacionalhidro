@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -29,6 +30,7 @@ const COLUNAS_KANBAN = [
 const CATEGORIAS = ['MOTORISTA', 'OPERADOR', 'AJUDANTE', 'JATISTA', 'ADMINISTRATIVO', 'LIDER'];
 
 export default function GestaoColaboradoresPage() {
+    const { showToast } = useToast();
   const navigate = useNavigate();
   const [dashboard, setDashboard] = useState<any>(null);
   const [colaboradores, setColaboradores] = useState<any[]>([]);
@@ -101,12 +103,12 @@ export default function GestaoColaboradoresPage() {
     try {
       setUpdatingFeedbackId(id);
       await api.patch(`/gestao-colaboradores/${id}`, { requestFeedback: tipo });
-      alert(`E-mail de solicitação de feedback (${tipo} dias) enviado ao gestor.`);
+      showToast(`E-mail de solicitação de feedback (${tipo} dias) enviado ao gestor.`);
       fetchDashboard();
       fetchColaboradores();
     } catch (err) {
       console.error('Feedback request error', err);
-      alert('Erro ao solicitar feedback.');
+      showToast('Erro ao solicitar feedback.');
     } finally {
       setUpdatingFeedbackId(null);
     }
@@ -125,7 +127,7 @@ export default function GestaoColaboradoresPage() {
       fetchColaboradores();
     } catch (err) {
       console.error('Save onboarding error', err);
-      alert('Erro ao salvar Setup do Colaborador');
+      showToast('Erro ao salvar Setup do Colaborador');
     }
   };
 
@@ -133,7 +135,7 @@ export default function GestaoColaboradoresPage() {
     if (!showDetail) return;
     try {
       if (!formFeedback.recomendacao) {
-        alert("Escolha uma recomendação antes de continuar.");
+        showToast("Escolha uma recomendação antes de continuar.");
         return;
       }
 
@@ -165,10 +167,10 @@ export default function GestaoColaboradoresPage() {
       setShowFeedbackForm(false);
       fetchDashboard();
       fetchColaboradores();
-      alert('Registro de Fechamento de Experiência salvo com sucesso!');
+      showToast('Registro de Fechamento de Experiência salvo com sucesso!');
     } catch (err) {
       console.error(err);
-      alert('Erro ao salvar Fechamento de Experiência');
+      showToast('Erro ao salvar Fechamento de Experiência');
     }
   };
 
@@ -186,10 +188,10 @@ export default function GestaoColaboradoresPage() {
       setShowDetail(patched.data);
       setShowEfetivoForm(false);
       fetchColaboradores();
-      alert('Cadastro de Efetivação concluído!');
+      showToast('Cadastro de Efetivação concluído!');
     } catch (err) {
       console.error(err);
-      alert('Erro ao salvar Efetivação');
+      showToast('Erro ao salvar Efetivação');
     }
   };
 
@@ -203,10 +205,10 @@ export default function GestaoColaboradoresPage() {
       setShowDetail(null); // Close drawer to reflect status change in list
       fetchDashboard();
       fetchColaboradores();
-      alert('Afastamento registrado com sucesso!');
+      showToast('Afastamento registrado com sucesso!');
     } catch (err) {
       console.error(err);
-      alert('Erro ao registrar afastamento');
+      showToast('Erro ao registrar afastamento');
     }
   };
 
@@ -221,10 +223,10 @@ export default function GestaoColaboradoresPage() {
       setShowDesligamentoForm(false);
       fetchDashboard();
       fetchColaboradores();
-      alert('Processo de desligamento iniciado com sucesso!');
+      showToast('Processo de desligamento iniciado com sucesso!');
     } catch (err) {
       console.error(err);
-      alert('Erro ao registrar desligamento');
+      showToast('Erro ao registrar desligamento');
     } finally {
       setIsSubmittingDesligamento(false);
     }
@@ -256,7 +258,7 @@ export default function GestaoColaboradoresPage() {
       fetchColaboradores();
     } catch (err) {
       console.error(err);
-      alert('Erro ao atualizar checklist');
+      showToast('Erro ao atualizar checklist');
     }
   };
 

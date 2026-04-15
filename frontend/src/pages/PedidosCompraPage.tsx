@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useForm, useFieldArray } from 'react-hook-form';
@@ -17,6 +18,7 @@ type Pedido = {
 };
 
 export default function PedidosCompraPage() {
+    const { showToast } = useToast();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
   const [fornecedores, setFornecedores] = useState<any[]>([]);
@@ -60,7 +62,7 @@ export default function PedidosCompraPage() {
       reset();
       fetchData();
     } catch (error) {
-      alert('Erro ao criar pedido de compra.');
+      showToast('Erro ao criar pedido de compra.');
     }
   };
 
@@ -69,11 +71,11 @@ export default function PedidosCompraPage() {
     try {
       const res = await api.patch(`/pedidos-compra/${id}/status`, { status });
       if (res.data?.contaPagarId) {
-          alert('Pedido aprovado e integrado ao Contas a Pagar com sucesso!');
+          showToast('Pedido aprovado e integrado ao Contas a Pagar com sucesso!');
       }
       fetchData();
     } catch (err) {
-      alert('Erro ao alterar status.');
+      showToast('Erro ao alterar status.');
     }
   };
 
@@ -83,7 +85,7 @@ export default function PedidosCompraPage() {
       await api.delete(`/pedidos-compra/${id}`);
       fetchData();
     } catch (err) {
-      alert('Erro ao excluir pedido.');
+      showToast('Erro ao excluir pedido.');
     }
   };
 

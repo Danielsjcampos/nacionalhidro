@@ -1,9 +1,14 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import api from '../services/api';
 import {
     Loader2, ChevronLeft, ChevronRight, Calendar, Plus,
-    X, Save, Truck, Eye, AlertTriangle, Wrench, Clock, Sparkles
+    X, Save, Truck, Eye, AlertTriangle, Wrench, Clock, Sparkles, Copy, Ban, Users, Printer
 } from 'lucide-react';
+import ModalCancelarEscala from '../components/ModalCancelarEscala';
+import ModalQuadroFuncionarios from '../components/ModalQuadroFuncionarios';
+import ModalQuadroVeiculos from '../components/ModalQuadroVeiculos';
+import ReportEscala from '../components/ReportEscala';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -106,6 +111,7 @@ const TIPO_CONFIG: Record<string, { dot: string; label: string }> = {
 // ═════════════════════════════════════════════════════════════════════════════
 
 export default function Histograma() {
+    const { showToast } = useToast();
     // ── State ──────────────────────────────────────────────────────────────────
 
     const [loading, setLoading] = useState(true);
@@ -164,6 +170,13 @@ export default function Histograma() {
     // IA Assistant
     const [loadingIA, setLoadingIA] = useState(false);
     const [sugestaoIA, setSugestaoIA] = useState<any>(null);
+
+    // Cancel / Duplicate / Quadro modals
+    const [cancelModalOpen, setCancelModalOpen] = useState(false);
+    const [cancelEscalaId, setCancelEscalaId] = useState<string | null>(null);
+    const [quadroFuncOpen, setQuadroFuncOpen] = useState(false);
+    const [quadroVeicOpen, setQuadroVeicOpen] = useState(false);
+    const [reportOpen, setReportOpen] = useState(false);
 
     // ── Date Range Calculation ─────────────────────────────────────────────────
 
@@ -379,7 +392,7 @@ export default function Histograma() {
 
     const handleSugerirIA = async () => {
         if (!modalEscala?.data) {
-            alert('Selecione uma data para a IA analisar.');
+            showToast('Selecione uma data para a IA analisar.');
             return;
         }
         setLoadingIA(true);
@@ -394,7 +407,7 @@ export default function Histograma() {
             setSugestaoIA(res.data);
         } catch (err: any) {
             console.error(err);
-            alert(err.response?.data?.error?.message || 'Erro ao consultar inteligência artificial.');
+            showToast(err.response?.data?.error?.message || 'Erro ao consultar inteligência artificial.');
         } finally {
             setLoadingIA(false);
         }
@@ -418,6 +431,49 @@ export default function Histograma() {
             fetchData();
         } catch (err) {
             console.error('Error saving escala', err);
+        }
+    };
+
+    // ── Duplicate / Cancel handlers ─────────────────────────────────────────────
+
+    const handleDuplicateEscala = async () => {
+        if (!modalEscala?.id) return;
+        try {
+            await api.post(`/logistica/escalas/${modalEscala.id}/duplicar`);
+            showToast('Escala duplicada para o dia seguinte!', 'success');
+            setModalOpen(false);
+            setModalEscala(null);
+            fetchData();
+        } catch (err: any) {
+            console.error('Duplicate escala error:', err);
+            showToast(err.response?.data?.error || 'Erro ao duplicar escala.');
+        }
+    };
+
+    const handleCancelEscala = async (motivo: string) => {
+        if (!cancelEscalaId) return;
+        try {
+            await api.patch(`/logistica/escalas/${cancelEscalaId}/cancelar`, { motivoCancelamento: motivo });
+            showToast('Escala cancelada com sucesso.', 'success');
+            setCancelModalOpen(false);
+            setCancelEscalaId(null);
+            setModalOpen(false);
+            setModalEscala(null);
+            fetchData();
+        } catch (err: any) {
+            console.error('Cancel escala error:', err);
+            showToast(err.response?.data?.error || 'Erro ao cancelar escala.');
+        }
+    };
+
+    const handleQuadroFuncConfirm = (selected: any[]) => {
+        const funcNames = selected.map((f: any) => typeof f === 'object' ? (f.nome || f) : f);
+        setModalEscala(prev => prev ? { ...prev, funcionarios: funcNames } : prev);
+    };
+
+    const handleQuadroVeicConfirm = (selected: any[]) => {
+        if (selected.length > 0) {
+            setModalEscala(prev => prev ? { ...prev, veiculoId: selected[0].id } : prev);
         }
     };
 
@@ -508,6 +564,14 @@ export default function Histograma() {
                     <span className="text-sm font-black text-slate-700 italic min-w-[180px] text-center">
                         {headerLabel}
                     </span>
+
+                    {/* Report Button */}
+                    <button
+                        onClick={() => setReportOpen(true)}
+                        className="bg-white border border-slate-200 rounded-xl px-3 py-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-blue-600 hover:border-blue-300 transition-all shadow-sm"
+                    >
+                        <Printer className="w-3.5 h-3.5" /> Relatorio
+                    </button>
                 </div>
                 )}
             </header>
@@ -1031,14 +1095,36 @@ export default function Histograma() {
                                             </div>
                                         </FormField>
 
-                                        <FormField label="OS Vinculada">
-                                            <input
-                                                type="text"
-                                                className="w-full bg-slate-50/50 border-2 border-slate-100 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-blue-600 transition-all"
-                                                value={modalEscala.codigoOS || ''}
-                                                onChange={(e) => setModalEscala({ ...modalEscala, codigoOS: e.target.value })}
-                                                placeholder="Ex: OS-2024-001"
-                                            />
+                                        <FormField label="OS Vinculada (M01: Validação Automática)">
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    className="w-full bg-slate-50/50 border-2 border-slate-100 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-blue-600 transition-all pr-10"
+                                                    value={modalEscala.codigoOS || ''}
+                                                    onChange={(e) => setModalEscala({ ...modalEscala, codigoOS: e.target.value })}
+                                                    onBlur={async (e) => {
+                                                        const codigo = e.target.value?.trim();
+                                                        if (!codigo) return;
+                                                        try {
+                                                            const res = await api.get(`/logistica/validar-os/${encodeURIComponent(codigo)}`);
+                                                            if (res.data.valida) {
+                                                                // Auto-fill client from OS
+                                                                if (res.data.os?.clienteId && !modalEscala.clienteId) {
+                                                                    setModalEscala((prev: any) => ({ ...prev, clienteId: res.data.os.clienteId }));
+                                                                }
+                                                                if (res.data.jaVinculada) {
+                                                                    showToast(`⚠️ OS ${codigo} já possui ${res.data.escalasVinculadas} escala(s) vinculada(s).`);
+                                                                }
+                                                            } else {
+                                                                showToast(res.data.error || `OS ${codigo} não encontrada.`);
+                                                            }
+                                                        } catch {
+                                                            // silent — validation is advisory
+                                                        }
+                                                    }}
+                                                    placeholder="Ex: OS-2026-0001"
+                                                />
+                                            </div>
                                         </FormField>
 
                                         <FormField label="Status">
@@ -1252,35 +1338,103 @@ export default function Histograma() {
                         </div>
 
                         {/* Modal Footer */}
-                        <div className="p-6 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
-                            <button
-                                onClick={() => { setModalOpen(false); setModalEscala(null); }}
-                                className="px-6 py-3 text-[10px] font-black uppercase text-slate-400 hover:text-slate-600 transition-all italic"
-                            >
-                                {modalMode === 'view' ? 'Fechar' : 'Cancelar'}
-                            </button>
-
-                            {modalMode === 'view' && (
+                        <div className="p-6 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+                            <div className="flex gap-2">
+                                {modalMode === 'view' && modalEscala.id && modalEscala.status !== 'CANCELADO' && modalEscala.status !== 'CANCELADA' && (
+                                    <>
+                                        <button
+                                            onClick={handleDuplicateEscala}
+                                            className="px-4 py-2.5 text-[10px] font-bold uppercase text-blue-600 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-all flex items-center gap-1.5 tracking-wide"
+                                            title="Duplicar para o dia seguinte"
+                                        >
+                                            <Copy className="w-3.5 h-3.5" /> Duplicar
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setCancelEscalaId(modalEscala.id || null);
+                                                setCancelModalOpen(true);
+                                            }}
+                                            className="px-4 py-2.5 text-[10px] font-bold uppercase text-red-600 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition-all flex items-center gap-1.5 tracking-wide"
+                                            title="Cancelar escala"
+                                        >
+                                            <Ban className="w-3.5 h-3.5" /> Cancelar
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                            <div className="flex gap-3">
                                 <button
-                                    onClick={() => setModalMode('edit')}
-                                    className="bg-white border border-slate-200 text-slate-700 px-6 py-3 rounded-2xl flex items-center gap-2 hover:border-blue-400 transition-all text-[10px] font-black uppercase italic tracking-widest"
+                                    onClick={() => { setModalOpen(false); setModalEscala(null); }}
+                                    className="px-6 py-3 text-[10px] font-black uppercase text-slate-400 hover:text-slate-600 transition-all italic"
                                 >
-                                    <Eye className="w-4 h-4" /> Editar
+                                    {modalMode === 'view' ? 'Fechar' : 'Cancelar'}
                                 </button>
-                            )}
 
-                            {(modalMode === 'create' || modalMode === 'edit') && (
-                                <button
-                                    onClick={handleSaveModal}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-3.5 rounded-2xl flex items-center gap-2 transition-all shadow-xl shadow-blue-500/20 text-[10px] font-black uppercase italic tracking-widest"
-                                >
-                                    <Save className="w-5 h-5" /> Salvar
-                                </button>
-                            )}
+                                {modalMode === 'view' && (
+                                    <button
+                                        onClick={() => setModalMode('edit')}
+                                        className="bg-white border border-slate-200 text-slate-700 px-6 py-3 rounded-2xl flex items-center gap-2 hover:border-blue-400 transition-all text-[10px] font-black uppercase italic tracking-widest"
+                                    >
+                                        <Eye className="w-4 h-4" /> Editar
+                                    </button>
+                                )}
+
+                                {(modalMode === 'create' || modalMode === 'edit') && (
+                                    <>
+                                        <button
+                                            onClick={() => setQuadroFuncOpen(true)}
+                                            className="bg-teal-50 border border-teal-200 text-teal-700 px-4 py-3 rounded-2xl flex items-center gap-2 hover:bg-teal-100 transition-all text-[10px] font-bold uppercase tracking-widest"
+                                        >
+                                            <Users className="w-4 h-4" /> Quadro
+                                        </button>
+                                        <button
+                                            onClick={handleSaveModal}
+                                            className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-3.5 rounded-2xl flex items-center gap-2 transition-all shadow-xl shadow-blue-500/20 text-[10px] font-black uppercase italic tracking-widest"
+                                        >
+                                            <Save className="w-5 h-5" /> Salvar
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
+
+            {/* ═══ Cancel Escala Modal ═══ */}
+            <ModalCancelarEscala
+                isOpen={cancelModalOpen}
+                onClose={() => { setCancelModalOpen(false); setCancelEscalaId(null); }}
+                onConfirm={handleCancelEscala}
+                escalaInfo={modalEscala?.cliente?.nome ? `${modalEscala.cliente.nome} - ${new Date(modalEscala.data || '').toLocaleDateString('pt-BR')}` : undefined}
+            />
+
+            {/* ═══ Quadro Funcionários Modal ═══ */}
+            <ModalQuadroFuncionarios
+                isOpen={quadroFuncOpen}
+                onClose={() => setQuadroFuncOpen(false)}
+                onConfirm={handleQuadroFuncConfirm}
+                data={modalEscala?.data?.toString().split('T')[0] || new Date().toISOString().split('T')[0]}
+                clienteId={modalEscala?.clienteId}
+                selectedIds={[]}
+            />
+
+            {/* ═══ Quadro Veículos Modal ═══ */}
+            <ModalQuadroVeiculos
+                isOpen={quadroVeicOpen}
+                onClose={() => setQuadroVeicOpen(false)}
+                onConfirm={handleQuadroVeicConfirm}
+                data={modalEscala?.data?.toString().split('T')[0] || new Date().toISOString().split('T')[0]}
+                selectedIds={modalEscala?.veiculoId ? [modalEscala.veiculoId] : []}
+            />
+
+            {/* ═══ Report Escala ═══ */}
+            <ReportEscala
+                isOpen={reportOpen}
+                onClose={() => setReportOpen(false)}
+                startDate={startDate?.toISOString() || new Date().toISOString()}
+                endDate={endDate?.toISOString() || new Date().toISOString()}
+            />
         </div>
     );
 }

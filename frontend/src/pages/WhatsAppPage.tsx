@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import {
@@ -18,6 +19,7 @@ const TRIGGERS = [
 ];
 
 export default function WhatsAppPage() {
+    const { showToast } = useToast();
     const [automacoes, setAutomacoes] = useState<any[]>([]);
     const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -76,11 +78,11 @@ export default function WhatsAppPage() {
                 setQrCode(r.data.qrcode);
             } else if (r.data.error) {
                 setQrCode(null);
-                alert(`Não foi possível gerar QR: ${r.data.error}`);
+                showToast(`Não foi possível gerar QR: ${r.data.error}`);
             }
         } catch (err: any) {
             console.error('QR code fetch error:', err);
-            alert('Erro ao buscar QR Code');
+            showToast('Erro ao buscar QR Code');
         } finally {
             setLoadingQR(false);
         }
@@ -93,7 +95,7 @@ export default function WhatsAppPage() {
             await api.post('/whatsapp/desconectar');
             await checkStatus();
         } catch (err) {
-            alert('Erro ao desconectar');
+            showToast('Erro ao desconectar');
         } finally {
             setActionLoading(null);
         }
@@ -107,7 +109,7 @@ export default function WhatsAppPage() {
             setConnectionStatus({ connected: false, name: 'Excluída' });
             setQrCode(null);
         } catch (err) {
-            alert('Erro ao excluir instância');
+            showToast('Erro ao excluir instância');
         } finally {
             setActionLoading(null);
         }
@@ -115,7 +117,7 @@ export default function WhatsAppPage() {
 
     const handleCreateInstance = async () => {
         if (!newInstanceName.trim()) {
-            alert('Digite um nome para a instância');
+            showToast('Digite um nome para a instância');
             return;
         }
         setActionLoading('create');
@@ -127,7 +129,7 @@ export default function WhatsAppPage() {
             setNewInstanceName('');
             await checkStatus();
         } catch (err) {
-            alert('Erro ao criar instância');
+            showToast('Erro ao criar instância');
         } finally {
             setActionLoading(null);
         }

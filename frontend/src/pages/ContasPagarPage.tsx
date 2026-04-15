@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import {
@@ -16,6 +17,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string; lab
 };
 
 export default function ContasPagarPage() {
+    const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState<'ABERTOS' | 'PAGAR' | 'HISTORICO' | 'CANCELADOS'>('ABERTOS');
     const [pagar, setPagar] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -97,18 +99,18 @@ export default function ContasPagarPage() {
             const parseRes = await api.post('/importacao-xml/parse', formData);
             const nfe = parseRes.data;
             if (nfe.jaImportada) {
-                alert('Esta NF-e já foi importada!');
+                showToast('Esta NF-e já foi importada!');
                 return;
             }
 
             // Phase 2: Confirm & Import
             if(confirm(`NF ${nfe.numero} de ${nfe.emitente?.razaoSocial} no valor de R$${nfe.totais?.valorNF}. Deseja importar?`)) {
                 await api.post('/importacao-xml/importar', { nfe });
-                alert('XML Importado com sucesso!');
+                showToast('XML Importado com sucesso!');
                 fetchAll();
             }
         } catch (err: any) {
-             alert(err.response?.data?.error || 'Erro ao processar XML');
+             showToast(err.response?.data?.error || 'Erro ao processar XML');
         }
     };
 
@@ -197,7 +199,7 @@ export default function ContasPagarPage() {
 
     const processarBaixaLote = async () => {
         try {
-            if (!loteForm.conta) return alert('Selecione o banco de saída para o malote!');
+            if (!loteForm.conta) return showToast('Selecione o banco de saída para o malote!');
 
             const titulosBaixa = loteItems.map(i => ({
                 id: i.id,
@@ -215,9 +217,9 @@ export default function ContasPagarPage() {
             setSelected(new Set());
             setActiveTab('HISTORICO');
             fetchAll();
-            alert('Baixa em lote realizada com sucesso!');
+            showToast('Baixa em lote realizada com sucesso!');
         } catch (err: any) {
-            alert(err.response?.data?.error || 'Erro ao baixar lote');
+            showToast(err.response?.data?.error || 'Erro ao baixar lote');
         }
     };
 
@@ -243,20 +245,20 @@ export default function ContasPagarPage() {
             });
             setShowEditarBaixa(null);
             fetchAll();
-            alert('Baixa corrigida com sucesso!');
+            showToast('Baixa corrigida com sucesso!');
         } catch (err: any) {
-             alert(err.response?.data?.error || 'Erro ao corrigir baixa');
+             showToast(err.response?.data?.error || 'Erro ao corrigir baixa');
         }
     };
 
     const exportarExcel = () => {
-        if (selected.size === 0) return alert('Selecione itens na aba Pagar');
+        if (selected.size === 0) return showToast('Selecione itens na aba Pagar');
         const ids = Array.from(selected).join(',');
         window.open(`${api.defaults.baseURL}/financeiro/contas-pagar/exportar-excel?ids=${ids}`, '_blank');
     };
 
     const exportarCNAB = () => {
-        if (selected.size === 0) return alert('Selecione itens na aba Pagar');
+        if (selected.size === 0) return showToast('Selecione itens na aba Pagar');
         const ids = Array.from(selected).join(',');
         window.open(`${api.defaults.baseURL}/financeiro/contas-pagar/exportar-cnab?ids=${ids}&banco=ITAU`, '_blank');
     };
@@ -484,8 +486,8 @@ export default function ContasPagarPage() {
                                                 {activeTab === 'HISTORICO' && (
                                                     <>
                                                         <button onClick={() => handleEditarBaixaClick(c)} className="text-blue-600 hover:text-blue-800 p-1" title="Corrigir Baixa"><Edit3 className="w-3.5 h-3.5"/></button>
-                                                        <button onClick={() => { if(confirm('Revogar pagamento e voltar para etapa Pagar?')) { api.patch(`/financeiro/contas-pagar/${c.id}/revogar`).then(() => fetchAll()).catch(() => alert('Erro ao revogar')); } }} className="text-amber-600 hover:text-amber-800 p-1" title="Revogar / Voltar"><RotateCcw className="w-3.5 h-3.5"/></button>
-                                                        <button onClick={() => alert(`Histórico:\n• Entrada: ${fmtDate(c.createdAt)}\n• Vencimento: ${fmtDate(c.dataVencimento)}\n• Pagamento: ${fmtDate(c.dataPagamento || c.updatedAt)}`)} className="text-slate-500 hover:text-slate-700 p-1" title="Ver Histórico"><List className="w-3.5 h-3.5"/></button>
+                                                        <button onClick={() => { if(confirm('Revogar pagamento e voltar para etapa Pagar?')) { api.patch(`/financeiro/contas-pagar/${c.id}/revogar`).then(() => fetchAll()).catch(() => showToast('Erro ao revogar')); } }} className="text-amber-600 hover:text-amber-800 p-1" title="Revogar / Voltar"><RotateCcw className="w-3.5 h-3.5"/></button>
+                                                        <button onClick={() => showToast(`Histórico:\n• Entrada: ${fmtDate(c.createdAt)}\n• Vencimento: ${fmtDate(c.dataVencimento)}\n• Pagamento: ${fmtDate(c.dataPagamento || c.updatedAt)}`)} className="text-slate-500 hover:text-slate-700 p-1" title="Ver Histórico"><List className="w-3.5 h-3.5"/></button>
                                                     </>
                                                 )}
                                             </div>

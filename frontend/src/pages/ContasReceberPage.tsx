@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import {
@@ -15,6 +16,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string; lab
 };
 
 export default function ContasReceberPage() {
+    const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState<'ABERTOS' | 'RECEBER' | 'HISTORICO' | 'CANCELADOS'>('ABERTOS');
     const [receber, setReceber] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -100,7 +102,7 @@ export default function ContasReceberPage() {
     const handleReceber = async () => {
         if (!showBaixa) return;
         if (!baixaForm.conta) {
-            alert('Por favor, selecione o banco de destino.');
+            showToast('Por favor, selecione o banco de destino.');
             return;
         }
         try {
@@ -108,9 +110,9 @@ export default function ContasReceberPage() {
             setShowBaixa(null);
             setBaixaForm({ valorRecebido: '', formaPagamento: 'PIX', banco: '', agencia: '', conta: '', valorDesconto: '', observacoes: '' });
             fetchAll();
-            alert('Recebimento confirmado com sucesso!');
+            showToast('Recebimento confirmado com sucesso!');
         } catch (err: any) {
-            alert(err.response?.data?.error || 'Erro ao confirmar recebimento');
+            showToast(err.response?.data?.error || 'Erro ao confirmar recebimento');
         }
     };
 
@@ -141,7 +143,7 @@ export default function ContasReceberPage() {
 
     const processarBaixaLote = async () => {
         if (!loteForm.contaBancariaId) {
-            alert('Por favor, selecione o banco de destino para o lote.');
+            showToast('Por favor, selecione o banco de destino para o lote.');
             return;
         }
         try {
@@ -161,9 +163,9 @@ export default function ContasReceberPage() {
             setSelected(new Set());
             setActiveTab('HISTORICO');
             fetchAll();
-            alert('Recebimento em lote realizado com sucesso!');
+            showToast('Recebimento em lote realizado com sucesso!');
         } catch (err: any) {
-            alert(err.response?.data?.error || 'Erro ao receber lote');
+            showToast(err.response?.data?.error || 'Erro ao receber lote');
         }
     };
 
@@ -173,7 +175,7 @@ export default function ContasReceberPage() {
             await api.patch(`/financeiro/contas-receber/${showEditarBaixa.id}/corrigir-baixa`, editarForm);
             setShowEditarBaixa(null);
             fetchAll();
-            alert('Baixa atualizada com sucesso!');
+            showToast('Baixa atualizada com sucesso!');
         } catch (err) { console.error(err); }
     }
 
@@ -412,7 +414,7 @@ export default function ContasReceberPage() {
                                                         <button onClick={() => openEditarBaixa(c)} className="p-1 bg-slate-100 text-blue-600 hover:bg-blue-100 rounded-md shadow-sm" title="Corrigir Baixa">
                                                             <Edit3 className="w-3.5 h-3.5 mx-auto"/>
                                                         </button>
-                                                        <button onClick={() => { if(confirm('Revogar recebimento e voltar para Mesa de Operações?')) { api.patch(`/financeiro/contas-receber/${c.id}/revogar`).then(() => fetchAll()).catch(() => alert('Erro ao revogar')); } }} className="p-1 bg-slate-100 text-amber-600 hover:bg-amber-100 rounded-md shadow-sm" title="Revogar Baixa">
+                                                        <button onClick={() => { if(confirm('Revogar recebimento e voltar para Mesa de Operações?')) { api.patch(`/financeiro/contas-receber/${c.id}/revogar`).then(() => fetchAll()).catch(() => showToast('Erro ao revogar')); } }} className="p-1 bg-slate-100 text-amber-600 hover:bg-amber-100 rounded-md shadow-sm" title="Revogar Baixa">
                                                             <RotateCcw className="w-3.5 h-3.5 mx-auto"/>
                                                         </button>
                                                     </>

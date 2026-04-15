@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState } from 'react';
 import api from '../services/api';
 import {
@@ -12,6 +13,7 @@ import { numeroExtenso } from '../utils/numeroExtenso';
 
 
 export default function Propostas() {
+    const { showToast } = useToast();
   const [propostas, setPropostas] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,7 +61,7 @@ O total dos serviços será emitido em nota de serviço.`;
   const [newContact, setNewContact] = useState({ nome: '', email: '', telefone: '' });
 
   const handleSaveContact = async () => {
-    if(!newContact.nome) return alert('Nome do contato é obrigatório!');
+    if(!newContact.nome) return showToast('Nome do contato é obrigatório!');
     const cliente = clientes.find((c: any) => c.id === formData.clienteId);
     if(!cliente) return;
     try {
@@ -76,7 +78,7 @@ O total dos serviços será emitido em nota de serviço.`;
       setNewContact({ nome: '', email: '', telefone: '' });
     } catch(e) {
       console.error(e);
-      alert('Erro ao sincronizar contato no cliente.');
+      showToast('Erro ao sincronizar contato no cliente.');
     }
   };
 
@@ -121,7 +123,7 @@ O total dos serviços será emitido em nota de serviço.`;
         setTotalItems(propsRes.data.total || 0);
       } catch (e: any) { 
         console.error('Failed to fetch propostas', e); 
-        alert('Erro ao carregar propostas: ' + (e.response?.data?.details || e.response?.data?.error || e.message));
+        showToast('Erro ao carregar propostas: ' + (e.response?.data?.details || e.response?.data?.error || e.message));
       }
 
       try {
@@ -474,7 +476,7 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
       fetchData();
     } catch (err: any) {
       console.error('Error saving proposal', err);
-      alert('Erro ao salvar proposta: ' + (err.response?.data?.error || err.response?.data?.details || err.message));
+      showToast('Erro ao salvar proposta: ' + (err.response?.data?.error || err.response?.data?.details || err.message));
     }
   };
 
@@ -484,13 +486,13 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
 
       if (status === 'CANCELADA') {
         const motivo = window.prompt('Motivo do cancelamento (obrigatório):');
-        if (!motivo || motivo.trim() === '') { alert('O motivo é obrigatório para cancelar.'); return; }
+        if (!motivo || motivo.trim() === '') { showToast('O motivo é obrigatório para cancelar.'); return; }
         payload.motivoCancelamento = motivo.toUpperCase();
       }
 
       if (status === 'RECUSADA') {
         const motivo = window.prompt('Motivo da reprovação (obrigatório):');
-        if (!motivo || motivo.trim() === '') { alert('O motivo é obrigatório para recusar.'); return; }
+        if (!motivo || motivo.trim() === '') { showToast('O motivo é obrigatório para recusar.'); return; }
         payload.motivoReprovacao = motivo.toUpperCase();
       }
 
@@ -508,17 +510,17 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
       fetchData();
     } catch (err: any) {
       console.error('Erro ao gerar revisão', err);
-      alert(err.response?.data?.error || 'Falha ao logar revisão.');
+      showToast(err.response?.data?.error || 'Falha ao logar revisão.');
     }
   };
 
   const handleGerarOS = async (propostaId: string) => {
     try {
       const res = await api.post(`/propostas/${propostaId}/gerar-os`, {});
-      alert(`OS ${res.data.codigo} criada com sucesso!`);
+      showToast(`OS ${res.data.codigo} criada com sucesso!`);
       fetchData();
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Erro ao gerar OS');
+      showToast(err.response?.data?.error || 'Erro ao gerar OS');
     }
   };
 
@@ -581,7 +583,7 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       console.error('Erro ao copiar proposta', err);
-      alert('Erro ao copiar proposta.');
+      showToast('Erro ao copiar proposta.');
     } finally {
       setLoading(false);
     }
@@ -661,10 +663,10 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
         mensagem: msg
       });
 
-      alert('Chamada de Equipe enviada com sucesso via WhatsApp!');
+      showToast('Chamada de Equipe enviada com sucesso via WhatsApp!');
       setIsDispatchModalOpen(false);
     } catch (err: any) {
-      alert('Erro ao disparar WhatsApp: ' + (err.response?.data?.error || err.message));
+      showToast('Erro ao disparar WhatsApp: ' + (err.response?.data?.error || err.message));
     } finally {
       setLoading(false);
     }
@@ -679,7 +681,7 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
       window.open(pdfUrl, '_blank');
     } catch (err: any) {
       console.error('Failed to view PDF', err);
-      alert('Erro ao visualizar PDF gerado pelo servidor.');
+      showToast('Erro ao visualizar PDF gerado pelo servidor.');
     } finally {
       setLoading(false);
     }
@@ -688,7 +690,7 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
   const handleEnviarEmail = async (prop: any) => {
     // Verificação de segurança: não enviar se marcado
     if (prop.naoEnviarAoCliente) {
-      alert('⚠️ Esta proposta está marcada como "Não enviar ao cliente". Desmarque a opção antes de enviar.');
+      showToast('⚠️ Esta proposta está marcada como "Não enviar ao cliente". Desmarque a opção antes de enviar.');
       return;
     }
 
@@ -699,11 +701,11 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
       setLoading(true);
       const res = await api.post(`/propostas/${prop.id}/enviar-email`, {});
 
-      alert(`✅ ${res.data.message || 'E-mail enviado com sucesso!'}`);
+      showToast(`✅ ${res.data.message || 'E-mail enviado com sucesso!'}`);
       fetchData();
     } catch (err: any) {
       console.error('Erro ao enviar e-mail:', err);
-      alert(`❌ ${err.response?.data?.error || 'Erro ao enviar e-mail da proposta.'}`);
+      showToast(`❌ ${err.response?.data?.error || 'Erro ao enviar e-mail da proposta.'}`);
     } finally {
       setLoading(false);
     }

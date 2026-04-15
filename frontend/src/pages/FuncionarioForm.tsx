@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { X, Save, User, MapPin, Briefcase, DollarSign, FileText, Truck, Gift, Shield } from 'lucide-react';
@@ -9,6 +10,7 @@ interface FuncionarioFormProps {
 }
 
 export default function FuncionarioForm({ initialData, onClose, onSave }: FuncionarioFormProps) {
+    const { showToast } = useToast();
   const { register, handleSubmit, reset } = useForm({
     defaultValues: initialData || {
       ativo: true,
@@ -432,7 +434,7 @@ export default function FuncionarioForm({ initialData, onClose, onSave }: Funcio
                </div>
 
                <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
-                   <button type="button" onClick={() => alert('Para adicionar integrações, salve o cadastro primeiro e use o Painel Operacional ou RH > Ficha de Integrações (em breve)')} className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition">
+                   <button type="button" onClick={() => showToast('Para adicionar integrações, salve o cadastro primeiro e use o Painel Operacional ou RH > Ficha de Integrações (em breve)')} className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition">
                      + Lançar Integração
                    </button>
                </div>

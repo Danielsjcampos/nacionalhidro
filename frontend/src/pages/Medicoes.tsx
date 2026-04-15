@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import {
@@ -14,6 +15,7 @@ const fmt = (v: any) =>
 const fmtDate = (d: any) => d ? new Date(d).toLocaleDateString('pt-BR') : '-';
 
 const diffDays = (from: any, to: any) => {
+    const { showToast } = useToast();
     if (!from || !to) return '-';
     const diff = Math.floor((new Date(to).getTime() - new Date(from).getTime()) / (1000 * 3600 * 24));
     return diff;
@@ -197,7 +199,7 @@ export default function Medicoes() {
             await api.post(`/precificacao/${selectedOS.id}/precificar`);
             setSelectedOS(null);
             fetchData();
-            alert('OS precificada com sucesso!');
+            showToast('OS precificada com sucesso!');
         } catch {}
     };
 
@@ -217,7 +219,7 @@ export default function Medicoes() {
             setSelectedOS(res.data.os);
             setCalculo(res.data.calculo);
             setShowAutoCalc(false);
-        } catch (err: any) { alert(err.response?.data?.error || 'Erro no cálculo'); }
+        } catch (err: any) { showToast(err.response?.data?.error || 'Erro no cálculo'); }
     };
 
     // ─── MEDICAO ACTIONS ───
@@ -235,30 +237,30 @@ export default function Medicoes() {
             const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
             const a = document.createElement('a'); a.href = url; a.download = `Medicao_${m.codigo}.pdf`; a.click();
             URL.revokeObjectURL(url);
-        } catch { alert('Erro ao gerar PDF'); }
+        } catch { showToast('Erro ao gerar PDF'); }
     };
 
     const handleMedicaoAction = async (id: string, next: string, extra: any = {}) => {
         if (next === 'ENVIAR_CLIENTE') {
             try {
                 await api.post(`/medicoes/${id}/enviar`);
-                alert('Medição enviada ao cliente!');
+                showToast('Medição enviada ao cliente!');
                 fetchData(); openMedicao({ id });
-            } catch (err: any) { alert(err.response?.data?.error || 'Erro ao enviar'); }
+            } catch (err: any) { showToast(err.response?.data?.error || 'Erro ao enviar'); }
             return;
         }
 
         if (next === 'CONTESTADA') {
             const motivo = prompt('Por favor, informe o motivo da contestação:');
             if (motivo === null) return;
-            if (!motivo.trim()) { alert('O motivo da contestação é obrigatório.'); return; }
+            if (!motivo.trim()) { showToast('O motivo da contestação é obrigatório.'); return; }
             extra.motivoContestacao = motivo;
         }
 
         if (next === 'CANCELADA') {
             const motivo = prompt('Motivo do cancelamento:');
             if (motivo === null) return;
-            if (!motivo.trim()) { alert('O motivo é obrigatório.'); return; }
+            if (!motivo.trim()) { showToast('O motivo é obrigatório.'); return; }
             extra.justificativaCancelamento = motivo;
         }
 
@@ -273,7 +275,7 @@ export default function Medicoes() {
             fetchData();
             if (next !== 'CANCELADA') openMedicao({ id });
             else setSelectedMedicao(null);
-        } catch (err: any) { alert(err.response?.data?.error || 'Erro'); }
+        } catch (err: any) { showToast(err.response?.data?.error || 'Erro'); }
     };
 
     const handleEnviarDocumentacao = async (id: string) => {
@@ -281,9 +283,9 @@ export default function Medicoes() {
         setSubmitting(true);
         try {
             await api.post(`/medicoes/${id}/enviar-documentacao`);
-            alert('Documentação enviada com sucesso!');
+            showToast('Documentação enviada com sucesso!');
         } catch (err: any) {
-            alert(err.response?.data?.error || 'Falha ao enviar documentação. Verifique se a nota fiscal já foi autorizada.');
+            showToast(err.response?.data?.error || 'Falha ao enviar documentação. Verifique se a nota fiscal já foi autorizada.');
         } finally {
             setSubmitting(false);
         }
@@ -294,7 +296,7 @@ export default function Medicoes() {
         try {
             await api.patch(`/medicoes/${m.id}/status`, { status: 'AGUARDANDO_APROVACAO', valorAprovado: null });
             fetchData();
-        } catch (err: any) { alert(err.response?.data?.error || 'Erro'); }
+        } catch (err: any) { showToast(err.response?.data?.error || 'Erro'); }
     };
 
     // ─── CREATE MEDIÇÃO ───
@@ -340,7 +342,7 @@ export default function Medicoes() {
             setShowCreate(false);
             fetchData();
             setActiveTab('medicao');
-        } catch (err: any) { alert(err.response?.data?.error || 'Erro'); }
+        } catch (err: any) { showToast(err.response?.data?.error || 'Erro'); }
         finally { setSubmitting(false); }
     };
 

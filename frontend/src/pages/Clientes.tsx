@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import {
@@ -21,6 +22,7 @@ const TABS = [
 const CATEGORIAS_RH = ['MOTORISTA', 'OPERADOR', 'AJUDANTE', 'JATISTA', 'ADMINISTRATIVO', 'LIDER'];
 
 export default function Clientes() {
+    const { showToast } = useToast();
   // ... existing state ...
   const [clientes, setClientes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,7 +96,7 @@ export default function Clientes() {
       fetchClientes();
     } catch (err) {
       console.error('Error saving client', err);
-      alert('Erro ao salvar cliente. Verifique os campos e o documento.');
+      showToast('Erro ao salvar cliente. Verifique os campos e o documento.');
     }
   };
 

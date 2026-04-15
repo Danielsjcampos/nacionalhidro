@@ -175,8 +175,7 @@ function PipefyImportCard() {
                 disabled={!pipeId || loading}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 disabled:opacity-50 transition-all"
             >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                {loading ? 'Sincronizando...' : 'Iniciar Sincronização Total'}
+                {loading ? 'Sincronizando...' : 'Sincronização Total'}
             </button>
 
             {result && (

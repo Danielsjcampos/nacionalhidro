@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState } from 'react';
 import api from '../services/api';
 import {
@@ -7,6 +8,7 @@ import {
 } from 'lucide-react';
 
 export default function Logistica() {
+    const { showToast } = useToast();
    const [activeTab, setActiveTab] = useState<'escala' | 'frota'>('escala');
    const [escalas, setEscalas] = useState<any[]>([]);
    const [veiculos, setVeiculos] = useState<any[]>([]);
@@ -147,7 +149,7 @@ export default function Logistica() {
          fetchData();
       } catch (err) {
          console.error('Error deleting vehicle', err);
-         alert('Erro ao excluir veículo. Verifique se ele não está vinculado a nenhuma escala.');
+         showToast('Erro ao excluir veículo. Verifique se ele não está vinculado a nenhuma escala.');
       }
    };
 

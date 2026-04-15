@@ -524,6 +524,208 @@ export const printLoteOSPdf = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// ─── CRIAÇÃO DE OS EM LOTE (intervalo de datas) ─────────────────
+export const createOSLote = async (req: AuthRequest, res: Response) => {
+  try {
+    const { dataInicio, dataFim, ...osData } = req.body;
+
+    if (!dataInicio || !dataFim) {
+      return res.status(400).json({ error: 'dataInicio e dataFim são obrigatórios para criação em lote.' });
+    }
+
+    if (!osData.propostaId) {
+      return res.status(400).json({ error: 'propostaId é obrigatório.' });
+    }
+
+    const inicio = new Date(dataInicio);
+    const fim = new Date(dataFim);
+
+    if (fim < inicio) {
+      return res.status(400).json({ error: 'dataFim deve ser maior ou igual a dataInicio.' });
+    }
+
+    // Limit to 31 days max
+    const diffDays = Math.ceil((fim.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    if (diffDays > 31) {
+      return res.status(400).json({ error: 'Intervalo máximo de 31 dias para criação em lote.' });
+    }
+
+    const createdOSs: any[] = [];
+    const errors: string[] = [];
+
+    for (let d = new Date(inicio); d <= fim; d.setDate(d.getDate() + 1)) {
+      try {
+        const ano = d.getFullYear();
+        const prefix = `OS-${ano}-`;
+        const lastOS = await prisma.ordemServico.findFirst({
+          where: { codigo: { startsWith: prefix } },
+          orderBy: { codigo: 'desc' },
+          select: { codigo: true }
+        });
+        
+        let nextNumber = 1;
+        if (lastOS?.codigo) {
+          const parts = lastOS.codigo.split('-');
+          const lastNum = parseInt(parts[parts.length - 1]);
+          if (!isNaN(lastNum)) nextNumber = lastNum + 1;
+        }
+        const codigo = `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+
+        const { servicos, escala, ...rest } = osData;
+
+        const os = await prisma.$transaction(async (tx) => {
+          const created = await tx.ordemServico.create({
+            data: {
+              ...rest,
+              codigo,
+              dataInicial: new Date(d),
+              servicos: servicos ? {
+                create: servicos.map((s: any) => ({
+                  equipamento: s.equipamento,
+                  descricao: s.descricao
+                }))
+              } : undefined
+            },
+            include: { servicos: true, cliente: true }
+          });
+
+          // Create escala for this day if crew provided
+          if (Array.isArray(escala) && escala.length > 0) {
+            const funcs = await tx.funcionario.findMany({
+              where: { id: { in: escala } },
+              select: { id: true, nome: true, cargo: true }
+            });
+
+            await tx.escala.create({
+              data: {
+                codigoOS: codigo,
+                data: new Date(d),
+                clienteId: rest.clienteId || undefined,
+                empresa: rest.empresa || "NACIONAL HIDROSANEAMENTO EIRELI EPP",
+                status: "AGENDADO",
+                tipoAgendamento: "CONFIRMADO",
+                funcionarios: funcs
+              }
+            });
+          }
+
+          return created;
+        });
+
+        createdOSs.push(os);
+      } catch (err: any) {
+        errors.push(`${d.toLocaleDateString('pt-BR')}: ${err.message}`);
+      }
+    }
+
+    await registrarLog({
+      entidade: 'OS',
+      entidadeId: createdOSs[0]?.id || 'lote',
+      acao: 'CRIAR_LOTE',
+      descricao: `Lote de ${createdOSs.length} OS criadas (${inicio.toLocaleDateString('pt-BR')} a ${fim.toLocaleDateString('pt-BR')})`,
+      usuarioId: req.user?.userId,
+      usuarioNome: req.user?.userId,
+    });
+
+    res.status(201).json({
+      criadas: createdOSs.length,
+      erros: errors.length,
+      ordensServico: createdOSs,
+      detalhesErros: errors
+    });
+  } catch (error: any) {
+    console.error('Create OS Lote error:', error);
+    res.status(500).json({ error: 'Falha ao criar OS em lote', details: error.message });
+  }
+};
+
+// ─── BAIXA DE OS EM LOTE (com cálculo de horas) ─────────────────
+
+// Helper: porta lógica calcularTempoTotal do legacy (ModalCadastroOrdem.js:204-238)
+const horaParaMinuto = (hora: string | null | undefined): number => {
+  if (!hora) return 0;
+  const parts = hora.split(':');
+  return (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0);
+};
+
+const minutoParaHora = (minutos: number): string => {
+  const h = Math.floor(Math.abs(minutos) / 60);
+  const m = Math.abs(minutos) % 60;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+};
+
+export const baixarOSLote = async (req: AuthRequest, res: Response) => {
+  try {
+    const { ids, horaPadrao, horaEntrada, horaSaida, horaTolerancia, horaAlmoco, descontarAlmoco } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'Informe os IDs das OS para baixa em lote.' });
+    }
+
+    // Calculate hours (ported from legacy)
+    const hpMin = horaParaMinuto(horaPadrao);
+    let entradaMin = horaParaMinuto(horaEntrada);
+    let saidaMin = horaParaMinuto(horaSaida);
+    const tolMin = horaParaMinuto(horaTolerancia);
+    const almMin = descontarAlmoco ? horaParaMinuto(horaAlmoco) : 0;
+
+    if (saidaMin < entradaMin) {
+      saidaMin += 12 * 60;
+      entradaMin -= 12 * 60;
+    }
+
+    const calculoTotal = (saidaMin - entradaMin) - (almMin + tolMin);
+    let horasTotais = Math.max(calculoTotal, hpMin);
+    let horasAdicionais = calculoTotal > hpMin ? calculoTotal - hpMin : 0;
+
+    const now = new Date();
+    const updatedOSs: any[] = [];
+    const errors: string[] = [];
+
+    for (const osId of ids) {
+      try {
+        const os = await prisma.ordemServico.update({
+          where: { id: osId },
+          data: {
+            status: 'BAIXADA',
+            entrada: horaEntrada ? new Date(`1970-01-01T${horaEntrada}:00Z`) : undefined,
+            saida: horaSaida ? new Date(`1970-01-01T${horaSaida}:00Z`) : undefined,
+            almoco: horaAlmoco ? new Date(`1970-01-01T${horaAlmoco}:00Z`) : undefined,
+            horasTotais: horasTotais / 60,
+            horasAdicionais: horasAdicionais / 60,
+            dataBaixa: now,
+          },
+          include: { cliente: true }
+        });
+        updatedOSs.push(os);
+      } catch (err: any) {
+        errors.push(`${osId}: ${err.message}`);
+      }
+    }
+
+    await registrarLog({
+      entidade: 'OS',
+      entidadeId: updatedOSs[0]?.id || 'lote',
+      acao: 'BAIXAR_LOTE',
+      descricao: `Baixa em lote: ${updatedOSs.length} OS baixadas. Horas: ${minutoParaHora(horasTotais)} + ${minutoParaHora(horasAdicionais)} adic.`,
+      usuarioId: req.user?.userId,
+      usuarioNome: req.user?.userId,
+    });
+
+    res.json({
+      baixadas: updatedOSs.length,
+      erros: errors.length,
+      horasTotais: minutoParaHora(horasTotais),
+      horasAdicionais: minutoParaHora(horasAdicionais),
+      ordensServico: updatedOSs,
+      detalhesErros: errors
+    });
+  } catch (error: any) {
+    console.error('Baixar OS Lote error:', error);
+    res.status(500).json({ error: 'Falha ao baixar OS em lote', details: error.message });
+  }
+};
+
 // ─── ITEM COBRANÇA (Subitens de OS) ──────────────────────────────
 
 export const listItensCobranca = async (req: AuthRequest, res: Response) => {

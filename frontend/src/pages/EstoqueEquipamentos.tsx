@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import { useForm, useFieldArray } from 'react-hook-form';
@@ -6,6 +7,7 @@ import {
 } from 'lucide-react';
 
 const SectionCard = ({ title, children, defaultOpen = true }: { title: string, children: React.ReactNode, defaultOpen?: boolean }) => {
+    const { showToast } = useToast();
     const [isOpen, setIsOpen] = useState(defaultOpen);
     return (
         <div className="bg-slate-50/50 rounded-2xl overflow-hidden mb-6 border border-slate-200 shadow-sm">
@@ -229,7 +231,7 @@ export default function EstoqueEquipamentos() {
             setEditingItem(null);
             fetchEquip();
         } catch (e) {
-            alert('Erro ao salvar');
+            showToast('Erro ao salvar');
         }
     };
 
@@ -239,7 +241,7 @@ export default function EstoqueEquipamentos() {
             await api.delete(`/equipamentos/${id}`);
             fetchEquip();
         } catch (e) {
-            alert('Erro ao deletar');
+            showToast('Erro ao deletar');
         }
     }
 

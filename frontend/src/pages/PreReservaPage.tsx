@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import {
@@ -9,6 +10,7 @@ import {
 type FilterStatus = 'pendentes' | 'todas' | 'canceladas';
 
 export default function PreReservaPage() {
+    const { showToast } = useToast();
     const [reservas, setReservas] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<FilterStatus>('pendentes');
@@ -75,7 +77,7 @@ export default function PreReservaPage() {
             setForm({ veiculoId: '', clienteId: '', data: '', dataFim: '', hora: '', equipamento: '', solicitanteNome: '', solicitanteTelefone: '', qtdBicos: 1, turnos: 'DIURNO', qtdPessoas: 3, observacoes: '' });
             fetchReservas();
         } catch (err: any) {
-            alert(err.response?.data?.error?.message || 'Erro ao criar');
+            showToast(err.response?.data?.error?.message || 'Erro ao criar');
         }
         finally { setSaving(false); }
     };
@@ -86,7 +88,7 @@ export default function PreReservaPage() {
             await api.patch(`/pre-reservas/${id}/confirmar`);
             fetchReservas();
         } catch (err: any) {
-            alert(err.response?.data?.error?.message || 'Erro');
+            showToast(err.response?.data?.error?.message || 'Erro');
         }
     };
 
@@ -97,7 +99,7 @@ export default function PreReservaPage() {
             await api.patch(`/pre-reservas/${id}/cancelar`, { motivo });
             fetchReservas();
         } catch (err: any) {
-            alert(err.response?.data?.error?.message || 'Erro');
+            showToast(err.response?.data?.error?.message || 'Erro');
         }
     };
 

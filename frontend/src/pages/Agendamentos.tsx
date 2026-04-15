@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState, useMemo } from 'react';
 import api from '../services/api';
 import {
@@ -40,6 +41,7 @@ const INTEGRACAO_OPTIONS = [
 ];
 
 export default function Agendamentos() {
+    const { showToast } = useToast();
   const [list, setList] = useState<any[]>([]);
   const [ordens, setOrdens] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,7 +111,7 @@ export default function Agendamentos() {
 
   const handleSave = async () => {
     if (!form.ordemServicoId || !form.dataInicio || !form.cidadeServico) {
-      alert('Preencha a Ordem de Serviço, Data de Início e Cidade.');
+      showToast('Preencha a Ordem de Serviço, Data de Início e Cidade.');
       return;
     }
     setSaving(true);
@@ -130,7 +132,7 @@ export default function Agendamentos() {
       setShowModal(false);
       fetchData();
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Erro ao salvar agendamento');
+      showToast(err.response?.data?.error || 'Erro ao salvar agendamento');
     } finally {
       setSaving(false);
     }
@@ -140,10 +142,10 @@ export default function Agendamentos() {
     if (!window.confirm('Confirma o disparo da mensagem no WhatsApp e E-mail?')) return;
     try {
       const res = await api.post(`/agendamentos/${id}/disparar`);
-      alert(res.data.whatsappOk ? '✅ Mensagem disparada com sucesso!' : '⚠️ Agendamento salvo, mas WhatsApp não foi enviado. Verifique as configurações.');
+      showToast(res.data.whatsappOk ? '✅ Mensagem disparada com sucesso!' : '⚠️ Agendamento salvo, mas WhatsApp não foi enviado. Verifique as configurações.');
       fetchData();
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Erro ao disparar');
+      showToast(err.response?.data?.error || 'Erro ao disparar');
     }
   };
 
@@ -152,14 +154,14 @@ export default function Agendamentos() {
       const res = await api.get(`/agendamentos/${id}/preview`);
       setPreviewText(res.data.mensagem);
       setShowPreview(true);
-    } catch { alert('Erro ao gerar preview'); }
+    } catch { showToast('Erro ao gerar preview'); }
   };
 
   const handleUpdateTarefa = async (agId: string, tarefaId: string, statusTarefa: string, observacao?: string) => {
     try {
       await api.patch(`/agendamentos/${agId}/tarefas/${tarefaId}`, { statusTarefa, observacao });
       fetchData();
-    } catch { alert('Erro ao atualizar tarefa'); }
+    } catch { showToast('Erro ao atualizar tarefa'); }
   };
 
   const handleRemarcar = async (id: string) => {
@@ -167,7 +169,7 @@ export default function Agendamentos() {
     try {
       await api.post(`/agendamentos/${id}/remarcar`);
       fetchData();
-    } catch { alert('Erro ao remarcar'); }
+    } catch { showToast('Erro ao remarcar'); }
   };
 
   const openEdit = (ag: any) => {

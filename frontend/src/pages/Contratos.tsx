@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Loader2, Plus, X, Calendar, FileText, Search, Filter,
@@ -40,6 +41,7 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; i
 };
 
 const formatCurrency = (value: any) => {
+    const { showToast } = useToast();
     const num = Number(value);
     if (isNaN(num)) return 'R$ 0,00';
     return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -136,7 +138,7 @@ export default function Contratos() {
             setModalOpen(false);
             fetchData();
         } catch (err: any) {
-            alert(err.response?.data?.error || 'Erro ao salvar contrato.');
+            showToast(err.response?.data?.error || 'Erro ao salvar contrato.');
         }
     };
 

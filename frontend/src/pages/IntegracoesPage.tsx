@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState } from 'react';
 import api from '../services/api';
 import { 
@@ -16,6 +17,7 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
 const CATEGORIES = ['Ajudante', 'Motorista', 'Motorista Operador', 'Jatista', 'Auxiliar', 'Líder', 'Operador de Vácuo', 'Mecânico'];
 
 export default function IntegracoesPage() {
+    const { showToast } = useToast();
   const [integracoes, setIntegracoes] = useState<any[]>([]);
   const [pendencias, setPendencias] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
@@ -89,7 +91,7 @@ export default function IntegracoesPage() {
       fetchData();
     } catch (err) {
       console.error('Erro ao agendar integração:', err);
-      alert('Erro ao agendar integração');
+      showToast('Erro ao agendar integração');
     }
   };
 
@@ -100,7 +102,7 @@ export default function IntegracoesPage() {
       fetchData();
     } catch (err) {
       console.error('Erro ao confirmar presença:', err);
-      alert('Erro ao confirmar presença');
+      showToast('Erro ao confirmar presença');
     }
   };
 
@@ -116,7 +118,7 @@ export default function IntegracoesPage() {
       fetchData();
     } catch (err) {
       console.error('Erro ao salvar configuração:', err);
-      alert('Erro ao salvar configuração');
+      showToast('Erro ao salvar configuração');
     } finally {
       setSavingConfig(false);
     }

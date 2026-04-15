@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState } from 'react';
 import api from '../services/api';
 import {
@@ -40,6 +41,7 @@ const CHECKLIST_DOCS = [
 ];
 
 export default function AdmissaoPage() {
+    const { showToast } = useToast();
     const [admissoes, setAdmissoes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -358,7 +360,7 @@ export default function AdmissaoPage() {
                                                                         document.execCommand('copy');
                                                                         textArea.remove();
                                                                     }
-                                                                    alert('Link do portal copiado!');
+                                                                    showToast('Link do portal copiado!');
                                                                 } catch (err) {
                                                                     prompt('Copie o link abaixo:', url);
                                                                 }

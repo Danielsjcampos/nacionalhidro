@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useState, useEffect } from 'react';
 import { Truck, AlertCircle, Plus, Edit, Trash2, X, FileText } from 'lucide-react';
 import api from '../services/api';
@@ -9,6 +10,7 @@ const VeiculoForm = ({ initialData, onClose, onSave }: { initialData?: any, onCl
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { showToast } = useToast();
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
@@ -140,7 +142,7 @@ export default function FrotaVeiculos() {
             setShowForm(false);
             setEditingItem(null);
             fetchVeiculos();
-        } catch (e) { alert('Erro ao salvar veículo'); }
+        } catch (e) { showToast('Erro ao salvar veículo'); }
     };
 
     const handleDelete = async (id: string) => {
@@ -148,7 +150,7 @@ export default function FrotaVeiculos() {
         try {
             await api.delete(`/logistica/veiculos/${id}`);
             fetchVeiculos();
-        } catch (e) { alert('Erro ao excluir veículo'); }
+        } catch (e) { showToast('Erro ao excluir veículo'); }
     };
 
     const getStatusVencimento = (dataStr: string | null | undefined) => {

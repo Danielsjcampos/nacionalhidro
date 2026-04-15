@@ -2,7 +2,7 @@ import { Router } from 'express';
 import {
     listOS, getOS, createOS, updateOS, deleteOS, printOS, downloadPdfOS, printLoteOSPdf,
     listItensCobranca, createItemCobranca, updateItemCobranca, deleteItemCobranca,
-    duplicateOS
+    duplicateOS, createOSLote, baixarOSLote
 } from '../controllers/os.controller';
 import { listMateriaisOS, addMaterialOS, removeMaterialOS } from '../controllers/materialOS.controller';
 import { authenticate } from '../middleware/auth.middleware';
@@ -23,6 +23,10 @@ router.delete('/:id', deleteOS);
 
 // ── Duplicar OS ──────────────────────────────────────────────────
 router.post('/:id/duplicar', duplicateOS);
+
+// ── Lote (criar e baixar) ────────────────────────────────────────
+router.post('/lote', createOSLote);
+router.patch('/baixar-lote', baixarOSLote);
 
 // ── Itens de Cobrança (subitens para hora extra, noturno, etc.) ──
 router.get('/:osId/itens-cobranca', listItensCobranca);

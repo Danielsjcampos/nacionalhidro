@@ -1,8 +1,10 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState } from 'react';
 import api from '../services/api';
 import { Loader2, Brain, CheckCircle2, AlertTriangle, XCircle, User, UserCheck, Users, RefreshCw, MessageCircle } from 'lucide-react';
 
 export default function TriagemIAPage() {
+    const { showToast } = useToast();
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [approving, setApproving] = useState<string | null>(null);
@@ -27,7 +29,7 @@ export default function TriagemIAPage() {
             await api.post(`/triagem-ia/aprovar/${admissaoId}`);
             fetchData();
         } catch (err: any) {
-            alert(err.response?.data?.error || 'Erro ao aprovar');
+            showToast(err.response?.data?.error || 'Erro ao aprovar');
         } finally {
             setApproving(null);
         }
@@ -38,10 +40,10 @@ export default function TriagemIAPage() {
         setBulkApproving(true);
         try {
             const res = await api.post('/triagem-ia/aprovar-todos');
-            alert(`${res.data.total} admissões aprovadas e funcionários criados!`);
+            showToast(`${res.data.total} admissões aprovadas e funcionários criados!`);
             fetchData();
         } catch (err: any) {
-            alert(err.response?.data?.error || 'Erro ao aprovar em lote');
+            showToast(err.response?.data?.error || 'Erro ao aprovar em lote');
         } finally {
             setBulkApproving(false);
         }

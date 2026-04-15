@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState, useRef } from 'react';
 import api from '../services/api';
 import SignatureCanvas from 'react-signature-canvas';
@@ -7,6 +8,7 @@ import {
 } from 'lucide-react';
 
 export default function PainelMotorista() {
+    const { showToast } = useToast();
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [km, setKm] = useState('');
@@ -43,7 +45,7 @@ export default function PainelMotorista() {
     const handleFinalizar = async () => {
         if (!showSignature) return;
         if (sigPad.current?.isEmpty()) {
-            alert('Por favor, colete a assinatura do responsável.');
+            showToast('Por favor, colete a assinatura do responsável.');
             return;
         }
 
@@ -59,7 +61,7 @@ export default function PainelMotorista() {
             fetchData();
         } catch (error) {
             console.error(error);
-            alert('Erro ao finalizar OS.');
+            showToast('Erro ao finalizar OS.');
         }
     };
 
@@ -76,7 +78,7 @@ export default function PainelMotorista() {
             fetchData();
         } catch (error) {
             console.error(error);
-            alert('Erro ao reportar falha da OS.');
+            showToast('Erro ao reportar falha da OS.');
         }
     };
 
@@ -86,7 +88,7 @@ export default function PainelMotorista() {
             fetchData();
         } catch (error) {
             console.error(error);
-            alert('Erro ao registrar progresso.');
+            showToast('Erro ao registrar progresso.');
         }
     };
 

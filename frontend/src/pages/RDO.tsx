@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import {
@@ -33,6 +34,7 @@ const EMPTY_FORM = {
 };
 
 export default function RDOPage() {
+    const { showToast } = useToast();
     const [osList, setOsList] = useState<any[]>([]);
     const [osSearch, setOsSearch] = useState('');
     const [selectedOS, setSelectedOS] = useState<any>(null);
@@ -87,7 +89,7 @@ export default function RDOPage() {
             resetForm();
             fetchRDOs(selectedOS.id);
         } catch (err: any) {
-            alert(err.response?.data?.error || 'Erro ao salvar RDO');
+            showToast(err.response?.data?.error || 'Erro ao salvar RDO');
         } finally {
             setSavingRDO(false);
         }
@@ -127,7 +129,7 @@ export default function RDOPage() {
                 osId: selectedOS.id,
                 ...medicaoForm
             });
-            alert(`Medição ${res.data.codigo || ''} gerada com sucesso! RDOs vinculados ao fechamento.`);
+            showToast(`Medição ${res.data.codigo || ''} gerada com sucesso! RDOs vinculados ao fechamento.`);
             setShowMedicaoModal(false);
             fetchRDOs(selectedOS.id);
             // Refresh OS to potentially update status
@@ -136,7 +138,7 @@ export default function RDOPage() {
             const updatedOS = (osRes.data || []).find((o: any) => o.id === selectedOS.id);
             if (updatedOS) setSelectedOS(updatedOS);
         } catch (err: any) {
-            alert(err.response?.data?.error || 'Erro ao fechar medição');
+            showToast(err.response?.data?.error || 'Erro ao fechar medição');
         } finally {
             setClosingMedicao(false);
         }

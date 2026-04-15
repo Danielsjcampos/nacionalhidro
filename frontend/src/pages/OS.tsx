@@ -1,11 +1,14 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState, useMemo } from 'react';
 import api from '../services/api';
 import {
   Plus, Loader2, ChevronRight, X, Clock, Copy, Printer,
   CheckCircle2, AlertCircle, PlayCircle, FolderOpen, ChevronLeft, ChevronDown,
-  Package
+  Package, Users, ArrowDownToLine
 } from 'lucide-react';
 import { ImprimirOS } from '../components/ImprimirOS';
+import ModalBaixaLoteOS, { BaixaLoteData } from '../components/ModalBaixaLoteOS';
+import ModalQuadroFuncionarios from '../components/ModalQuadroFuncionarios';
 
 const EQUIPAMENTOS = [
   'Combinado', 'Alto Vácuo / Sucção', 'Alta Pressão (AP)',
@@ -43,6 +46,7 @@ function calcHorasTotais(entrada: string, saida: string, almoco: string, descont
 }
 
 export default function OS() {
+    const { showToast } = useToast();
   const [osList, setOsList] = useState<any[]>([]);
   const [propostas, setPropostas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,6 +66,8 @@ export default function OS() {
   // ── Lote Selection ──
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [printingLote, setPrintingLote] = useState(false);
+  const [baixaLoteOpen, setBaixaLoteOpen] = useState(false);
+  const [quadroFuncOpen, setQuadroFuncOpen] = useState(false);
 
   useEffect(() => {
     if (printOs) {
@@ -132,14 +138,14 @@ export default function OS() {
     try {
       setSaving(true);
       await api.patch(`/os/${id}`, { status: newStatus, justificativaCancelamento: justification });
-      alert(`OS ${newStatus === 'CANCELADA' ? 'cancelada' : 'finalizada'} com sucesso!`);
+      showToast(`OS ${newStatus === 'CANCELADA' ? 'cancelada' : 'finalizada'} com sucesso!`);
       setShowCancelModal(false);
       setCancelJustification('');
       fetchData();
       setShowModal(false);
     } catch (error) {
       console.error('Update status error:', error);
-      alert('Erro ao atualizar status da OS');
+      showToast('Erro ao atualizar status da OS');
     } finally {
       setSaving(false);
     }
@@ -164,10 +170,37 @@ export default function OS() {
       setSelectedIds([]); // clear selection after print
     } catch (err) {
       console.error('Erro ao imprimir lote', err);
-      alert('Falha ao gerar PDF das OSs selecionadas.');
+      showToast('Falha ao gerar PDF das OSs selecionadas.');
     } finally {
       setPrintingLote(false);
     }
+  };
+
+  const handleBaixaLote = async (data: BaixaLoteData) => {
+    if (selectedIds.length === 0) return;
+    try {
+      setSaving(true);
+      const res = await api.patch('/os/baixar-lote', {
+        ids: selectedIds,
+        ...data,
+      });
+      showToast(`${res.data.baixadas} OS(s) baixada(s) com sucesso! Horas: ${res.data.horasTotais}`, 'success');
+      if (res.data.erros > 0) {
+        showToast(`${res.data.erros} erro(s) durante a baixa em lote.`);
+      }
+      setSelectedIds([]);
+      fetchData();
+    } catch (err: any) {
+      console.error('Baixa lote error:', err);
+      showToast(err.response?.data?.error || 'Falha ao baixar OS em lote.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleQuadroFuncConfirm = (selected: any[]) => {
+    const funcIds = selected.map((f: any) => f.id);
+    setForm((prev: any) => ({ ...prev, escala: funcIds }));
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -234,9 +267,39 @@ export default function OS() {
   }, [osList, activeTab]);
 
   const propostasFiltroData = useMemo(() => {
-    if (!dataFiltro) return (propostas || []);
+    let list = propostas || [];
+
+    // M03: Esconder propostas supersedidas — mostrar apenas a última revisão de cada código-base
+    // Ex: PROP-2026-0001, PROP-2026-0001-R1, PROP-2026-0001-R2 → mostra apenas R2
+    const latestMap = new Map<string, any>();
+    for (const p of list) {
+      if (!p.codigo) continue;
+      // Extract base code (remove -R1, -R2 suffixes)
+      const baseCodigo = p.codigo.replace(/-R\d+$/i, '');
+      const existing = latestMap.get(baseCodigo);
+      if (!existing) {
+        latestMap.set(baseCodigo, p);
+      } else {
+        // Compare: higher revision number wins, or more recent date
+        const getRevision = (cod: string) => {
+          const m = cod.match(/-R(\d+)$/i);
+          return m ? parseInt(m[1]) : 0;
+        };
+        if (getRevision(p.codigo) > getRevision(existing.codigo)) {
+          latestMap.set(baseCodigo, p);
+        }
+      }
+    }
+    list = Array.from(latestMap.values());
+
+    // Filter only approved/accepted propostas (valid for OS creation)
+    const STATUS_VALIDOS_PROPOSTA = ['APROVADA', 'ACEITA', 'VIGENTE'];
+    list = list.filter((p: any) => STATUS_VALIDOS_PROPOSTA.includes(p.status));
+
+    // Date filter
+    if (!dataFiltro) return list;
     const parts = dataFiltro.split(' até ');
-    if (parts.length !== 2) return (propostas || []);
+    if (parts.length !== 2) return list;
     
     // string format: DD-MM-YYYY
     const parseData = (str: string) => {
@@ -247,7 +310,7 @@ export default function OS() {
     const inicio = parseData(parts[0]);
     const fim = parseData(parts[1]);
 
-    return (propostas || []).filter((p: any) => {
+    return list.filter((p: any) => {
       if (!p.dataProposta) return true;
       const dataP = new Date(p.dataProposta).getTime();
       return dataP >= inicio && dataP <= fim;
@@ -346,7 +409,21 @@ export default function OS() {
     setForm((f: any) => {
       const s = [...f.servicos];
       s[idx] = { ...s[idx], [field]: value };
-      return { ...f, servicos: s };
+      const updated: any = { ...f, servicos: s };
+
+      // Legacy parity: auto-fill TipoCobranca e HoraPadrao ao selecionar equipamento (ModalCadastroOrdem.js:539-543)
+      if (field === 'equipamento' && idx === 0 && f.propostaId) {
+        const prop = propostas.find((p: any) => p.id === f.propostaId);
+        if (prop?.itens) {
+          const item = prop.itens.find((i: any) => i.equipamento === value);
+          if (item) {
+            if (item.tipoCobranca) updated.tipoCobranca = item.tipoCobranca;
+            if (item.horaPadrao) updated.minimoHoras = item.horaPadrao;
+          }
+        }
+      }
+
+      return updated;
     });
 
   const handleSave = async (baixar = false, baixarEstoque = false) => {
@@ -368,7 +445,7 @@ export default function OS() {
       fetchData();
     } catch (err) {
       console.error('Error saving OS', err);
-      alert('Erro ao salvar OS. Verifique os campos obrigatórios.');
+      showToast('Erro ao salvar OS. Verifique os campos obrigatórios.');
     } finally {
       setSaving(false);
     }
@@ -437,14 +514,25 @@ export default function OS() {
           ))}
           <div className="ml-auto flex items-center gap-2">
             {selectedIds.length > 0 && activeTab !== 'abrir' && (
-              <button
-                onClick={handlePrintLote}
-                disabled={printingLote}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors disabled:opacity-50"
-              >
-                {printingLote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
-                Imprimir Selecionadas ({selectedIds.length})
-              </button>
+              <>
+                <button
+                  onClick={handlePrintLote}
+                  disabled={printingLote}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                >
+                  {printingLote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
+                  Imprimir ({selectedIds.length})
+                </button>
+                {activeTab === 'em_aberto' && (
+                  <button
+                    onClick={() => setBaixaLoteOpen(true)}
+                    className="bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
+                  >
+                    <ArrowDownToLine className="w-3.5 h-3.5" />
+                    Baixar Lote ({selectedIds.length})
+                  </button>
+                )}
+              </>
             )}
             <button
               onClick={() => openNewModal()}
@@ -943,7 +1031,7 @@ export default function OS() {
                                   }`}
                                 onClick={() => {
                                   if (isBlocked) {
-                                    alert(`Colaborador indisponível: ${f.motivo}`);
+                                    showToast(`Colaborador indisponível: ${f.motivo}`);
                                     return;
                                   }
                                   setForm((prev: any) => {
@@ -1242,6 +1330,24 @@ export default function OS() {
           </div>
         </div>
       )}
+
+      {/* Baixa em Lote Modal */}
+      <ModalBaixaLoteOS
+        isOpen={baixaLoteOpen}
+        onClose={() => setBaixaLoteOpen(false)}
+        onConfirm={handleBaixaLote}
+        osCount={selectedIds.length}
+      />
+
+      {/* Quadro Funcionarios Modal (for Escala tab in OS creation) */}
+      <ModalQuadroFuncionarios
+        isOpen={quadroFuncOpen}
+        onClose={() => setQuadroFuncOpen(false)}
+        onConfirm={handleQuadroFuncConfirm}
+        data={form.dataInicial || new Date().toISOString().split('T')[0]}
+        clienteId={form.clienteId}
+        selectedIds={form.escala || []}
+      />
     </>
   );
 }

@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState } from 'react';
 import api from '../services/api';
 import {
@@ -29,6 +30,7 @@ const CENTROS_CUSTO = [
 ];
 
 export default function Faturamento() {
+    const { showToast } = useToast();
     const [faturas, setFaturas] = useState<any[]>([]);
     const [stats, setStats] = useState<any>(null);
     const [clientes, setClientes] = useState<any[]>([]);
@@ -110,7 +112,7 @@ export default function Faturamento() {
                 }
             } else {
                 console.error(err);
-                alert(err.response?.data?.error || 'Erro ao criar faturamento');
+                showToast(err.response?.data?.error || 'Erro ao criar faturamento');
             }
         }
     };
@@ -128,7 +130,7 @@ export default function Faturamento() {
                 }
             } else {
                 console.error(err);
-                alert(err.response?.data?.error || 'Erro ao gerar RL');
+                showToast(err.response?.data?.error || 'Erro ao gerar RL');
             }
         }
     };
@@ -152,10 +154,10 @@ export default function Faturamento() {
     const handleEmitirFiscal = async (id: string) => {
         try {
             await api.post(`/faturamento/${id}/emitir`);
-            alert('Comando de emissão enviado para a Focus NFe.');
+            showToast('Comando de emissão enviado para a Focus NFe.');
             fetchAll();
         } catch (err: any) {
-             alert(err.response?.data?.details || 'Erro ao emitir documento fiscal');
+             showToast(err.response?.data?.details || 'Erro ao emitir documento fiscal');
         }
     };
 
@@ -164,7 +166,7 @@ export default function Faturamento() {
             await api.get(`/faturamento/${id}/status`);
             fetchAll();
         } catch (err: any) {
-             alert(err.response?.data?.error || 'Erro ao consultar status');
+             showToast(err.response?.data?.error || 'Erro ao consultar status');
         }
     };
 
@@ -172,15 +174,15 @@ export default function Faturamento() {
         try {
             if (actionModal.type === 'cancelar') {
                 await api.post(`/faturamento/${actionModal.id}/cancelar`, { justificativa: actionModal.text });
-                alert('Solicitação de cancelamento enviada com sucesso.');
+                showToast('Solicitação de cancelamento enviada com sucesso.');
             } else if (actionModal.type === 'cce') {
                 await api.post(`/faturamento/${actionModal.id}/carta-correcao`, { correcao: actionModal.text });
-                alert('Carta de Correção emitida (verifique o status via API da Focus).');
+                showToast('Carta de Correção emitida (verifique o status via API da Focus).');
             }
             setActionModal({ type: null, id: '', text: '' });
             fetchAll();
         } catch (err: any) {
-             alert(err.response?.data?.error || err.response?.data?.details || 'Erro ao executar ação');
+             showToast(err.response?.data?.error || err.response?.data?.details || 'Erro ao executar ação');
         }
     };
 

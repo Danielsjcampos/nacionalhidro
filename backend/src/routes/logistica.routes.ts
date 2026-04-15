@@ -3,7 +3,9 @@ import {
   listEscalas, createEscala, updateEscala, deleteEscala,
   listVeiculos, createVeiculo, updateVeiculo, deleteVeiculo,
   sendToMaintenance, receberPosicaoGPS, listarPosicoesFrota,
-  verificarFuncionario
+  verificarFuncionario,
+  duplicarEscala, cancelarEscala, validarOS,
+  quadroFuncionarios, quadroVeiculos
 } from '../controllers/logistica.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
@@ -15,10 +17,19 @@ router.use(authenticate);
 router.get('/gps', listarPosicoesFrota);
 router.post('/gps', receberPosicaoGPS);
 
+// Quadros de Disponibilidade (M02/M05/M08)
+router.get('/quadro-funcionarios', quadroFuncionarios);
+router.get('/quadro-veiculos', quadroVeiculos);
+
+// Validar OS por código (M01)
+router.get('/validar-os/:codigo', validarOS);
+
 // Escalas
 router.get('/verificar-funcionario/:id/:clienteId', verificarFuncionario);
 router.get('/escalas', listEscalas);
 router.post('/escalas', createEscala);
+router.post('/escalas/:id/duplicar', duplicarEscala);
+router.patch('/escalas/:id/cancelar', cancelarEscala);
 router.patch('/escalas/:id', updateEscala);
 router.delete('/escalas/:id', deleteEscala);
 
@@ -30,3 +41,4 @@ router.patch('/veiculos/:id/manutencao', sendToMaintenance);
 router.delete('/veiculos/:id', deleteVeiculo);
 
 export default router;
+

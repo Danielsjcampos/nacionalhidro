@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState } from 'react';
 import api from '../services/api';
 import { 
@@ -8,6 +9,7 @@ import {
 
 
 export default function Usuarios() {
+    const { showToast } = useToast();
   const [categorias, setCategorias] = useState<any[]>([]);
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -366,7 +368,7 @@ export default function Usuarios() {
                                 setEditingUser({ ...editingUser, signatureUrl: res.data.url });
                               } catch (err) {
                                 console.error('Upload failed', err);
-                                alert('Falha ao subir imagem');
+                                showToast('Falha ao subir imagem');
                               }
                             }}
                           />

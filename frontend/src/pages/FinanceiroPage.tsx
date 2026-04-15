@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import {
@@ -38,6 +39,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string; lab
 };
 
 export default function FinanceiroPage() {
+    const { showToast } = useToast();
     const [tab, setTab] = useState<Tab>('pagar');
     const [stats, setStats] = useState<any>(null);
     const [pagar, setPagar] = useState<any[]>([]);
@@ -165,9 +167,9 @@ export default function FinanceiroPage() {
             await api.post('/financeiro/contas-pagar/agrupar-fatura', { ids: Array.from(selected) });
             setSelected(new Set());
             fetchAll();
-            alert('Títulos agrupados em um Borderô/Fatura com sucesso!');
+            showToast('Títulos agrupados em um Borderô/Fatura com sucesso!');
         } catch (err: any) {
-            alert(err.response?.data?.error || 'Erro ao agrupar.');
+            showToast(err.response?.data?.error || 'Erro ao agrupar.');
         }
     };
 

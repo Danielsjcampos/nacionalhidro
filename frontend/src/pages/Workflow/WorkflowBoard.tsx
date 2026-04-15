@@ -1,3 +1,4 @@
+import { useToast } from '../../contexts/ToastContext';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../../services/api';
@@ -9,6 +10,7 @@ import {
 import FormRenderer from '../../components/Workflow/FormRenderer';
 
 export default function WorkflowBoard() {
+    const { showToast } = useToast();
   const { id: workflowId } = useParams();
   const [workflow, setWorkflow] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -69,7 +71,7 @@ export default function WorkflowBoard() {
       setShowCardModal(false);
       fetchWorkflow();
     } catch (error) {
-      alert('Erro ao salvar card');
+      showToast('Erro ao salvar card');
     } finally {
       setSaving(false);
     }
@@ -80,7 +82,7 @@ export default function WorkflowBoard() {
       await api.patch(`/workflows/card/${cardId}/move`, { stageId: targetStageId });
       fetchWorkflow();
     } catch (error) {
-      alert('Erro ao mover card');
+      showToast('Erro ao mover card');
     }
   };
 
@@ -132,7 +134,7 @@ export default function WorkflowBoard() {
             onClick={() => {
                 const url = `${window.location.origin}/workflow/apply/${workflowId}`;
                 navigator.clipboard.writeText(url);
-                alert('Link de inscrição copiado com sucesso!');
+                showToast('Link de inscrição copiado com sucesso!');
             }}
             className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-100 rounded-lg text-blue-600 text-xs font-bold transition-all border border-blue-100 bg-blue-50/50"
             title="Copiar Link Público de Inscrição"

@@ -3,6 +3,7 @@ import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { registrarLog } from '../lib/auditLog';
 import { checkEmployeeAvailability } from '../services/rh.service';
+import { getQuadroFuncionarios, getQuadroVeiculos, validarOSPorCodigo } from '../services/quadro.service';
 
 // ─── ESCALAS ────────────────────────────────────────────────────
 
@@ -434,5 +435,161 @@ export const listarPosicoesFrota = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Listar frota GPS error:', error);
     res.status(500).json({ error: 'Falha ao listar posições da frota' });
+  }
+};
+
+// ─── DUPLICAR ESCALA ─────────────────────────────────────────────
+
+export const duplicarEscala = async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const original = await prisma.escala.findUnique({
+      where: { id },
+      include: { cliente: true, veiculo: true }
+    });
+
+    if (!original) return res.status(404).json({ error: 'Escala não encontrada' });
+
+    // Copy to next day, removing OS link
+    const nextDay = new Date(original.data);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    const nova = await prisma.escala.create({
+      data: {
+        data: nextDay,
+        hora: original.hora,
+        empresa: original.empresa,
+        clienteId: original.clienteId || undefined,
+        veiculoId: original.veiculoId || undefined,
+        equipamento: original.equipamento,
+        funcionarios: original.funcionarios || undefined,
+        status: 'AGENDADO',
+        tipoAgendamento: original.tipoAgendamento,
+        cor: original.cor,
+        qtdBicos: original.qtdBicos,
+        qtdPessoas: original.qtdPessoas,
+        solicitanteNome: original.solicitanteNome,
+        solicitanteTelefone: original.solicitanteTelefone,
+        turnos: original.turnos,
+        observacoes: original.observacoes ? `[Duplicada] ${original.observacoes}` : '[Duplicada]',
+        // codigoOS intentionally null — new escala needs new OS
+      },
+      include: { cliente: true, veiculo: true }
+    });
+
+    await registrarLog({
+      entidade: 'ESCALA',
+      entidadeId: nova.id,
+      acao: 'DUPLICAR',
+      descricao: `Escala duplicada de ${id} para ${nextDay.toLocaleDateString('pt-BR')}`,
+      usuarioId: req.user?.userId,
+      usuarioNome: req.user?.userId,
+    });
+
+    res.status(201).json(nova);
+  } catch (error: any) {
+    console.error('Duplicar escala error:', error);
+    res.status(500).json({ error: 'Falha ao duplicar escala', details: error.message });
+  }
+};
+
+// ─── CANCELAR ESCALA COM MOTIVO ──────────────────────────────────
+
+export const cancelarEscala = async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { motivoCancelamento } = req.body;
+
+    if (!motivoCancelamento || motivoCancelamento.trim().length < 3) {
+      return res.status(400).json({ error: 'Motivo de cancelamento é obrigatório (mínimo 3 caracteres).' });
+    }
+
+    const before = await prisma.escala.findUnique({ where: { id } });
+    if (!before) return res.status(404).json({ error: 'Escala não encontrada' });
+
+    const escala = await prisma.escala.update({
+      where: { id },
+      data: {
+        status: 'CANCELADA',
+        observacoes: before.observacoes
+          ? `${before.observacoes} | CANCELADO: ${motivoCancelamento}`
+          : `CANCELADO: ${motivoCancelamento}`
+      },
+      include: { cliente: true, veiculo: true }
+    });
+
+    await registrarLog({
+      entidade: 'ESCALA',
+      entidadeId: id,
+      acao: 'CANCELAR',
+      descricao: `Escala cancelada. Motivo: ${motivoCancelamento}`,
+      valorAnterior: before.status,
+      valorNovo: 'CANCELADA',
+      usuarioId: req.user?.userId,
+      usuarioNome: req.user?.userId,
+    });
+
+    res.json(escala);
+  } catch (error: any) {
+    console.error('Cancelar escala error:', error);
+    res.status(500).json({ error: 'Falha ao cancelar escala', details: error.message });
+  }
+};
+
+// ─── VALIDAR OS POR CÓDIGO (M01) ────────────────────────────────
+
+export const validarOS = async (req: AuthRequest, res: Response) => {
+  try {
+    const codigo = req.params.codigo as string;
+    const result = await validarOSPorCodigo(codigo);
+    res.json(result);
+  } catch (error) {
+    console.error('Validar OS error:', error);
+    res.status(500).json({ error: 'Falha ao validar OS' });
+  }
+};
+
+// ─── QUADRO DE FUNCIONÁRIOS (M02/M05) ───────────────────────────
+
+export const quadroFuncionarios = async (req: AuthRequest, res: Response) => {
+  try {
+    const { data, clienteId } = req.query;
+    const dataRef = data ? new Date(data as string) : new Date();
+    const result = await getQuadroFuncionarios(dataRef, clienteId as string | undefined);
+
+    const summary = {
+      total: result.length,
+      disponiveis: result.filter(f => f.status === 'DISPONIVEL').length,
+      escalados: result.filter(f => f.status === 'ESCALADO').length,
+      afastados: result.filter(f => f.status === 'AFASTADO' || f.status === 'FERIAS').length,
+      pendenciaDoc: result.filter(f => f.status === 'MANUTENCAO_DOC').length,
+    };
+
+    res.json({ summary, funcionarios: result });
+  } catch (error) {
+    console.error('Quadro funcionários error:', error);
+    res.status(500).json({ error: 'Falha ao buscar quadro de funcionários' });
+  }
+};
+
+// ─── QUADRO DE VEÍCULOS (M08) ───────────────────────────────────
+
+export const quadroVeiculos = async (req: AuthRequest, res: Response) => {
+  try {
+    const { data } = req.query;
+    const dataRef = data ? new Date(data as string) : new Date();
+    const result = await getQuadroVeiculos(dataRef);
+
+    const summary = {
+      total: result.length,
+      disponiveis: result.filter(v => v.status === 'DISPONIVEL').length,
+      escalados: result.filter(v => v.status === 'ESCALADO').length,
+      manutencao: result.filter(v => v.status === 'MANUTENCAO').length,
+    };
+
+    res.json({ summary, veiculos: result });
+  } catch (error) {
+    console.error('Quadro veículos error:', error);
+    res.status(500).json({ error: 'Falha ao buscar quadro de veículos' });
   }
 };

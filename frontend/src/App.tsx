@@ -132,9 +132,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <MainLayout>{children}</MainLayout>;
 }
 
+import { ToastProvider } from './contexts/ToastContext';
+
 function App() {
   return (
-    <BrowserRouter>
+    <ToastProvider>
+      <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/inscricao/:vagaId" element={<InscricaoPublica />} />
@@ -210,6 +213,7 @@ function App() {
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
+    </ToastProvider>
   );
 }
 

@@ -1,3 +1,4 @@
+import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import {
@@ -12,6 +13,7 @@ type ContaNode = {
 };
 
 export default function PlanoContasPage() {
+    const { showToast } = useToast();
     const [tree, setTree] = useState<ContaNode[]>([]);
     const [loading, setLoading] = useState(true);
     const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -43,7 +45,7 @@ export default function PlanoContasPage() {
         try {
             await api.post('/plano-contas/seed');
             fetchTree();
-        } catch (err: any) { alert(err.response?.data?.error || 'Erro'); }
+        } catch (err: any) { showToast(err.response?.data?.error || 'Erro'); }
     };
 
     const toggleExpand = (id: string) => {
@@ -69,7 +71,7 @@ export default function PlanoContasPage() {
             setShowForm(false);
             setForm({ codigo: '', descricao: '', tipo: 'ANALITICA', natureza: 'DESPESA', nivel: 3, parentId: '', empresa: 'AMBAS' });
             fetchTree();
-        } catch (err: any) { alert(err.response?.data?.error || 'Erro'); }
+        } catch (err: any) { showToast(err.response?.data?.error || 'Erro'); }
     };
 
     const handleUpdate = async () => {
@@ -86,7 +88,7 @@ export default function PlanoContasPage() {
         try {
             await api.delete(`/plano-contas/${id}`);
             fetchTree();
-        } catch (err: any) { alert(err.response?.data?.error || 'Erro'); }
+        } catch (err: any) { showToast(err.response?.data?.error || 'Erro'); }
     };
 
     const openCreateChild = (parent: ContaNode) => {

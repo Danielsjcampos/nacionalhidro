@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
+import { useToast } from '../contexts/ToastContext';
 import api from '../services/api';
 import { useForm } from 'react-hook-form';
 import { Building2, Save, Globe, Key, FileBadge, Upload, Eye, EyeOff, CheckCircle2, MessageSquare, Receipt, MapPin, Phone, Palette, Image as ImageIcon, Loader2, RefreshCw, LogOut, Zap, AlertTriangle } from 'lucide-react';
 
 const ConfigForm = () => {
+    const { showToast } = useToast();
     const { register, handleSubmit, setValue, watch } = useForm();
     const [loading, setLoading] = useState(true);
     const [showPassword, setShowPassword] = useState(false);
@@ -29,12 +31,12 @@ const ConfigForm = () => {
     const onSubmit = async (data: any) => {
         try {
             await api.post('/configuracoes', data);
-            alert('Configurações salvas com sucesso!');
+            showToast('Configurações salvas com sucesso!', 'success');
             // Reload to apply changes (like favicon/logo)
             window.location.reload();
         } catch (e) {
             console.error(e);
-            alert('Erro ao salvar');
+            showToast('Erro ao salvar', 'error');
         }
     };
 
@@ -59,10 +61,10 @@ const ConfigForm = () => {
             if (res.data.qrcode) {
                 setQrCode(res.data.qrcode);
             } else {
-                alert('Não foi possível gerar o QR Code. Verifique se a instância está aguardando conexão.');
+                showToast('Não foi possível gerar o QR Code. Verifique se a instância está aguardando conexão.', 'error');
             }
         } catch (e: any) {
-            alert('Erro ao gerar QR Code: ' + (e.response?.data?.error || e.message));
+            showToast('Erro ao gerar QR Code: ' + (e.response?.data?.error || e.message), 'error');
         } finally {
             setStatusLoading(false);
         }
@@ -75,9 +77,9 @@ const ConfigForm = () => {
             await api.post('/whatsapp/desconectar');
             setWhatsappStatus({ connected: false });
             setQrCode(null);
-            alert('Instância desconectada com sucesso.');
+            showToast('Instância desconectada com sucesso.', 'success');
         } catch (e: any) {
-            alert('Erro ao desconectar: ' + (e.response?.data?.error || e.message));
+            showToast('Erro ao desconectar: ' + (e.response?.data?.error || e.message), 'error');
         } finally {
             setStatusLoading(false);
         }
@@ -480,7 +482,7 @@ const ConfigForm = () => {
                                             type="button"
                                             onClick={() => {
                                                 navigator.clipboard.writeText(`${api.defaults.baseURL || window.location.origin}/webhooks/lead`);
-                                                alert('URL copiada para a área de transferência!');
+                                                showToast('URL copiada para a área de transferência!', 'success');
                                             }}
                                             className="px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md text-xs font-bold transition-colors whitespace-nowrap"
                                         >
