@@ -4,7 +4,7 @@ import api from '../../services/api';
 import { 
   Plus, Loader2, MoreVertical, 
   Settings, Search, X, 
-  Save, AlertCircle, CheckCircle2, Layout, Mail, Link
+  Save, AlertCircle, Layout, Mail, Link
 } from 'lucide-react';
 import FormRenderer from '../../components/Workflow/FormRenderer';
 

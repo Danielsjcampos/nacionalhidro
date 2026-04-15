@@ -3,8 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { 
   Save, ArrowLeft, Plus, Trash2, 
-  GripVertical, Loader2, Settings,
-  Type, Hash, Calendar, List
+  GripVertical, Loader2, Settings
 } from 'lucide-react';
 
 export default function WorkflowSettings() {

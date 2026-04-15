@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { 
   listWorkflows, 
   getWorkflow, 
+  getPublicWorkflow,
+  createPublicCard,
   upsertCard, 
   moveCard, 
   bootstrapFromPipefy, 
@@ -11,10 +13,17 @@ import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
 
-// Rotas Públicas (Sem Autenticação)
+/**
+ * ROTAS PÚBLICAS
+ * Não exigem autenticação para permitir inscrições externas.
+ */
 router.get('/public/:id', getPublicWorkflow);
 router.post('/public/apply', createPublicCard);
 
+/**
+ * ROTAS PRIVADAS
+ * Exigem autenticação via Bearer Token.
+ */
 router.use(authenticate);
 
 router.get('/', listWorkflows);
