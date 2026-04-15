@@ -116,22 +116,30 @@ export default function Medicoes() {
     const [showItemForm, setShowItemForm] = useState(false);
     const [itemForm, setItemForm] = useState({ descricao: '', quantidade: '', valorUnitario: '', percentualAdicional: '' });
     const [showAutoCalc, setShowAutoCalc] = useState(false);
-    const [autoCalcForm, setAutoCalcForm] = useState({ valorDiaria: '', valorHora: '', toleranciaHoras: '' });
+    const [autoCalcForm, setAutoCalcForm] = useState({ 
+        valorDiaria: '', 
+        valorHora: '', 
+        toleranciaHoras: '',
+        entradaData: '',
+        entradaHora: '',
+        saidaData: '',
+        saidaHora: '',
+        almoco: '00:00',
+        franquia: '08:00',
+        valorHoraExtra: ''
+    });
     const [calculo, setCalculo] = useState<any>(null);
 
-    // Medição creation
-    const [clientes, setClientes] = useState<any[]>([]);
-    const [vendedores, setVendedores] = useState<any[]>([]);
-    const [selectedClienteId, setSelectedClienteId] = useState('');
-    const [osProntas, setOsProntas] = useState<any[]>([]);
-    const [selectedOsIds, setSelectedOsIds] = useState<string[]>([]);
-    const [periodo, setPeriodo] = useState('');
-    const [solicitante, setSolicitante] = useState('');
-    const [vendedorId, setVendedorId] = useState('');
-    const [subitens, setSubitens] = useState<any[]>([]);
-    const [tipoDocumento, setTipoDocumento] = useState<'RL' | 'ND'>('RL');
-    const [centrosCusto, setCentrosCusto] = useState<any[]>([]);
     const [submitting, setSubmitting] = useState(false);
+    const [wizardStep, setWizardStep] = useState(1);
+    
+    // Novas variáveis para paridade de criação
+    const [empresaId, setEmpresaId] = useState('NACIONAL HIDROSANEAMENTO EIRELI EPP');
+    const [contatoId, setContatoId] = useState('');
+    const [emailCC, setEmailCC] = useState('');
+    const [cte, setCte] = useState(false);
+    const [porcentagemRL, setPorcentagemRL] = useState<number>(90);
+    const [propostaId, setPropostaId] = useState('');
 
     // ─── FETCH LOGIC ───
     const fetchData = useCallback(async () => {
@@ -200,6 +208,11 @@ export default function Medicoes() {
                 valorDiaria: autoCalcForm.valorDiaria ? parseFloat(autoCalcForm.valorDiaria) : null,
                 valorHora: autoCalcForm.valorHora ? parseFloat(autoCalcForm.valorHora) : null,
                 toleranciaHoras: autoCalcForm.toleranciaHoras ? parseFloat(autoCalcForm.toleranciaHoras) : null,
+                entrada: autoCalcForm.entradaData && autoCalcForm.entradaHora ? `${autoCalcForm.entradaData}T${autoCalcForm.entradaHora}` : null,
+                saida: autoCalcForm.saidaData && autoCalcForm.saidaHora ? `${autoCalcForm.saidaData}T${autoCalcForm.saidaHora}` : null,
+                almoco: autoCalcForm.almoco,
+                franquia: autoCalcForm.franquia,
+                valorHoraExtra: autoCalcForm.valorHoraExtra ? parseFloat(autoCalcForm.valorHoraExtra) : null
             });
             setSelectedOS(res.data.os);
             setCalculo(res.data.calculo);
@@ -263,6 +276,19 @@ export default function Medicoes() {
         } catch (err: any) { alert(err.response?.data?.error || 'Erro'); }
     };
 
+    const handleEnviarDocumentacao = async (id: string) => {
+        if (!confirm('Deseja enviar a documentação final (Medição + Nota Fiscal) para o cliente agora?')) return;
+        setSubmitting(true);
+        try {
+            await api.post(`/medicoes/${id}/enviar-documentacao`);
+            alert('Documentação enviada com sucesso!');
+        } catch (err: any) {
+            alert(err.response?.data?.error || 'Falha ao enviar documentação. Verifique se a nota fiscal já foi autorizada.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     const handleCorrigir = async (m: any) => {
         if (!confirm('Tem certeza que deseja voltar a Medição para correção?')) return;
         try {
@@ -300,8 +326,16 @@ export default function Medicoes() {
             await api.post('/medicoes', {
                 clienteId: selectedClienteId,
                 osIds: selectedOsIds,
-                periodo, solicitante, vendedorId, subitens,
-                tipoDocumento
+                periodo, 
+                solicitante, 
+                vendedorId, 
+                subitens,
+                tipoDocumento,
+                empresa: empresaId,
+                emailCobrancaCC: emailCC,
+                cnpjFaturamento,
+                cte,
+                porcentagemRL
             });
             setShowCreate(false);
             fetchData();
@@ -478,14 +512,13 @@ export default function Medicoes() {
                                         <Th className="text-center">REVISÃO</Th>
                                         <Th>DATA CRIAÇÃO</Th>
                                         <Th>EMPRESA</Th>
-                                        <Th className="text-center">CÓD. CLIENTE</Th>
                                         <Th>CLIENTE</Th>
-                                        <Th>CONTATO</Th>
+                                        <Th>SOLICITANTE</Th>
                                         <Th className="text-right">VALOR TOTAL</Th>
                                         <Th>VENDEDOR RESP</Th>
-                                        <Th>APROVAÇÃO INTERNA</Th>
+                                        <Th className="text-center">STATUS CLIENTE</Th>
                                         <Th>COBRANÇA ENVIADA</Th>
-                                        <Th className="text-center">DIAS DESDE COBRANÇA</Th>
+                                        <Th className="text-center">LEAD TIME (DIAS)</Th>
                                     </>)}
 
                                     {/* ─── ABA 3: FINALIZADAS ─── */}
@@ -579,6 +612,9 @@ export default function Medicoes() {
                                                     <button title="Histórico" className="hover:text-blue-600 transition-colors" onClick={e => { e.stopPropagation(); openMedicao(item); }}>
                                                         <History className="w-3.5 h-3.5" />
                                                     </button>
+                                                    <button title="Enviar Documentação" className="hover:text-emerald-600 transition-colors" onClick={e => { e.stopPropagation(); handleEnviarDocumentacao(item.id); }}>
+                                                        <Mail className="w-3.5 h-3.5" />
+                                                    </button>
                                                 </>)}
                                                 {activeTab === 'cancelados' && (
                                                     <button title="Visualizar" className="hover:text-blue-600 transition-colors" onClick={e => { e.stopPropagation(); openMedicao(item); }}>
@@ -620,13 +656,12 @@ export default function Medicoes() {
                                             <Td className="font-black text-slate-700">{item.codigo}</Td>
                                             <Td className="text-center font-bold text-slate-400">{item.revisao || 0}</Td>
                                             <Td className="text-slate-500">{fmtDate(item.createdAt)}</Td>
-                                            <Td className="text-slate-500 font-bold truncate max-w-[120px] uppercase">NACIONAL HIDRO</Td>
-                                            <Td className="text-center font-bold text-slate-500">{item.cliente?.codigo || '-'}</Td>
+                                            <Td className="text-slate-500 font-bold truncate max-w-[120px] uppercase">{item.empresa || 'NACIONAL HIDRO'}</Td>
                                             <Td className="font-black text-slate-700 truncate max-w-[150px] uppercase">{item.cliente?.nome}</Td>
                                             <Td className="text-slate-500 truncate max-w-[120px] uppercase">{item.solicitante || '-'}</Td>
                                             <Td className="text-right font-black text-emerald-600">{fmt(item.valorTotal)}</Td>
                                             <Td className="text-slate-500 truncate max-w-[120px]">{item.vendedor?.name || '-'}</Td>
-                                            <Td className="text-slate-500">{fmtDate(item.dataAprovacaoInterna)}</Td>
+                                            <Td className="text-center font-bold text-slate-500">{item.statusCliente || '-'}</Td>
                                             <Td className="text-slate-500">{fmtDate(item.dataCobranca)}</Td>
                                             <Td className="text-center font-bold">
                                                 {item.dataCobranca ? (
@@ -641,7 +676,7 @@ export default function Medicoes() {
                                             <Td className="font-black text-slate-700">{item.codigo}</Td>
                                             <Td className="text-center font-bold text-slate-400">{item.revisao || 0}</Td>
                                             <Td className="text-slate-500">{fmtDate(item.createdAt)}</Td>
-                                            <Td className="text-slate-500 font-bold truncate max-w-[120px] uppercase">NACIONAL HIDRO</Td>
+                                            <Td className="text-slate-500 font-bold truncate max-w-[120px] uppercase">{item.empresa || 'NACIONAL HIDRO'}</Td>
                                             <Td className="text-center font-bold text-slate-500">{item.cliente?.codigo || '-'}</Td>
                                             <Td className="font-black text-slate-700 truncate max-w-[150px] uppercase">{item.cliente?.nome}</Td>
                                             <Td className="text-slate-500 truncate max-w-[120px] uppercase">{item.solicitante || '-'}</Td>
@@ -657,7 +692,7 @@ export default function Medicoes() {
                                             <Td className="font-black text-slate-700">{item.codigo}</Td>
                                             <Td className="text-center font-bold text-slate-400">{item.revisao || 0}</Td>
                                             <Td className="text-slate-500">{fmtDate(item.createdAt)}</Td>
-                                            <Td className="text-slate-500 font-bold truncate max-w-[120px] uppercase">NACIONAL HIDRO</Td>
+                                            <Td className="text-slate-500 font-bold truncate max-w-[120px] uppercase">{item.empresa || 'NACIONAL HIDRO'}</Td>
                                             <Td className="text-center font-bold text-slate-500">{item.cliente?.codigo || '-'}</Td>
                                             <Td className="font-black text-slate-700 truncate max-w-[150px] uppercase">{item.cliente?.nome}</Td>
                                             <Td className="text-slate-500 truncate max-w-[120px] uppercase">{item.solicitante || '-'}</Td>
@@ -681,75 +716,173 @@ export default function Medicoes() {
                     </div>
                 </div>
 
-                {/* ── DETAIL PANEL: PRECIFICAÇÃO ── */}
+                {/* ── MODAL: PRECIFICAÇÃO DETALHADA ── */}
                 {selectedOS && (
-                    <div className="w-1/2 bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden flex flex-col animate-in slide-in-from-right duration-300">
-                        <div className="bg-[#1e3a5f] text-white p-4 flex items-center justify-between">
-                            <div>
-                                <h3 className="font-black uppercase text-sm flex items-center gap-2">
-                                    <Calculator className="w-4 h-4 text-orange-400" />
-                                    Precificar OS {selectedOS.codigo}
-                                </h3>
-                                <p className="text-[10px] text-white/60">{selectedOS.cliente?.nome}</p>
+                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+                        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col border border-white/20">
+                            <div className="bg-[#1e3a5f] p-5 text-white flex items-center justify-between">
+                                <div className="flex flex-col">
+                                    <h2 className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
+                                        <Calculator className="w-5 h-5 text-orange-400" />
+                                        Precificar OS: {selectedOS.codigo}
+                                    </h2>
+                                    <p className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">{selectedOS.cliente?.nome}</p>
+                                </div>
+                                <button onClick={() => setSelectedOS(null)} className="hover:bg-white/10 p-2 rounded-full"><X className="w-5 h-5" /></button>
                             </div>
-                            <button onClick={() => setSelectedOS(null)} className="hover:bg-white/10 p-1.5 rounded-lg"><X className="w-4 h-4" /></button>
-                        </div>
-                        
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-                           <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                <div><p className="text-[10px] font-black text-slate-400 uppercase">Horas Totais</p><p className="text-sm font-bold">{selectedOS.horasTotais || '—'}h</p></div>
-                                <div><p className="text-[10px] font-black text-slate-400 uppercase">Tipo Cobr.</p><p className="text-sm font-bold uppercase">{selectedOS.tipoCobranca || '—'}</p></div>
-                           </div>
 
-                           <div className="flex items-center justify-between">
-                                <h4 className="text-[10px] font-black text-slate-400 uppercase">Bloco de Cobrança</h4>
-                                <div className="flex gap-1.5">
-                                    <button onClick={() => setShowAutoCalc(true)} className="bg-blue-600 text-white px-3 py-1 rounded text-[9px] font-black uppercase hover:bg-blue-700 flex items-center gap-1 shadow-sm"><Zap className="w-3 h-3" /> Auto Calc</button>
-                                    <button onClick={() => setShowItemForm(true)} className="bg-slate-800 text-white px-3 py-1 rounded text-[9px] font-black uppercase hover:bg-slate-900 flex items-center gap-1 shadow-sm"><Plus className="w-3 h-3" /> Manual</button>
+                            <div className="p-8 overflow-y-auto flex-1 bg-slate-50/50 custom-scrollbar grid grid-cols-12 gap-8">
+                                
+                                {/* LEFT COLUMN: CALCULATOR */}
+                                <div className="col-span-12 lg:col-span-7 space-y-6">
+                                    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                            <Clock className="w-4 h-4 text-blue-500" /> Registro de Horas
+                                        </h3>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase">Entrada</label>
+                                                <div className="flex gap-2">
+                                                    <input type="date" value={autoCalcForm.entradaData} onChange={e => setAutoCalcForm({...autoCalcForm, entradaData: e.target.value})} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold" />
+                                                    <input type="time" value={autoCalcForm.entradaHora} onChange={e => setAutoCalcForm({...autoCalcForm, entradaHora: e.target.value})} className="w-24 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold" />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase">Saída</label>
+                                                <div className="flex gap-2">
+                                                    <input type="date" value={autoCalcForm.saidaData} onChange={e => setAutoCalcForm({...autoCalcForm, saidaData: e.target.value})} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold" />
+                                                    <input type="time" value={autoCalcForm.saidaHora} onChange={e => setAutoCalcForm({...autoCalcForm, saidaHora: e.target.value})} className="w-24 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold" />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase">Almoço / Intervalo</label>
+                                                <input type="time" value={autoCalcForm.almoco} onChange={e => setAutoCalcForm({...autoCalcForm, almoco: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold" />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase">Franquia Contratual</label>
+                                                <input type="time" value={autoCalcForm.franquia} onChange={e => setAutoCalcForm({...autoCalcForm, franquia: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold" />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase">Vlr. Diária (Manual)</label>
+                                                <input type="number" value={autoCalcForm.valorDiaria} onChange={e => setAutoCalcForm({...autoCalcForm, valorDiaria: e.target.value})} placeholder="Opcional" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold" />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase">Vlr. Hora Normal (Manual)</label>
+                                                <input type="number" value={autoCalcForm.valorHora} onChange={e => setAutoCalcForm({...autoCalcForm, valorHora: e.target.value})} placeholder="Opcional" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold" />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase">Vlr. Hora Extra (Manual)</label>
+                                                <input type="number" value={autoCalcForm.valorHoraExtra} onChange={e => setAutoCalcForm({...autoCalcForm, valorHoraExtra: e.target.value})} placeholder="Opcional" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold" />
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-4 border-t border-slate-100 flex gap-4">
+                                            <button 
+                                                onClick={handleAutoCalcular}
+                                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-2xl text-[10px] font-black uppercase shadow-xl shadow-blue-500/20 transition-all flex items-center justify-center gap-2"
+                                            >
+                                                <Zap className="w-4 h-4" /> Calcular Automático
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                <List className="w-4 h-4 text-emerald-500" /> Itens de Cobrança
+                                            </h3>
+                                            <button onClick={() => setShowItemForm(true)} className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-all flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> NOVO ITEM</button>
+                                        </div>
+
+                                        {showItemForm && (
+                                            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-4 animate-in slide-in-from-top-4 duration-200">
+                                                <div className="grid grid-cols-4 gap-3">
+                                                    <div className="col-span-2 space-y-1">
+                                                        <label className="text-[9px] font-black text-slate-400 uppercase">Descrição</label>
+                                                        <input value={itemForm.descricao} onChange={e => setItemForm({...itemForm, descricao: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-bold" />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <label className="text-[9px] font-black text-slate-400 uppercase">Valor</label>
+                                                        <input type="number" value={itemForm.valorUnitario} onChange={e => setItemForm({...itemForm, valorUnitario: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-bold" />
+                                                    </div>
+                                                    <div className="flex items-end pb-0.5">
+                                                        <button onClick={handleAddItem} className="bg-slate-800 text-white w-full py-2 rounded-lg text-[9px] font-black uppercase">Adicionar</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="space-y-2">
+                                            {selectedOS.itensCobranca?.map((it: any) => (
+                                                <div key={it.id} className="flex items-center justify-between p-4 bg-slate-50/50 border border-slate-100 rounded-2xl group hover:border-blue-200 transition-all">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-blue-600 border border-slate-200 font-black text-[10px]">{it.quantidade}x</div>
+                                                        <div className="flex flex-col">
+                                                            <span className="font-bold text-slate-700 text-sm uppercase">{it.descricao}</span>
+                                                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{fmt(it.valorUnitario)} / UN</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-4">
+                                                        <span className="font-black text-emerald-600">{fmt(it.valorTotal)}</span>
+                                                        <button className="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-4 h-4" /></button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {!selectedOS.itensCobranca?.length && (
+                                                <div className="text-center py-10 border-2 border-dashed border-slate-100 rounded-3xl text-slate-300 text-xs font-bold italic">Nenhum item de cobrança lançado</div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
-                           </div>
 
-                           {showAutoCalc && (
-                                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
-                                    <div className="grid grid-cols-3 gap-2">
-                                        <div><label className="text-[9px] font-black uppercase text-blue-600">Diária (R$)</label><input type="number" step="0.01" value={autoCalcForm.valorDiaria} onChange={e => setAutoCalcForm({...autoCalcForm, valorDiaria: e.target.value})} className="w-full border p-1 rounded font-bold text-xs" /></div>
-                                        <div><label className="text-[9px] font-black uppercase text-blue-600">Hora (R$)</label><input type="number" step="0.01" value={autoCalcForm.valorHora} onChange={e => setAutoCalcForm({...autoCalcForm, valorHora: e.target.value})} className="w-full border p-1 rounded font-bold text-xs" /></div>
-                                        <div><label className="text-[9px] font-black uppercase text-blue-600">Tol. (h)</label><input type="number" value={autoCalcForm.toleranciaHoras} onChange={e => setAutoCalcForm({...autoCalcForm, toleranciaHoras: e.target.value})} className="w-full border p-1 rounded font-bold text-xs" /></div>
+                                {/* RIGHT COLUMN: SUMMARY */}
+                                <div className="col-span-12 lg:col-span-5 space-y-6">
+                                    <div className="bg-[#1e3a5f] p-8 rounded-[40px] text-white space-y-8 shadow-2xl shadow-blue-900/30">
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">Resumo de Faturamento</p>
+                                            <h3 className="text-3xl font-black">{fmt(selectedOS.valorPrecificado)}</h3>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                                                <span className="text-[10px] font-black text-white/40 uppercase">Horas Totais</span>
+                                                <span className="text-sm font-black">{selectedOS.horasTotais || '0.00'}h</span>
+                                            </div>
+                                            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                                                <span className="text-[10px] font-black text-white/40 uppercase">Horas Extras</span>
+                                                <span className="text-sm font-black text-yellow-400">{selectedOS.horasExtras || '0.00'}h</span>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-black text-white/40 uppercase">Status</span>
+                                                <span className="text-[10px] font-black bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full uppercase">PRONTO</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-4">
+                                            <button 
+                                                onClick={handlePrecificar}
+                                                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white h-16 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl shadow-emerald-500/30 transition-all transform active:scale-95"
+                                            >
+                                                Finalizar & Baixar OS
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={handleAutoCalcular} className="bg-blue-600 text-white px-3 py-1 rounded text-[9px] font-black uppercase">Calcular</button>
-                                        <button onClick={() => setShowAutoCalc(false)} className="text-slate-500 px-3 py-1 text-[9px] font-bold">Cancelar</button>
+
+                                    {/* INFO BLOCK */}
+                                    <div className="bg-orange-50 p-6 rounded-3xl border border-orange-100 flex gap-4">
+                                        <div className="w-10 h-10 bg-orange-200 rounded-full flex items-center justify-center flex-shrink-0 text-orange-700">
+                                            <AlertTriangle className="w-5 h-5" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <h4 className="text-[10px] font-black text-orange-800 uppercase">Regras de Cobrança</h4>
+                                            <p className="text-[10px] text-orange-700 leading-relaxed font-bold">
+                                                O cálculo automático considera a franquia contratada e aplica valores de Hora Extra conforme os termos da proposta comercial vinculada.
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
-                           )}
-
-                           {showItemForm && (
-                                <div className="bg-slate-100 border border-slate-200 rounded-xl p-4 space-y-3">
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div className="col-span-2"><label className="text-[9px] font-black uppercase text-slate-500">Descrição</label><input value={itemForm.descricao} onChange={e => setItemForm({...itemForm, descricao: e.target.value})} className="w-full border p-1 rounded font-bold text-xs" /></div>
-                                        <div><label className="text-[9px] font-black uppercase text-slate-500">Qtd</label><input type="number" value={itemForm.quantidade} onChange={e => setItemForm({...itemForm, quantidade: e.target.value})} className="w-full border p-1 rounded font-bold text-xs" /></div>
-                                        <div><label className="text-[9px] font-black uppercase text-slate-500">Valor Un.</label><input type="number" value={itemForm.valorUnitario} onChange={e => setItemForm({...itemForm, valorUnitario: e.target.value})} className="w-full border p-1 rounded font-bold text-xs" /></div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={handleAddItem} className="bg-slate-800 text-white px-3 py-1 rounded text-[9px] font-black uppercase">Salvar</button>
-                                        <button onClick={() => setShowItemForm(false)} className="text-slate-500 px-3 py-1 text-[9px] font-bold">Cancelar</button>
-                                    </div>
-                                </div>
-                           )}
-
-                           <div className="space-y-2">
-                                {selectedOS.itensCobranca?.map((it: any) => (
-                                    <div key={it.id} className="flex items-center justify-between p-2.5 bg-white border border-slate-100 rounded-lg shadow-sm">
-                                        <div className="flex flex-col"><span className="font-bold text-slate-700">{it.descricao}</span><span className="text-[10px] text-slate-400">{it.quantidade}x {fmt(it.valorUnitario)}</span></div>
-                                        <span className="font-black text-emerald-600">{fmt(it.valorTotal)}</span>
-                                    </div>
-                                ))}
-                           </div>
-                        </div>
-
-                        <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-                            <div><p className="text-[10px] font-black text-slate-400 uppercase">Subtotal</p><p className="text-lg font-black text-slate-800">{fmt(selectedOS.valorPrecificado)}</p></div>
-                            <button onClick={handlePrecificar} className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg text-xs font-black uppercase shadow-lg shadow-emerald-500/20">Finalizar Precificação</button>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -789,8 +922,12 @@ export default function Medicoes() {
                             )}
 
                             {/* Info Grid */}
-                            <div className="grid grid-cols-3 gap-3">
-                                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 font-bold">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Empresa</p>
+                                    <span className="text-xs font-black text-slate-700 uppercase">{selectedMedicao.empresa || 'NACIONAL HIDRO'}</span>
+                                </div>
+                                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 font-bold">
                                     <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Status</p>
                                     <span className={`text-xs font-black uppercase ${
                                         selectedMedicao.status === 'CONTESTADA' ? 'text-orange-600' :
@@ -798,13 +935,21 @@ export default function Medicoes() {
                                         selectedMedicao.status === 'APROVADA' ? 'text-emerald-600' : 'text-blue-700'
                                     }`}>{STATUS_LABEL[selectedMedicao.status]}</span>
                                 </div>
-                                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-right">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Valor Total</p>
-                                    <span className="text-sm font-black text-emerald-600">{fmt(selectedMedicao.valorTotal)}</span>
+                                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 font-bold">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Solicitante</p>
+                                    <span className="text-xs font-black text-slate-700 uppercase">{selectedMedicao.solicitante || '-'}</span>
                                 </div>
-                                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-right">
+                                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 font-bold">
                                     <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Tipo Doc</p>
                                     <span className="text-xs font-black text-slate-700">{selectedMedicao.tipoDocumento === 'ND' ? 'Nota de Débito' : 'Recibo (RL)'}</span>
+                                </div>
+                                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 font-bold col-span-2">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">E-mail CC</p>
+                                    <span className="text-[10px] font-bold text-slate-600 truncate block">{selectedMedicao.emailCobrancaCC || '-'}</span>
+                                </div>
+                                <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 text-right col-span-2">
+                                    <p className="text-[10px] font-black text-emerald-800 uppercase mb-1">Valor Total</p>
+                                    <span className="text-xl font-black text-emerald-600">{fmt(selectedMedicao.valorTotal)}</span>
                                 </div>
                             </div>
 
@@ -876,126 +1021,238 @@ export default function Medicoes() {
                 )}
             </div>
 
-            {/* ── MODAL: CREATE MEDIÇÃO ── */}
+            {/* ── MODAL: CREATE MEDIÇÃO (WIZARD 3 STEPS) ── */}
             {showCreate && (
                  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col border border-white/20">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col border border-white/20">
                         <div className="bg-[#1e3a5f] p-5 text-white flex items-center justify-between">
-                            <h2 className="text-lg font-black uppercase tracking-tight flex items-center gap-2"><DollarSign className="w-5 h-5 text-yellow-400" /> Gerar Nova Medição</h2>
-                            <button onClick={() => setShowCreate(false)} className="hover:bg-white/10 p-2 rounded-full"><X className="w-5 h-5" /></button>
-                        </div>
-                        <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50 custom-scrollbar space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente</label>
-                                    <select value={selectedClienteId} onChange={e => fetchOSProntas(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-500/10">
-                                        <option value="">Selecione...</option>
-                                        {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                                    </select>
-                                </div>
-                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipo de Documento</label>
-                                    <div className="flex bg-white border border-slate-200 rounded-lg p-1 gap-1">
-                                        <button 
-                                            onClick={() => setTipoDocumento('RL')}
-                                            className={`flex-1 py-1.5 rounded text-[10px] font-black uppercase transition-all ${tipoDocumento === 'RL' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-50'}`}
-                                        >
-                                            Recibo (RL)
-                                        </button>
-                                        <button 
-                                            onClick={() => setTipoDocumento('ND')}
-                                            className={`flex-1 py-1.5 rounded text-[10px] font-black uppercase transition-all ${tipoDocumento === 'ND' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-50'}`}
-                                        >
-                                            Nota Débito (ND)
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Período Referência</label>
-                                    <input type="text" value={periodo} onChange={e => setPeriodo(e.target.value)} placeholder="Ex: Março/2025" className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm font-bold shadow-sm" />
-                                </div>
+                            <div className="flex flex-col">
+                                <h2 className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
+                                    <DollarSign className="w-5 h-5 text-yellow-400" /> 
+                                    {wizardStep === 1 && "Passo 1: Dados Gerais"}
+                                    {wizardStep === 2 && "Passo 2: Seleção de OS"}
+                                    {wizardStep === 3 && "Passo 3: Configuração Financeira"}
+                                </h2>
+                                <p className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Gerar Nova Medição de Serviços</p>
                             </div>
+                            <button onClick={() => { setShowCreate(false); setWizardStep(1); }} className="hover:bg-white/10 p-2 rounded-full"><X className="w-5 h-5" /></button>
+                        </div>
 
-                            {selectedClienteId && (
-                                <div className="space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">OS Disponíveis para Medição ({osProntas.length})</label>
+                        {/* Progress Bar */}
+                        <div className="h-1.5 w-full bg-slate-100 flex">
+                            <div className={`h-full bg-emerald-500 transition-all duration-500 ${wizardStep === 1 ? 'w-1/3' : wizardStep === 2 ? 'w-2/3' : 'w-full'}`}></div>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50 custom-scrollbar">
+                            
+                            {/* PASSO 1: DADOS GERAIS */}
+                            {wizardStep === 1 && (
+                                <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
+                                    <div className="grid grid-cols-2 gap-6">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Empresa de Faturamento</label>
+                                            <select 
+                                                value={empresaId} 
+                                                onChange={e => setEmpresaId(e.target.value)}
+                                                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-500/10 transition-all"
+                                            >
+                                                <option value="NACIONAL HIDROSANEAMENTO EIRELI EPP">NACIONAL HIDROSANEAMENTO EIRELI EPP</option>
+                                                <option value="NACIONAL HIDRO">NACIONAL HIDRO</option>
+                                            </select>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente</label>
+                                            <select 
+                                                value={selectedClienteId} 
+                                                onChange={e => {
+                                                    setSelectedClienteId(e.target.value);
+                                                    const client = clientes.find(c => c.id === e.target.value);
+                                                    if (client?.porcentagemRL) setPorcentagemRL(Number(client.porcentagemRL));
+                                                    fetchOSProntas(e.target.value);
+                                                }} 
+                                                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-500/10"
+                                            >
+                                                <option value="">Selecione o Cliente...</option>
+                                                {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Solicitante (Nome)</label>
+                                            <input 
+                                                type="text" 
+                                                value={solicitante} 
+                                                onChange={e => setSolicitante(e.target.value)} 
+                                                placeholder="Nome do solicitante no cliente" 
+                                                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm font-bold shadow-sm" 
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Período Referência</label>
+                                            <input 
+                                                type="text" 
+                                                value={periodo} 
+                                                onChange={e => setPeriodo(e.target.value)} 
+                                                placeholder="Ex: Março/2025" 
+                                                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm font-bold shadow-sm" 
+                                            />
+                                        </div>
+                                        <div className="col-span-2 space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Enviar Cópia Para (E-mails separados por vírgula)</label>
+                                            <input 
+                                                type="text" 
+                                                value={emailCC} 
+                                                onChange={e => setEmailCC(e.target.value)} 
+                                                placeholder="financeiro@cliente.com, compras@cliente.com" 
+                                                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm font-bold shadow-sm" 
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto custom-scrollbar p-1">
-                                        {osProntas.map(os => (
-                                            <label key={os.id} className={`flex items-center justify-between p-3 border rounded-xl cursor-pointer transition-all ${selectedOsIds.includes(os.id) ? 'bg-blue-600 text-white border-blue-700 shadow-md transform scale-[1.02]' : 'bg-white border-slate-200 hover:border-blue-400 text-slate-700'}`}>
-                                                <div className="flex items-center gap-3">
-                                                    <input type="checkbox" className="sr-only" checked={selectedOsIds.includes(os.id)} onChange={() => setSelectedOsIds(p => p.includes(os.id) ? p.filter(x => x !== os.id) : [...p, os.id])} />
-                                                    <div className="flex flex-col"><span className="text-xs font-black uppercase">{os.codigo}</span><span className={`text-[9px] font-bold ${selectedOsIds.includes(os.id) ? 'text-white/70' : 'text-slate-400'}`}>Tipo: {os.tipoCobranca}</span></div>
-                                                </div>
-                                                <span className="font-black text-xs">{fmt(os.valorPrecificado)}</span>
-                                            </label>
-                                        ))}
+                                </div>
+                            )}
+
+                            {/* PASSO 2: SELEÇÃO DE OS */}
+                            {wizardStep === 2 && (
+                                <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-xs font-black text-slate-400 uppercase">OS Disponíveis para Medição ({osProntas.length})</h3>
+                                        <button 
+                                            onClick={() => {
+                                                if (selectedOsIds.length === osProntas.length) setSelectedOsIds([]);
+                                                else setSelectedOsIds(osProntas.map(o => o.id));
+                                            }}
+                                            className="text-[10px] font-black text-blue-600 hover:underline"
+                                        >
+                                            {selectedOsIds.length === osProntas.length ? 'DESSELECIONAR TUDO' : 'SELECIONAR TODAS'}
+                                        </button>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3 overflow-y-auto pr-2 max-h-[400px] custom-scrollbar">
+                                        {osProntas.length === 0 ? (
+                                            <div className="col-span-2 py-12 text-center border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 font-bold italic">Nenhuma OS precificada disponível para este cliente.</div>
+                                        ) : (
+                                            osProntas.map(os => (
+                                                <label key={os.id} className={`flex items-center justify-between p-4 border-2 rounded-2xl cursor-pointer transition-all ${selectedOsIds.includes(os.id) ? 'bg-blue-600 border-blue-700 shadow-xl shadow-blue-200 -translate-y-1' : 'bg-white border-slate-100 hover:border-blue-200 text-slate-700'}`}>
+                                                    <div className="flex items-center gap-3">
+                                                        <input type="checkbox" className="sr-only" checked={selectedOsIds.includes(os.id)} onChange={() => setSelectedOsIds(p => p.includes(os.id) ? p.filter(x => x !== os.id) : [...p, os.id])} />
+                                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${selectedOsIds.includes(os.id) ? 'bg-white border-white' : 'border-slate-200'}`}>
+                                                            {selectedOsIds.includes(os.id) && <ChevronRight className="w-3.5 h-3.5 text-blue-600" />}
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className={`text-[11px] font-black uppercase ${selectedOsIds.includes(os.id) ? 'text-white' : 'text-slate-800'}`}>{os.codigo}</span>
+                                                            <span className={`text-[9px] font-bold ${selectedOsIds.includes(os.id) ? 'text-blue-100' : 'text-slate-400'}`}>{fmtDate(os.createdAt)} • {os.tipoCobranca}</span>
+                                                        </div>
+                                                    </div>
+                                                    <span className={`font-black text-xs ${selectedOsIds.includes(os.id) ? 'text-white' : 'text-emerald-600'}`}>{fmt(os.valorPrecificado)}</span>
+                                                </label>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* PASSO 3: CONFIGURAÇÃO FINANCEIRA */}
+                            {wizardStep === 3 && (
+                                <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
+                                    <div className="grid grid-cols-3 gap-6">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipo de Documento</label>
+                                            <div className="flex bg-slate-100 rounded-xl p-1.5 gap-1.5">
+                                                <button 
+                                                    onClick={() => setTipoDocumento('RL')}
+                                                    className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase transition-all ${tipoDocumento === 'RL' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-white'}`}
+                                                >
+                                                    Recibo (RL)
+                                                </button>
+                                                <button 
+                                                    onClick={() => setTipoDocumento('ND')}
+                                                    className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase transition-all ${tipoDocumento === 'ND' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400 hover:bg-white'}`}
+                                                >
+                                                    Nota Débito (ND)
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rateio Locação (%)</label>
+                                            <input 
+                                                type="number" 
+                                                value={porcentagemRL} 
+                                                onChange={e => setPorcentagemRL(Number(e.target.value))} 
+                                                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm font-black text-blue-600" 
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Modalidade CTe</label>
+                                            <button 
+                                                onClick={() => setCte(!cte)}
+                                                className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all ${cte ? 'bg-blue-50 border-blue-600 text-blue-700' : 'bg-white border-slate-100 text-slate-400'}`}
+                                            >
+                                                <span className="text-xs font-black uppercase">{cte ? 'SIM (100% CTE)' : 'NÃO (RL/NF)'}</span>
+                                                <RefreshCw className={`w-4 h-4 ${cte ? 'animate-spin-slow' : ''}`} />
+                                            </button>
+                                        </div>
+                                        <div className="col-span-3 space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">CNPJ p/ Faturamento (Se diferente do cliente)</label>
+                                            <input 
+                                                type="text" 
+                                                value={cnpjFaturamento} 
+                                                onChange={e => setCnpjFaturamento(e.target.value)} 
+                                                placeholder="00.000.000/0000-00" 
+                                                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm font-bold shadow-sm" 
+                                            />
+                                        </div>
                                     </div>
 
                                     {/* MÚLTIPLOS ITENS ADICIONAIS */}
-                                    <div className="space-y-3 pt-4 border-t border-slate-200">
+                                    <div className="space-y-4 pt-6 border-t border-slate-200">
                                         <div className="flex items-center justify-between">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Itens Adicionais / Extra</label>
+                                            <h3 className="text-xs font-black text-slate-400 uppercase">Itens Adicionais / Despesas Extra</h3>
                                             <button 
                                                 onClick={() => setSubitens([...subitens, newSubitem()])}
-                                                className="text-[10px] font-black text-blue-600 flex items-center gap-1 hover:text-blue-800"
+                                                className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full hover:bg-emerald-100 flex items-center gap-1.5 transition-all"
                                             >
-                                                <Plus className="w-3 h-3" /> ADICIONAR LINHA
+                                                <Plus className="w-3.5 h-3.5" /> ADICIONAR LINHA
                                             </button>
                                         </div>
                                         
                                         <div className="space-y-2">
                                             {subitens.map((sub, idx) => (
-                                                <div key={sub.id} className="grid grid-cols-12 gap-2 bg-white p-2 rounded-lg border border-slate-200 shadow-sm items-end animate-in fade-in slide-in-from-left duration-200">
-                                                    <div className="col-span-4">
-                                                        <label className="text-[9px] font-bold text-slate-400 uppercase block pl-1">Descrição</label>
-                                                        <input type="text" value={sub.descricao} onChange={e => {
-                                                            const n = [...subitens]; n[idx].descricao = e.target.value; setSubitens(n);
-                                                        }} className="w-full text-xs font-bold p-1.5 border border-slate-100 rounded bg-slate-50/50 outline-none focus:bg-white focus:border-blue-300" placeholder="Ex: Hora Extra 50%" />
+                                                <div key={sub.id} className="grid grid-cols-12 gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm items-end animate-in fade-in slide-in-from-left duration-200">
+                                                    <div className="col-span-5">
+                                                        <label className="text-[9px] font-black text-slate-400 uppercase block pl-1 mb-1">Descrição do Item</label>
+                                                        <input type="text" value={sub.descricao} onChange={e => { const n = [...subitens]; n[idx].descricao = e.target.value; setSubitens(n); }} className="w-full text-[11px] font-bold p-2.5 border border-slate-100 rounded-xl bg-slate-50/50 focus:bg-white focus:border-blue-400 outline-none transition-all" placeholder="Ex: Hora Extra 50%" />
                                                     </div>
                                                     <div className="col-span-3">
-                                                        <label className="text-[9px] font-bold text-slate-400 uppercase block pl-1">Centro de Custo</label>
-                                                        <select value={sub.centroCustoId} onChange={e => {
-                                                            const n = [...subitens]; n[idx].centroCustoId = e.target.value; setSubitens(n);
-                                                        }} className="w-full text-[10px] font-bold p-1.5 border border-slate-100 rounded bg-slate-50/50 outline-none focus:bg-white focus:border-blue-300">
+                                                        <label className="text-[9px] font-black text-slate-400 uppercase block pl-1 mb-1">Centro de Custo</label>
+                                                        <select value={sub.centroCustoId} onChange={e => { const n = [...subitens]; n[idx].centroCustoId = e.target.value; setSubitens(n); }} className="w-full text-[10px] font-bold p-2.5 border border-slate-100 rounded-xl bg-slate-50/50 focus:bg-white focus:border-blue-400 outline-none transition-all">
                                                             <option value="">Selecione...</option>
                                                             {centrosCusto.map(cc => <option key={cc.id} value={cc.id}>{cc.nome}</option>)}
                                                         </select>
                                                     </div>
-                                                    <div className="col-span-2">
-                                                        <label className="text-[9px] font-bold text-slate-400 uppercase block pl-1">Qtd / Un</label>
-                                                        <div className="flex gap-1">
-                                                            <input type="number" value={sub.quantidade} onChange={e => {
-                                                                const n = [...subitens]; n[idx].quantidade = Number(e.target.value); setSubitens(n);
-                                                            }} className="w-full text-xs font-bold p-1.5 border border-slate-100 rounded bg-slate-50/50 outline-none focus:bg-white focus:border-blue-300" />
-                                                            <input type="text" value={sub.unidade} onChange={e => {
-                                                                const n = [...subitens]; n[idx].unidade = e.target.value; setSubitens(n);
-                                                            }} className="w-12 text-[10px] font-bold p-1.5 border border-slate-100 rounded bg-slate-50/50 outline-none focus:bg-white focus:border-blue-300" />
+                                                    <div className="col-span-3">
+                                                        <label className="text-[9px] font-black text-slate-400 uppercase block pl-1 mb-1">Valor do Item</label>
+                                                        <div className="relative">
+                                                            <DollarSign className="w-3 h-3 absolute left-3 top-3.5 text-slate-300" />
+                                                            <input type="number" step="0.01" value={sub.valor} onChange={e => { const n = [...subitens]; n[idx].valor = e.target.value; setSubitens(n); }} className="w-full text-xs font-black pl-8 p-2.5 border border-slate-100 rounded-xl bg-slate-50/50 text-emerald-600 focus:bg-white focus:border-emerald-400 outline-none transition-all" placeholder="0.00" />
                                                         </div>
                                                     </div>
-                                                    <div className="col-span-2">
-                                                        <label className="text-[9px] font-bold text-slate-400 uppercase block pl-1">Valor Unitário</label>
-                                                        <input type="number" step="0.01" value={sub.valor} onChange={e => {
-                                                            const n = [...subitens]; n[idx].valor = e.target.value; setSubitens(n);
-                                                        }} className="w-full text-xs font-black p-1.5 border border-slate-100 rounded bg-slate-50/50 text-emerald-600 outline-none focus:bg-white focus:border-blue-300" placeholder="0.00" />
-                                                    </div>
                                                     <div className="col-span-1 flex justify-center pb-1">
-                                                        <button onClick={() => setSubitens(subitens.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 p-1"><Trash2 className="w-4 h-4" /></button>
+                                                        <button onClick={() => setSubitens(subitens.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-5 h-5" /></button>
                                                     </div>
                                                 </div>
                                             ))}
                                             {subitens.length === 0 && (
-                                                <div className="text-center py-4 border-2 border-dashed border-slate-100 rounded-xl text-slate-300 text-[10px] font-bold italic">Nenhum item adicional lançado</div>
+                                                <div className="text-center py-6 border-2 border-dashed border-slate-100 rounded-3xl text-slate-300 text-[10px] font-bold italic">Nenhum item adicional lançado</div>
                                             )}
                                         </div>
                                     </div>
                                 </div>
                             )}
                         </div>
-                        <div className="p-5 bg-white border-t border-slate-100 flex items-center justify-between">
-                            <div>
-                                <p className="text-xl font-black text-slate-800">
+
+                        {/* Footer Buttons */}
+                        <div className="p-6 bg-white border-t border-slate-100 flex items-center justify-between">
+                            <div className="flex flex-col">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor Total de Medição</p>
+                                <p className="text-2xl font-black text-slate-800">
                                     {fmt(
                                         osProntas.filter(o => selectedOsIds.includes(o.id)).reduce((s,o) => s + (o.valorPrecificado || 0), 0) +
                                         subitens.reduce((s, it) => s + (Number(it.valor || 0) * Number(it.quantidade || 1)), 0)
@@ -1003,14 +1260,37 @@ export default function Medicoes() {
                                 </p>
                             </div>
                             <div className="flex gap-4">
-                                <button onClick={() => setShowCreate(false)} className="px-6 py-2.5 text-xs font-black uppercase text-slate-400 hover:text-slate-600">Cancelar</button>
-                                <button 
-                                    onClick={handleCreateMedicao} 
-                                    disabled={submitting || !selectedOsIds.length} 
-                                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-2.5 rounded-xl text-xs font-black uppercase shadow-lg shadow-emerald-500/20 disabled:opacity-50"
-                                >
-                                    {submitting ? 'Gerando...' : 'Confirmar & Gerar'}
-                                </button>
+                                {wizardStep > 1 && (
+                                    <button 
+                                        onClick={() => setWizardStep(p => p - 1)} 
+                                        className="px-6 py-3 text-xs font-black uppercase text-slate-400 hover:bg-slate-50 rounded-xl flex items-center gap-2"
+                                    >
+                                        <ArrowLeftCircle className="w-4 h-4" /> Voltar
+                                    </button>
+                                )}
+                                
+                                {wizardStep < 3 ? (
+                                    <button 
+                                        onClick={() => {
+                                            if (wizardStep === 1 && !selectedClienteId) return;
+                                            if (wizardStep === 2 && selectedOsIds.length === 0) return;
+                                            setWizardStep(p => p + 1);
+                                        }}
+                                        disabled={wizardStep === 1 ? !selectedClienteId : selectedOsIds.length === 0}
+                                        className="bg-[#1e3a5f] hover:bg-[#2b5284] text-white px-10 py-3 rounded-2xl text-xs font-black uppercase shadow-xl shadow-blue-900/10 transition-all flex items-center gap-2 disabled:opacity-50"
+                                    >
+                                        Próximo <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                ) : (
+                                    <button 
+                                        onClick={handleCreateMedicao} 
+                                        disabled={submitting || !selectedOsIds.length} 
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-10 py-3 rounded-2xl text-xs font-black uppercase shadow-xl shadow-emerald-500/20 disabled:opacity-50 transition-all flex items-center gap-2"
+                                    >
+                                        {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                        {submitting ? 'Gerando...' : 'Confirmar & Finalizar'}
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>

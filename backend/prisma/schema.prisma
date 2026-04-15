@@ -325,6 +325,8 @@ model Medicao {
   totalServico              Decimal?        @db.Decimal(10, 2)
   vendedorId                String?
   tipoDocumento             String?         @default("RL")
+  empresa                   String?
+  emailCobrancaCC           String?
   dataCobranca              DateTime?
   dataAprovacaoInterna      DateTime?
   dataCancelamento          DateTime?
@@ -899,6 +901,10 @@ model Faturamento {
   focusStatus        String?
   focusUrl           String?
   nfseCodVerificacao String?
+  dadosFaturamento   Json?
+  dadosWebHook       Json?
+  urlArquivoNota     String?
+  urlArquivoXml      String?
   cliente            Cliente   @relation(fields: [clienteId], references: [id])
 }
 

@@ -149,19 +149,19 @@ export default function Faturamento() {
         fetchAll();
     };
 
-    const handleEmitirNFSe = async (id: string) => {
+    const handleEmitirFiscal = async (id: string) => {
         try {
-            await api.post(`/faturamento/${id}/emitir-nfse`);
-            alert('Comando de emissão enviado para a Prefeitura.');
+            await api.post(`/faturamento/${id}/emitir`);
+            alert('Comando de emissão enviado para a Focus NFe.');
             fetchAll();
         } catch (err: any) {
-             alert(err.response?.data?.details || 'Erro ao emitir NFSe');
+             alert(err.response?.data?.details || 'Erro ao emitir documento fiscal');
         }
     };
 
     const handleConsultarStatus = async (id: string) => {
         try {
-            await api.get(`/faturamento/${id}/status-nfse`);
+            await api.get(`/faturamento/${id}/status`);
             fetchAll();
         } catch (err: any) {
              alert(err.response?.data?.error || 'Erro ao consultar status');
@@ -171,8 +171,8 @@ export default function Faturamento() {
     const handleActionSubmit = async () => {
         try {
             if (actionModal.type === 'cancelar') {
-                await api.post(`/faturamento/${actionModal.id}/cancelar-nfse`, { justificativa: actionModal.text });
-                alert('NFS-e Cancelada com sucesso.');
+                await api.post(`/faturamento/${actionModal.id}/cancelar`, { justificativa: actionModal.text });
+                alert('Solicitação de cancelamento enviada com sucesso.');
             } else if (actionModal.type === 'cce') {
                 await api.post(`/faturamento/${actionModal.id}/carta-correcao`, { correcao: actionModal.text });
                 alert('Carta de Correção emitida (verifique o status via API da Focus).');
@@ -354,32 +354,32 @@ export default function Faturamento() {
                                             {f.medicao?.codigo || (f.osId ? `OS ${f.osId.slice(0,4)}` : '—')}
                                         </td>
                                         <td className="p-3">
-                                            {f.tipo === 'NFSE' ? (
+                                            {['NFSE', 'CTE'].includes(f.tipo) ? (
                                                 <div className="flex flex-col gap-1 items-start">
                                                     {f.focusStatus ? (
                                                         <div className="flex items-center gap-2">
                                                             <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${
-                                                                f.focusStatus === 'AUTORIZADA' ? 'bg-emerald-100 text-emerald-700' :
-                                                                f.focusStatus === 'PROCESSANDO' ? 'bg-amber-100 text-amber-700' :
-                                                                'bg-red-100 text-red-700'
+                                                                f.status === 'EMITIDO' ? 'bg-emerald-100 text-emerald-700' :
+                                                                f.status === 'FALHA' ? 'bg-red-100 text-red-700' :
+                                                                'bg-amber-100 text-amber-700'
                                                             }`}>{f.focusStatus}</span>
                                                             <button onClick={() => handleConsultarStatus(f.id)} className="text-slate-400 hover:text-blue-600" title="Atualizar Status">
                                                                 <RotateCw className="w-3 h-3" />
                                                             </button>
                                                         </div>
                                                     ) : (
-                                                        <button onClick={() => handleEmitirNFSe(f.id)} className="text-[10px] font-bold text-blue-600 hover:underline flex items-center gap-1">
-                                                            <FileText className="w-3 h-3" /> Emitir NFS-e
+                                                        <button onClick={() => handleEmitirFiscal(f.id)} className="text-[10px] font-bold text-blue-600 hover:underline flex items-center gap-1">
+                                                            <FileText className="w-3 h-3" /> Emitir {f.tipo}
                                                         </button>
                                                     )}
-                                                    {f.focusUrl && (
-                                                        <a href={f.focusUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-emerald-600 hover:underline flex items-center gap-1 mt-1">
-                                                            <Download className="w-3 h-3" /> Ver Nota
+                                                    {f.urlArquivoNota && (
+                                                        <a href={f.urlArquivoNota} target="_blank" rel="noopener noreferrer" className="text-[10px] text-emerald-600 hover:underline flex items-center gap-1 mt-1">
+                                                            <Download className="w-3 h-3" /> Ver {f.tipo === 'NFSE' ? 'Nota' : 'DACTE'}
                                                         </a>
                                                     )}
-                                                    {f.focusStatus && f.focusStatus !== 'CANCELADA' && (
+                                                    {f.focusStatus && !['CANCELADO', 'ERRO'].includes(f.focusStatus) && (
                                                         <div className="flex gap-2 mt-1">
-                                                            {f.focusStatus === 'AUTORIZADA' && (
+                                                            {f.tipo === 'NFSE' && f.status === 'EMITIDO' && (
                                                                 <button onClick={() => setActionModal({ type: 'cce', id: f.id, text: '' })} className="text-[9px] text-amber-600 font-bold hover:underline">CC-e</button>
                                                             )}
                                                             <button onClick={() => setActionModal({ type: 'cancelar', id: f.id, text: '' })} className="text-[9px] text-red-600 font-bold hover:underline">Cancelar</button>

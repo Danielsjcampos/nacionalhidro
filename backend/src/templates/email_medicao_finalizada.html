@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f7f9; }
+        .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .header { background-color: #003366; color: #ffffff; padding: 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; letter-spacing: 1px; }
+        .content { padding: 40px; }
+        .content p { margin-bottom: 20px; font-size: 16px; }
+        .highlight { color: #003366; font-weight: bold; }
+        .footer { background-color: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #eee; }
+        .button { display: inline-block; padding: 12px 24px; background-color: #003366; color: #ffffff; text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 20px; }
+        .details-box { background-color: #f0f4f8; border-left: 4px solid #003366; padding: 20px; margin: 25px 0; border-radius: 0 4px 4px 0; }
+        .details-box h3 { margin-top: 0; color: #003366; font-size: 18px; }
+        .details-row { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px dashed #ced4da; padding-bottom: 5px; }
+        .label { font-weight: 600; color: #555; }
+        .value { color: #333; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="{{empresaLogo}}" alt="Nacional Hidro" style="max-height: 50px; margin-bottom: 15px;">
+            <h1>Documentação: {{docLabel}}</h1>
+        </div>
+        <div class="content">
+            <p>Prezado(a) <span class="highlight">{{clienteNome}}</span>,</p>
+            <p>Temos o prazer de informar que o processo de medição e faturamento ({{docLabel}}) dos serviços prestados foi concluído com sucesso.</p>
+            
+            <p>Em anexo a este e-mail, você encontrará a documentação completa referente ao serviço:</p>
+            
+            <div class="details-box">
+                <h3>Resumo do Faturamento</h3>
+                <div class="details-row">
+                    <span class="label">Medição:</span>
+                    <span class="value">{{medicaoCodigo}}</span>
+                </div>
+                <div class="details-row">
+                    <span class="label">Período:</span>
+                    <span class="value">{{periodo}}</span>
+                </div>
+                <div class="details-row">
+                    <span class="label">Valor Total:</span>
+                    <span class="value">R$ {{valorTotal}}</span>
+                </div>
+            </div>
+
+            <p>Os arquivos anexados incluem:</p>
+            <ul>
+                <li><strong>Relatório de Medição:</strong> Detalhamento técnico dos serviços realizados.</li>
+                {{#hasNotaFiscal}}
+                <li><strong>Nota Fiscal Eletrônica:</strong> Documento fiscal autorizado pela prefeitura/SEFAZ.</li>
+                {{/hasNotaFiscal}}
+            </ul>
+
+            <p>Permanecemos à disposição para quaisquer esclarecimentos através dos nossos canais oficiais de atendimento.</p>
+            
+            <p>Atenciosamente,<br>
+            <strong>Departamento Financeiro</strong><br>
+            Nacional Hidro</p>
+        </div>
+        <div class="footer">
+            <p>Esta é uma mensagem automática, por favor não responda diretamente a este e-mail.</p>
+            <p>&copy; 2026 Nacional Hidro - Hidrossaneamento e Locações</p>
+        </div>
+    </div>
+</body>
+</html>

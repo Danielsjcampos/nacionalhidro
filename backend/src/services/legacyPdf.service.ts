@@ -80,11 +80,13 @@ export const gerarPdfReciboLocacao = async (faturamento: any, cliente: any, empr
         data_locacao = data1 === data2 ? data1 : `${data1} à ${data2}`;
     }
 
+    const isND = faturamento.medicao?.tipoDocumento === 'ND';
     const view = {
+        DocumentoTitulo: isND ? 'NOTA DE DÉBITO' : 'RECIBO DE LOCAÇÃO DE BENS MÓVEIS',
         Destinatario: cliente || {},
         Emitente:     empresa || {},
         DadosDeposito: `Banco: ${empresa?.banco || ''} Ag: ${empresa?.agencia || ''} C/C: ${empresa?.conta || ''}`.toLocaleUpperCase(),
-        NaturezaOperacao: faturamento.naturezaOperacao || 'LOCAÇÃO DE BENS MÓVEIS',
+        NaturezaOperacao: faturamento.naturezaOperacao || (isND ? 'NOTA DE DÉBITO' : 'LOCAÇÃO DE BENS MÓVEIS'),
         RegimeTributario: empresa.regimeTributario === 1
             ? 'EMPRESA OPTANTE PELO SIMPLES NACIONAL'
             : 'EMPRESA OPTANTE PELO REGIME NORMAL',
@@ -95,7 +97,7 @@ export const gerarPdfReciboLocacao = async (faturamento: any, cliente: any, empr
         ReciboLocacaoId: faturamento.numero || 'S/N',
         NumeroPedido:    faturamento.pedidoCompras || '',
         DadosComplementares: faturamento.observacoes || '',
-        Descricao:       'Locação de Equipamentos - Conforme Medição Aprovada'
+        Descricao:       isND ? 'Nota de Débito - Conforme Medição Aprovada' : 'Locação de Equipamentos - Conforme Medição Aprovada'
     };
 
     const templateHtml = await getTemplateHtml('recibo_locacao.html');
@@ -184,6 +186,7 @@ export const gerarPdfMedicao = async (medicao: any, empresa: any, cliente: any, 
 
     const view = {
         footer: {
+            nome:     (medicao.empresa || 'NACIONAL HIDRO').toUpperCase(),
             endereco: empresa?.logradouro || empresa?.endereco || 'Campinas - SP',
             email:    'CONTATO@NACIONALHIDRO.COM.BR',
             website:  'www.nacionalhidro.com.br',

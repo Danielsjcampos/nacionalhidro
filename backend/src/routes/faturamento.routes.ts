@@ -2,8 +2,8 @@ import { Router } from 'express';
 import {
     listFaturamentos, getFaturamento, createFaturamento,
     updateFaturamento, deleteFaturamento, gerarFaturamentoRL,
-    getFaturamentoStats, emitirNFSeManual, consultarStatusNFSe,
-    cancelarNFSeManual, emitirCartaCorrecao, enviarFaturamentoAoCliente
+    getFaturamentoStats, emitirManual, consultarStatusManual,
+    cancelarManual, emitirCartaCorrecao, enviarFaturamentoAoCliente
 } from '../controllers/faturamento.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
@@ -16,10 +16,10 @@ router.get('/:id', getFaturamento);
 router.post('/', createFaturamento);
 router.post('/gerar-rl', gerarFaturamentoRL);
 router.post('/:id/enviar', enviarFaturamentoAoCliente);
-router.post('/:id/emitir-nfse', emitirNFSeManual);
-router.post('/:id/cancelar-nfse', cancelarNFSeManual);
+router.post('/:id/emitir', emitirManual);
+router.post('/:id/cancelar', cancelarManual);
 router.post('/:id/carta-correcao', emitirCartaCorrecao);
-router.get('/:id/status-nfse', consultarStatusNFSe);
+router.get('/:id/status', consultarStatusManual);
 router.patch('/:id', updateFaturamento);
 router.delete('/:id', deleteFaturamento);
 

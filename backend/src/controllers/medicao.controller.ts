@@ -1,9 +1,14 @@
 import { Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { SequenceService } from '../services/sequence.service';
 import { gerarPdfMedicao } from '../services/legacyPdf.service';
 import { sendEmail } from '../services/email.service';
+import { focusNfeService } from '../services/focusNfe.service';
+import axios from 'axios';
+import mustache from 'mustache';
 
 const CC_FINANCEIRO = 'financeiro@nacionalhidro.com.br';
 const CC_DIRETORIA  = 'bruno@nacionalhidro.com.br';
@@ -113,7 +118,7 @@ export const createMedicao = async (req: AuthRequest, res: Response) => {
             clienteId, osIds, subitens, periodo, observacoes,
             totalServico, totalHora, adicional, desconto,
             cte, solicitante, vendedorId, porcentagemRL: overridePct,
-            tipoDocumento
+            tipoDocumento, empresa, emailCobrancaCC, cnpjFaturamento
         } = req.body;
 
         if (!osIds || osIds.length === 0) {
@@ -178,6 +183,9 @@ export const createMedicao = async (req: AuthRequest, res: Response) => {
                 observacoes,
                 subitens: subitens || [],
                 tipoDocumento: tipoDocumento || 'RL',
+                empresa,
+                emailCobrancaCC,
+                cnpjFaturamento,
                 ordensServico: { connect: osIds.map((id: string) => ({ id })) }
             },
             include: {
@@ -205,7 +213,8 @@ export const updateMedicao = async (req: AuthRequest, res: Response) => {
         const {
             totalServico, totalHora, adicional, desconto,
             cte, solicitante, vendedorId, porcentagemRL: overridePct,
-            osIds, tipoDocumento, periodo, observacoes, subitens // OS a adicionar/remover
+            osIds, tipoDocumento, periodo, observacoes, subitens, // OS a adicionar/remover
+            empresa, emailCobrancaCC, cnpjFaturamento
         } = req.body;
 
         const current = await prisma.medicao.findUnique({
@@ -243,6 +252,9 @@ export const updateMedicao = async (req: AuthRequest, res: Response) => {
             valorNFSe,
             porcentagemRL: pctRL,
             tipoDocumento: tipoDocumento ?? current.tipoDocumento,
+            empresa:       empresa       ?? current.empresa,
+            emailCobrancaCC: emailCobrancaCC ?? current.emailCobrancaCC,
+            cnpjFaturamento: cnpjFaturamento ?? current.cnpjFaturamento,
         };
         if (totalServico  !== undefined) updateData.totalServico = Number(totalServico);
         if (totalHora     !== undefined) updateData.totalHora    = Number(totalHora);
@@ -499,6 +511,23 @@ export const updateMedicaoStatus = async (req: AuthRequest, res: Response) => {
         if (status === 'FINALIZADA' || status === 'APROVADA') {
             const osIds = medicao.ordensServico.map((os: any) => os.id);
             await prisma.ordemServico.updateMany({ where: { id: { in: osIds } }, data: { status: 'FATURADA' } });
+
+            // Automação Fiscal: Se FINALIZADA, tenta emitir NFS-e/CTE automaticamente
+            if (status === 'FINALIZADA') {
+                (async () => {
+                    try {
+                        const faturamentos = await prisma.faturamento.findMany({
+                            where: { medicaoId: id, tipo: { in: ['NFSE', 'CTE'] }, focusStatus: null }
+                        });
+                        for (const fat of faturamentos) {
+                            if (fat.tipo === 'NFSE') await focusNfeService.emitirNFSe(fat.id);
+                            else if (fat.tipo === 'CTE') await focusNfeService.emitirCTE(fat.id);
+                        }
+                    } catch (err: any) {
+                        console.error('[Automação Fiscal Medicao] Falha ao emitir:', err.message);
+                    }
+                })();
+            }
         }
         if (status === 'CANCELADA') {
             const osIds = medicao.ordensServico.map((os: any) => os.id);
@@ -712,6 +741,111 @@ export const fecharPorRDO = async (req: AuthRequest, res: Response) => {
     } catch (error: any) {
         console.error('Fechar por RDO error:', error);
         res.status(500).json({ error: 'Failed to close measurement from RDO', details: error.message });
+    }
+};
+
+// ─── ENVIAR DOCUMENTAÇÃO FINAL (MEDICAO + NOTAS) ────────────────
+export const enviarDocumentacaoFinal = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string;
+        const medicao = await prisma.medicao.findUnique({
+            where: { id },
+            include: {
+                cliente: true,
+                ordensServico: { include: { itensCobranca: true, servicos: true, proposta: true } }
+            }
+        });
+
+        if (!medicao) return res.status(404).json({ error: 'Medição não encontrada' });
+        if (!medicao.cliente.email) return res.status(400).json({ error: 'Cliente sem e-mail cadastrado.' });
+
+        const empresa = await prisma.configuracao.findFirst() || {} as any;
+        
+        // 1. Gera PDF da Medição
+        const pdfMedicao = await gerarPdfMedicao(medicao, empresa, medicao.cliente, medicao.ordensServico);
+
+        // 2. Busca Faturamentos Autorizados (NFS-e / CT-e)
+        const faturamentosValidos = await prisma.faturamento.findMany({
+            where: { medicaoId: id, tipo: { in: ['NFSE', 'CTE'] }, status: 'EMITIDO', urlArquivoNota: { not: null } }
+        });
+
+        const attachments: any[] = [
+            {
+                filename: `Medicao_${medicao.codigo}.pdf`,
+                content: pdfMedicao,
+                contentType: 'application/pdf'
+            }
+        ];
+
+        // 3. Baixa PDFs e XMLs das Notas Fiscais
+        for (const fat of faturamentosValidos) {
+            try {
+                // PDF da Nota
+                if (fat.urlArquivoNota) {
+                    const response = await axios.get(fat.urlArquivoNota, { responseType: 'arraybuffer' });
+                    attachments.push({
+                        filename: `${fat.tipo}_${fat.numero || fat.id.slice(0,8)}.pdf`,
+                        content: Buffer.from(response.data),
+                        contentType: 'application/pdf'
+                    });
+                }
+                // XML da Nota
+                if (fat.urlArquivoXml) {
+                    const responseXml = await axios.get(fat.urlArquivoXml, { responseType: 'arraybuffer' });
+                    attachments.push({
+                        filename: `${fat.tipo}_${fat.numero || fat.id.slice(0,8)}.xml`,
+                        content: Buffer.from(responseXml.data),
+                        contentType: 'application/xml'
+                    });
+                }
+            } catch (err: any) {
+                console.error(`[Email Final] Erro ao baixar arquivos da nota ${fat.id}:`, err.message);
+            }
+        }
+
+        const isND = medicao.tipoDocumento === 'ND';
+        const docLabel = isND ? 'Nota de Débito' : 'Recibo de Locação';
+        const docListLabel = isND ? 'Nota de Débito' : 'Recibo de Locação';
+
+        // 4. Renderiza Template Premium
+        const templateHtml = await fs.promises.readFile(path.resolve(__dirname, '../templates/email_medicao_finalizada.html'), 'utf8');
+        const mustache = require('mustache');
+        const htmlRendered = mustache.render(templateHtml, {
+            clienteNome: medicao.cliente.nome,
+            medicaoCodigo: medicao.codigo,
+            periodo: medicao.periodo || 'N/A',
+            valorTotal: medicao.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+            empresaLogo: empresa.logo || '',
+            hasNotaFiscal: faturamentosValidos.length > 0,
+            docLabel
+        });
+
+        // 5. Envia E-mail
+        const resp = await sendEmail({
+            to: medicao.cliente.email,
+            cc: [CC_FINANCEIRO],
+            subject: `Documentação: Medição ${medicao.codigo} (${docLabel}) - Nacional Hidro`,
+            html: htmlRendered,
+            attachments
+        });
+
+        if (!resp.success) throw new Error('Falha no envio do e-mail via SMTP');
+
+        // 6. Registra Histórico
+        await prisma.cobrancaEmail.create({
+            data: {
+                medicaoId: id,
+                destinatario: medicao.cliente.email,
+                assunto: `[FINAL] Documentação Medição ${medicao.codigo} enviada ao cliente`,
+                corpo: htmlRendered,
+                statusEnvio: 'ENVIADO'
+            }
+        });
+
+        res.json({ success: true, message: 'Documentação enviada com sucesso!' });
+    } catch (error: any) {
+        console.error('Enviar documentação final error:', error);
+        res.status(500).json({ error: 'Falha no envio da documentação', details: error.message });
     }
 };
 

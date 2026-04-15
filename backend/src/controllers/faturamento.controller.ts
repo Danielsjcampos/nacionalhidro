@@ -3,7 +3,7 @@ import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { gerarPdfReciboLocacao } from '../services/legacyPdf.service';
 import { sendEmail } from '../services/email.service';
-import { NfseCampinasService } from '../services/nfseCampinas.service';
+import { focusNfeService } from '../services/focusNfe.service';
 
 // ─── HELPER: Auto-criar Conta a Receber para um Faturamento ─────
 async function autoCreateContaReceber(fat: any): Promise<void> {
@@ -414,47 +414,14 @@ export const gerarFaturamentoRL = async (req: AuthRequest, res: Response) => {
             }
         });
 
-        // Tenta emitir a NFS-e logo após a criação da fatura (não-bloqueante)
+        // Tenta emitir a NFS-e logo após a criação da fatura (via Focus NFe)
         (async () => {
             try {
-                if (!baseData.cnpjFaturamento) return;
-                
-                const empresa = await (prisma as any).empresaCNPJ.findUnique({ 
-                    where: { cnpj: baseData.cnpjFaturamento } 
-                });
-
-                if (empresa && empresa.nfseAtiva && empresa.nfseCertificate && empresa.nfsePrivateKey) {
-                    const { NfseCampinasService } = await import('../services/nfseCampinas.service');
-                    const ambient = (empresa.nfseAmbient === 'PRODUCAO' ? 'PRODUCAO' : 'HOMOLOGACAO');
-                    const svc = new NfseCampinasService(
-                        ambient,
-                        empresa.nfsePrivateKey,
-                        empresa.nfseCertificate
-                    );
-                    
-                    const cliente = await (prisma as any).cliente.findUnique({ where: { id: finalClienteId } });
-                    if (!cliente) return;
-
-                    const nfseData = {
-                        idRps: nfse.id,
-                        valorBruto: nfse.valorBruto,
-                        observacoes: nfse.observacoes,
-                    };
-
-                    const resSoap = await svc.emitirRps(nfseData, empresa, cliente);
-                    if (resSoap.protocolo) {
-                        await (prisma as any).faturamento.update({
-                            where: { id: nfse.id },
-                            data: { 
-                                status: 'EM PROCESSAMENTO', 
-                                nfseCodVerificacao: resSoap.codVerificacao || undefined,
-                                observacoes: `${nfse.observacoes || ''}\nProtocolo: ${resSoap.protocolo}`.trim() 
-                            }
-                        });
-                    }
+                if (nfse && nfse.id) {
+                    await focusNfeService.emitirNFSe(nfse.id);
                 }
             } catch (srvErr) {
-                console.error('Erro ao disparar emissão NFSe automática:', srvErr);
+                console.error('Erro ao disparar emissão NFSe Focus automática:', srvErr);
             }
         })();
 
@@ -520,165 +487,53 @@ export const getFaturamentoStats = async (req: AuthRequest, res: Response) => {
 
 // ─── NFSE: EMITIR E CONSULTAR STATUS ────────────────────────────
 
-export const emitirNFSeManual = async (req: AuthRequest, res: Response) => {
+export const emitirManual = async (req: AuthRequest, res: Response) => {
     try {
         const id = req.params.id as string;
-        const fat = await (prisma as any).faturamento.findUnique({ where: { id }, include: { cliente: true, medicao: true }});
+        const fat = await (prisma as any).faturamento.findUnique({ where: { id } });
         if (!fat) return res.status(404).json({ error: 'Faturamento não encontrado' });
-        
-        if (!fat.cnpjFaturamento) {
-            return res.status(400).json({ error: 'CNPJ de faturamento não definido para esta nota.' });
+
+        let result;
+        if (fat.tipo === 'NFSE') {
+            result = await focusNfeService.emitirNFSe(id);
+        } else if (fat.tipo === 'CTE') {
+            result = await focusNfeService.emitirCTE(id);
+        } else {
+            return res.status(400).json({ error: 'Tipo de faturamento não suporta emissão fiscal automatizada.' });
         }
 
-        const empresa = await (prisma as any).empresaCNPJ.findUnique({ 
-            where: { cnpj: fat.cnpjFaturamento } 
-        });
-
-        if (!empresa || !empresa.nfseAtiva || !empresa.nfseCertificate || !empresa.nfsePrivateKey) {
-            return res.status(400).json({ error: `Configurações de NFS-e não encontradas ou inativas para o CNPJ ${fat.cnpjFaturamento}.` });
-        }
-
-        const ambient = (empresa.nfseAmbient === 'PRODUCAO' ? 'PRODUCAO' : 'HOMOLOGACAO');
-        const svc = new NfseCampinasService(ambient, empresa.nfsePrivateKey, empresa.nfseCertificate);
-        const nfseData = {
-            idRps: fat.id,
-            numero: fat.numero || Date.now().toString(),
-            serie: '1', // Default
-            tipo: '1', // RPS
-            dataEmissao: new Date().toISOString(),
-            status: '1', // Normal
-            competencia: new Date().toISOString().split('T')[0],
-            valorServicos: fat.valorBruto,
-            valorDeducoes: 0,
-            valorPis: fat.valorPIS || 0,
-            valorCofins: fat.valorCOFINS || 0,
-            valorInss: fat.valorINSS || 0,
-            valorIr: fat.valorIR || 0,
-            valorCsll: fat.valorCSLL || 0,
-            outrasRetencoes: 0,
-            valorIss: fat.valorISS || 0,
-            aliquota: 3.5,
-            descontoIncondicionado: 0,
-            descontoCondicionado: 0,
-            itemListaServico: '7.10',
-            codigoCnae: '8129000',
-            codigoTributacaoMunicipio: '8129000',
-            discriminacao: fat.observacoes || 'Serviços Prestados',
-            codigoMunicipio: '3509502', // Campinas
-            tomador: {
-                cpfCnpj: fat.cliente?.cnpj || '00000000000000',
-                razaoSocial: fat.cliente?.nome,
-                telefone: fat.cliente?.telefone || '',
-                email: fat.cliente?.email || '',
-                endereco: {
-                    logradouro: fat.cliente?.rua || '',
-                    numero: fat.cliente?.numero || '',
-                    complemento: fat.cliente?.complemento || '',
-                    bairro: fat.cliente?.bairro || '',
-                    codigoMunicipio: '3509502', // Simplificacao para testes
-                    uf: fat.cliente?.estado || 'SP',
-                    cep: fat.cliente?.cep || '13000000'
-                }
-            }
-        };
-
-        const resSoap = await svc.emitirRps(nfseData, {}, fat.cliente);
-        
-        await (prisma as any).faturamento.update({
-            where: { id },
-            data: { status: 'EM PROCESSAMENTO', observacoes: `Protocolo RPS ${resSoap.protocolo || resSoap.lote} enviado.` }
-        });
-
-        res.json({ message: 'Envio efetuado', loteData: resSoap });
+        res.json({ message: 'Envio efetuado', result });
     } catch (error: any) {
-        console.error('Erro ao emitir NFS-e manualmente:', error);
-        res.status(500).json({ error: 'Falha ao emitir NFS-e', details: error.message });
+        console.error('Erro ao emitir fiscal manualmente:', error);
+        res.status(500).json({ error: 'Falha ao emitir nota', details: error.message });
     }
 };
 
-export const consultarStatusNFSe = async (req: AuthRequest, res: Response) => {
+export const consultarStatusManual = async (req: AuthRequest, res: Response) => {
     try {
         const id = req.params.id as string;
-        const fat = await (prisma as any).faturamento.findUnique({ 
-            where: { id }, 
-            include: { cliente: true }
-        });
-        if (!fat) return res.status(404).json({ error: 'Faturamento não encontrado' });
-        if (!fat.cnpjFaturamento) return res.status(400).json({ error: 'CNPJ de faturamento não definido.' });
+        const result = await focusNfeService.consultarStatus(id);
+        
+        if (!result) return res.status(400).json({ error: 'Faturamento sem referência para consulta.' });
 
-        // Extrair protocolo das observacoes se nao tiver campo proprio
-        const protocoloMatch = fat.observacoes?.match(/Protocolo:?\s*([A-Za-z0-9]+)/i);
-        const protocolo = protocoloMatch ? protocoloMatch[1] : null;
-
-        if (!protocolo) {
-            return res.status(400).json({ error: 'Protocolo de envio não encontrado nas observações da fatura.' });
-        }
-
-        const empresa = await (prisma as any).empresaCNPJ.findUnique({ where: { cnpj: fat.cnpjFaturamento } });
-        if (!empresa) return res.status(404).json({ error: 'Empresa emissora não encontrada.' });
-
-        const svc = new NfseCampinasService(
-            empresa.nfseAmbient === 'PRODUCAO' ? 'PRODUCAO' : 'HOMOLOGACAO',
-            empresa.nfsePrivateKey || '',
-            empresa.nfseCertificate || ''
-        );
-
-        const resSoap = await svc.consultarLoteRps(empresa, protocolo);
-
-        if (resSoap.nfse) {
-            await (prisma as any).faturamento.update({
-                where: { id },
-                data: { 
-                    status: 'EMITIDA', 
-                    numero: resSoap.nfse,
-                    nfseCodVerificacao: resSoap.codVerificacao || undefined,
-                    observacoes: `${fat.observacoes || ''}\nNFSe Confirmada: ${resSoap.nfse}`.trim()
-                }
-            });
-            return res.json({ message: 'NFSe Confirmada', numero: resSoap.nfse });
-        }
-
-        if (resSoap.erro) {
-             return res.status(400).json({ error: 'Erro no processamento da prefeitura', details: resSoap.erro });
-        }
-
-        res.json({ message: 'Ainda em processamento ou aguardando lote', raw: resSoap });
+        res.json(result);
     } catch (error: any) {
         console.error('Erro ao consultar status:', error);
         res.status(500).json({ error: 'Falha ao consultar status', details: error.message });
     }
 };
 
-export const cancelarNFSeManual = async (req: AuthRequest, res: Response) => {
+export const cancelarManual = async (req: AuthRequest, res: Response) => {
     try {
         const id = req.params.id as string;
-        const fat = await (prisma as any).faturamento.findUnique({ where: { id } });
-        if (!fat || !fat.numero) return res.status(400).json({ error: 'Nota fiscal não emitida ou não encontrada.' });
+        const { justificativa } = req.body;
         
-        const empresa = await (prisma as any).empresaCNPJ.findUnique({ where: { cnpj: fat.cnpjFaturamento } });
-        if (!empresa || !empresa.nfseAtiva) return res.status(400).json({ error: 'Empresa sem configuração de NFS-e.' });
-
-        const svc = new NfseCampinasService(
-            empresa.nfseAmbient === 'PRODUCAO' ? 'PRODUCAO' : 'HOMOLOGACAO',
-            empresa.nfsePrivateKey || '',
-            empresa.nfseCertificate || ''
-        );
-
-        const resSoap = await svc.cancelarNfse(empresa, fat.numero, '1');
+        const result = await focusNfeService.cancelar(id, justificativa || 'Cancelamento solicitado pelo cliente');
         
-        if (resSoap.erro && !resSoap.rawResponse?.includes('Sucesso')) {
-             return res.status(400).json({ error: 'Falha no cancelamento prefeitura', details: resSoap.erro });
-        }
-
-        await (prisma as any).faturamento.update({
-            where: { id },
-            data: { status: 'CANCELADA', observacoes: `${fat.observacoes || ''}\nCancelada via SOAP em ${new Date().toLocaleString()}`.trim() }
-        });
-
-        res.json({ message: 'Cancelado com sucesso na prefeitura.' });
+        res.json({ message: 'Solicitação de cancelamento enviada', result });
     } catch (error: any) {
-        console.error('Erro ao cancelar NFS-e:', error);
-        res.status(500).json({ error: 'Falha ao cancelar NFS-e', details: error.message });
+        console.error('Erro ao cancelar nota:', error);
+        res.status(500).json({ error: 'Falha ao cancelar nota', details: error.message });
     }
 };
 

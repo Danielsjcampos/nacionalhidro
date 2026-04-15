@@ -1,6 +1,7 @@
 import prisma from '../lib/prisma';
 import { enviarMensagemWhatsApp } from './whatsapp.service';
-import nodemailer from 'nodemailer';
+import { sendEmail } from './email.service';
+import mustache from 'mustache';
 
 /**
  * Motor de automação para o Workflow Engine.
@@ -18,7 +19,8 @@ export class WorkflowAutomationService {
     try {
       // 1. Buscar automações configuradas para esta fase
       const automations = await prisma.workflowAutomation.findMany({
-        where: { stageId: targetStageId, ativo: true }
+        where: { stageId: targetStageId, ativo: true },
+        include: { emailTemplate: true }
       });
 
       if (automations.length === 0) return;
@@ -32,12 +34,19 @@ export class WorkflowAutomationService {
       if (!card) return;
 
       const dados = card.dados as Record<string, any>;
+      // Adicionar metadados básicos aos dados para uso em templates
+      const templateData = {
+        ...dados,
+        cardTitle: card.titulo,
+        workflowName: card.workflow.nome,
+        currentDate: new Date().toLocaleDateString('pt-BR')
+      };
 
       for (const auto of automations) {
         if (auto.tipo === 'WHATSAPP') {
-          await this.handleWhatsApp(auto, dados);
+          await this.handleWhatsApp(auto, templateData);
         } else if (auto.tipo === 'EMAIL') {
-          await this.handleEmail(auto, dados);
+          await this.handleEmail(auto, templateData);
         }
       }
     } catch (error) {
@@ -51,7 +60,7 @@ export class WorkflowAutomationService {
     const mensagemHeader = `*${auto.workflow?.nome || 'Processo'}*\n\n`;
     const mensagemBase = config.mensagem || '';
     
-    // Substituir variáveis {{campo}}
+    // Substituir variáveis
     const mensagemFinal = this.replaceVariables(mensagemHeader + mensagemBase, dados);
     
     const telefone = telefoneBruto.replace(/\D/g, '');
@@ -62,14 +71,45 @@ export class WorkflowAutomationService {
   }
 
   private async handleEmail(auto: any, dados: any) {
-    // Integração com email.service ou similar
-    console.log('[WorkflowAutomation] Automação de Email ainda não implementada detalhadamente.');
+    const template = auto.emailTemplate;
+    if (!template) {
+      console.warn(`[WorkflowAutomation] Automação ${auto.id} não possui template de e-mail vinculado.`);
+      return;
+    }
+
+    const config = auto.config as any;
+    const destinatario = config.destinatario || dados[config.campoEmail] || dados['email'] || '';
+
+    if (!destinatario) {
+      console.warn(`[WorkflowAutomation] Destinatário não identificado para o card.`);
+      return;
+    }
+
+    console.log(`[WorkflowAutomation] Preparando e-mail para ${destinatario}...`);
+
+    const assunto = this.replaceVariables(template.assunto, dados);
+    const corpo = this.replaceVariables(template.corpo, dados);
+
+    await sendEmail({
+      to: destinatario,
+      subject: assunto,
+      html: corpo.replace(/\n/g, '<br/>'), // Converter quebras de linha básicas se for texto puro do Pipefy
+      fromName: 'Nacional Hidro | Workflow'
+    });
   }
 
   private replaceVariables(text: string, dados: any): string {
-    return text.replace(/\{\{(.*?)\}\}/g, (match, key) => {
-      return dados[key.trim()] || match;
-    });
+    if (!text) return '';
+    try {
+      // Usar Mustache para renderização robusta
+      return mustache.render(text, dados);
+    } catch (error) {
+      console.error('[WorkflowAutomation] Erro ao processar template Mustache:', error);
+      // Fallback para regex simples se o mustache falhar
+      return text.replace(/\{\{(.*?)\}\}/g, (match, key) => {
+        return dados[key.trim()] || match;
+      });
+    }
   }
 }
 

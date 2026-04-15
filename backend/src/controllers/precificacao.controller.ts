@@ -21,7 +21,7 @@ export const listOSPrecificacao = async (req: AuthRequest, res: Response) => {
         const list = await prisma.ordemServico.findMany({
             where,
             include: {
-                cliente: { select: { id: true, nome: true } },
+                cliente: { select: { id: true, nome: true, porcentagemRL: true } },
                 servicos: true,
                 itensCobranca: true,
                 proposta: { select: { id: true, codigo: true, valorTotal: true } }
@@ -188,32 +188,28 @@ export const baixarOS = async (req: AuthRequest, res: Response) => {
 
 // ─── HELPERS: Cálculo automático ────────────────────────────────
 
-function calcularHorasTrabalhadas(entrada: Date, saida: Date, almoco?: Date | null): number {
+function timeToDecimal(timeStr: string): number {
+    if (!timeStr) return 0;
+    const [h, m] = timeStr.split(':').map(Number);
+    return (h || 0) + (m || 0) / 60;
+}
+
+function calcularHorasTrabalhadas(entrada: Date, saida: Date, almocoDecimal: number): number {
     let diffMs = saida.getTime() - entrada.getTime();
-    // Subtract lunch break (assume 1h if almoco flag exists)
-    if (almoco) {
-        diffMs -= 60 * 60 * 1000; // 1 hour
-    }
-    return Math.max(0, diffMs / (1000 * 60 * 60)); // Convert to hours
+    return Math.max(0, (diffMs / (1000 * 60 * 60)) - almocoDecimal);
 }
 
 function isNoturno(entrada: Date, saida: Date): { isNoturno: boolean; horasNoturnas: number } {
-    // Noturno: 22:00 to 05:00
-    const entradaH = entrada.getHours();
-    const saidaH = saida.getHours();
-
-    let horasNoturnas = 0;
     const startMs = entrada.getTime();
     const endMs = saida.getTime();
+    let horasNoturnas = 0;
 
-    // Walk hour-by-hour
     for (let t = startMs; t < endMs; t += 3600000) {
         const h = new Date(t).getHours();
         if (h >= 22 || h < 5) {
             horasNoturnas += 1;
         }
     }
-
     return { isNoturno: horasNoturnas > 0, horasNoturnas: Math.min(horasNoturnas, (endMs - startMs) / 3600000) };
 }
 
@@ -226,149 +222,143 @@ function isFDS(data: Date): boolean {
 export const autoCalcularItens = async (req: AuthRequest, res: Response) => {
     try {
         const id = req.params.id as string;
-        const { valorDiaria, valorHora, toleranciaHoras } = req.body;
+        const { valorDiaria, valorHora, toleranciaHoras, entrada, saida, almoco, franquia, valorHoraExtra } = req.body;
 
-        // Validate inputs
         if (!valorDiaria && !valorHora) {
             return res.status(400).json({ error: 'Informe valor da diária ou valor da hora' });
         }
 
-        const os = await prisma.ordemServico.findUnique({
+        let os = await prisma.ordemServico.findUnique({
             where: { id },
-            include: { itensCobranca: true }
+            include: { itensCobranca: true, proposta: true }
         });
 
         if (!os) return res.status(404).json({ error: 'OS não encontrada' });
-        if (!os.entrada || !os.saida) {
-            return res.status(400).json({ error: 'OS precisa ter horários de entrada e saída para calcular automaticamente' });
+
+        if (entrada || saida) {
+            os = await prisma.ordemServico.update({
+                where: { id },
+                data: {
+                    entrada: entrada ? new Date(entrada) : os.entrada,
+                    saida: saida ? new Date(saida) : os.saida,
+                },
+                include: { itensCobranca: true, proposta: true }
+            });
         }
 
-        // Clear existing auto-generated items
+        if (!os.entrada || !os.saida) {
+            return res.status(400).json({ error: 'OS precisa ter horários de entrada e saída' });
+        }
+
         await prisma.itemCobranca.deleteMany({ where: { osId: id } });
 
         const entradaDate = new Date(os.entrada);
         const saidaDate = new Date(os.saida);
-        const horasTrabalhadas = calcularHorasTrabalhadas(entradaDate, saidaDate, os.almoco);
-        const minimoHoras = os.minimoHoras || 0;
+        const almocoDec = timeToDecimal(almoco || '01:00');
+        
+        // Parâmetros da Proposta ou Defaults
+        const prop = os.proposta;
+        const franquiaVal = franquia || (prop?.franquiaHoras?.toString()) || '08:00';
+        const franquiaDec = timeToDecimal(franquiaVal);
+        
+        const horasTrabalhadas = calcularHorasTrabalhadas(entradaDate, saidaDate, almocoDec);
         const tolerancia = toleranciaHoras ? parseFloat(toleranciaHoras) : 0;
         const vDiaria = valorDiaria ? parseFloat(valorDiaria) : 0;
         const vHora = valorHora ? parseFloat(valorHora) : 0;
+        
+        // HE: Se não informado, usa proposta ou default 50% (agora 35% no legado?)
+        const pctHe = prop?.adicionalHoraExtra ? Number(prop.adicionalHoraExtra) : 50;
+        const vHoraExtra = valorHoraExtra ? parseFloat(valorHoraExtra) : (vHora * (1 + pctHe/100));
 
         const itemsToCreate: any[] = [];
 
-        // ── Item 1: Valor Principal (Diária ou Horas Mínimas) ──
         if (vDiaria > 0) {
             itemsToCreate.push({
                 osId: id,
                 descricao: 'Diária',
                 quantidade: 1,
                 valorUnitario: vDiaria,
-                percentualAdicional: null,
                 valorTotal: vDiaria
             });
-        } else if (vHora > 0 && minimoHoras > 0) {
-            const horasBase = Math.min(horasTrabalhadas, minimoHoras);
-            itemsToCreate.push({
-                osId: id,
-                descricao: `Horas Normais (mín. ${minimoHoras}h)`,
-                quantidade: Math.max(horasBase, minimoHoras),
-                valorUnitario: vHora,
-                percentualAdicional: null,
-                valorTotal: Math.max(horasBase, minimoHoras) * vHora
-            });
         } else if (vHora > 0) {
+            const horasBase = Math.min(horasTrabalhadas, franquiaDec);
             itemsToCreate.push({
                 osId: id,
-                descricao: 'Horas Normais',
-                quantidade: parseFloat(horasTrabalhadas.toFixed(2)),
+                descricao: `Horas Normais (Franquia ${franquia || '08:00'}h)`,
+                quantidade: parseFloat(horasBase.toFixed(2)),
                 valorUnitario: vHora,
-                percentualAdicional: null,
-                valorTotal: parseFloat((horasTrabalhadas * vHora).toFixed(2))
+                valorTotal: parseFloat((horasBase * vHora).toFixed(2))
             });
         }
 
-        // ── Item 2: Horas Excedentes (hora extra) ──
-        const limiteHoras = minimoHoras > 0 ? minimoHoras : (vDiaria > 0 ? 10 : 0);
-        const horasExcedentes = horasTrabalhadas - limiteHoras - tolerancia;
+        const horasExcedentes = Math.max(0, horasTrabalhadas - franquiaDec - tolerancia);
 
-        if (horasExcedentes > 0 && vHora > 0) {
-            const pctHE = 50; // 50% adicional para hora extra
+        if (horasExcedentes > 0) {
             itemsToCreate.push({
                 osId: id,
                 descricao: 'Hora Extra',
                 quantidade: parseFloat(horasExcedentes.toFixed(2)),
-                valorUnitario: vHora,
-                percentualAdicional: pctHE,
-                valorTotal: parseFloat((horasExcedentes * vHora * 1.5).toFixed(2))
+                valorUnitario: vHoraExtra,
+                valorTotal: parseFloat((horasExcedentes * vHoraExtra).toFixed(2))
             });
         }
 
-        // ── Item 3: Adicional Noturno (35%) ──
         const noturnoInfo = isNoturno(entradaDate, saidaDate);
         if (noturnoInfo.isNoturno && noturnoInfo.horasNoturnas > 0 && vHora > 0) {
-            const pctNoturno = 35;
+            const pctNoturno = prop?.adicionalNoturno ? Number(prop.adicionalNoturno) : 35;
             itemsToCreate.push({
                 osId: id,
-                descricao: 'Adicional Noturno',
+                descricao: `Adicional Noturno (${pctNoturno}%)`,
                 quantidade: parseFloat(noturnoInfo.horasNoturnas.toFixed(2)),
                 valorUnitario: vHora,
                 percentualAdicional: pctNoturno,
-                valorTotal: parseFloat((noturnoInfo.horasNoturnas * vHora * 0.35).toFixed(2))
+                valorTotal: parseFloat((noturnoInfo.horasNoturnas * vHora * (pctNoturno/100)).toFixed(2))
             });
         }
 
-        // ── Item 4: Adicional FDS ──
         if (isFDS(entradaDate) && vHora > 0) {
-            const pctFDS = 100; // 100% adicional
+            const pctFds = prop?.adicionalFimSemana ? Number(prop.adicionalFimSemana) : 100;
             itemsToCreate.push({
                 osId: id,
-                descricao: 'Adicional Fim de Semana',
+                descricao: `Adicional Fim de Semana (${pctFds}%)`,
                 quantidade: parseFloat(horasTrabalhadas.toFixed(2)),
                 valorUnitario: vHora,
-                percentualAdicional: pctFDS,
-                valorTotal: parseFloat((horasTrabalhadas * vHora * 1.0).toFixed(2))
+                percentualAdicional: pctFds,
+                valorTotal: parseFloat((horasTrabalhadas * vHora * (pctFds/100)).toFixed(2))
             });
         }
 
-        // Create all items
         for (const item of itemsToCreate) {
             await prisma.itemCobranca.create({ data: item });
         }
 
-        // Update OS total
-        const total = itemsToCreate.reduce((sum: number, i: any) => sum + i.valorTotal, 0);
+        const total = itemsToCreate.reduce((sum, i) => sum + i.valorTotal, 0);
         await prisma.ordemServico.update({
             where: { id },
             data: {
                 valorPrecificado: parseFloat(total.toFixed(2)),
                 horasTotais: parseFloat(horasTrabalhadas.toFixed(2)),
-                horasAdicionais: horasExcedentes > 0 ? parseFloat(horasExcedentes.toFixed(2)) : 0
+                horasAdicionais: parseFloat(horasExcedentes.toFixed(2))
             }
         });
 
-        // Return updated OS with items
         const updated = await prisma.ordemServico.findUnique({
             where: { id },
-            include: {
-                cliente: true,
-                itensCobranca: { orderBy: { createdAt: 'asc' } },
-                proposta: { select: { id: true, codigo: true, valorTotal: true } }
-            }
+            include: { cliente: true, itensCobranca: { orderBy: { createdAt: 'asc' } } }
         });
 
         res.json({
             os: updated,
             calculo: {
                 horasTrabalhadas: parseFloat(horasTrabalhadas.toFixed(2)),
-                horasExcedentes: horasExcedentes > 0 ? parseFloat(horasExcedentes.toFixed(2)) : 0,
+                horasExcedentes: parseFloat(horasExcedentes.toFixed(2)),
                 horasNoturnas: noturnoInfo.horasNoturnas,
                 isFDS: isFDS(entradaDate),
-                itensGerados: itemsToCreate.length,
                 totalCalculado: parseFloat(total.toFixed(2))
             }
         });
     } catch (error: any) {
-        console.error('Auto calcular itens error:', error);
-        res.status(500).json({ error: 'Failed to auto-calculate items', details: error.message });
+        console.error('Auto calcular error:', error);
+        res.status(500).json({ error: 'Erro no cálculo automático' });
     }
 };
