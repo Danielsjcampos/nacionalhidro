@@ -11,7 +11,9 @@ export default function MigracaoPage() {
     const [jsonInput, setJsonInput] = useState('');
 
     useEffect(() => {
-        api.get('/migracao/status').then(r => { setData(r.data); setLoading(false); }).catch(() => setLoading(false));
+        api.get('/migracao/status')
+            .then(r => { setData(r.data); setLoading(false); })
+            .catch(() => setLoading(false));
     }, []);
 
     const handleImport = async () => {
@@ -29,13 +31,20 @@ export default function MigracaoPage() {
         } finally { setImporting(false); }
     };
 
-    if (loading) return <div className="h-full flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>;
+    if (loading) return (
+        <div className="h-full flex items-center justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        </div>
+    );
+    
     if (!data) return null;
 
     return (
         <div className="h-full flex flex-col space-y-4 overflow-y-auto">
             <div>
-                <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Database className="w-6 h-6 text-blue-500" /> Migração de Dados</h1>
+                <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                    <Database className="w-6 h-6 text-blue-500" /> Migração de Dados
+                </h1>
                 <p className="text-sm text-slate-500">Importar dados do SIM Antigo e Pipefy</p>
             </div>
 
@@ -68,7 +77,9 @@ export default function MigracaoPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-shrink-0">
                 {/* JSON Import (Existing) */}
                 <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
-                    <h2 className="text-xs font-black text-slate-400 uppercase flex items-center gap-1"><Upload className="w-3.5 h-3.5" /> Importar Dados (JSON)</h2>
+                    <h2 className="text-xs font-black text-slate-400 uppercase flex items-center gap-1">
+                        <Upload className="w-3.5 h-3.5" /> Importar Dados (JSON)
+                    </h2>
                     <select value={tipo} onChange={e => setTipo(e.target.value)}
                         className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
                         <option value="clientes">Clientes</option>
