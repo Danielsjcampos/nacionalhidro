@@ -4,6 +4,8 @@ import fs from 'fs';
 import mustache from 'mustache';
 import moment from 'moment';
 import { numeroExtenso } from '../utils/numeroExtenso';
+import prisma from '../lib/prisma';
+
 
 const templatesDir = path.resolve(__dirname, '../templates');
 
@@ -154,12 +156,19 @@ export const gerarPdfMedicao = async (medicao: any, empresa: any, cliente: any, 
         periodo = d1 === d2 ? d1 : `${d1} à ${d2}`;
     }
 
-    // Subitens (Horas Extras, Adicional Noturno, etc.) — igual ao legado
     const subitensFormatados = Array.isArray(medicao.subitens)
-        ? (medicao.subitens as any[]).filter(s => Number(s.valor) > 0).map(s => ({
-            descricao: s.descricao || '',
-            valorFmt:  formatNumberReal(s.valor),
-        }))
+        ? (medicao.subitens as any[]).filter(s => Number(s.valor) > 0).map(s => {
+            let desc = s.descricao || '';
+            const qty = Number(s.quantidade) || 1;
+            const unit = s.unidade || 'un';
+            if (qty > 1 || unit !== 'un') {
+                desc += ` (${qty} ${unit})`;
+            }
+            return {
+                descricao: desc,
+                valorFmt:  formatNumberReal(Number(s.valor) * qty),
+            };
+        })
         : [];
 
     // Totais
@@ -182,7 +191,7 @@ export const gerarPdfMedicao = async (medicao: any, empresa: any, cliente: any, 
         },
         Empresa: { Logo: empresa?.logo || null },
         headers: ['Data', 'OS', 'Equipamento', 'Desc. Serviço', 'Tipo Cobr.', 'VL Unit.', 'Qtd/Hora', 'VL Total'],
-        // Cabeçalho — idêntico ao legado
+        TituloDocumento: medicao.tipoDocumento === 'ND' ? 'NOTA DE DÉBITO' : 'RELATÓRIO DE MEDIÇÃO',
         Medicao:         medicao.codigo,
         Revisao:         medicao.revisao > 0 ? `R${medicao.revisao}` : null,
         Proposta:        ordens.find(o => o.proposta)?.proposta?.codigo || 'S/N',
@@ -339,6 +348,22 @@ export const gerarPdfProposta = async (proposta: any, cliente: any, itens: any[]
     const c = cliente || { nome: 'Cliente não informado', razaoSocial: 'Cliente não informado' };
     const emp = empresa || { razaoSocial: 'Nacional Hidro', cnpj: '00.000.000/0000-00' };
 
+    // Buscar assinatura do vendedor
+    let signatureUrl = '';
+    if (proposta.vendedor) {
+        const user = await prisma.user.findFirst({
+            where: { 
+                name: { 
+                    equals: proposta.vendedor,
+                    mode: 'insensitive' 
+                } 
+            },
+            select: { signatureUrl: true }
+        });
+        signatureUrl = user?.signatureUrl || '';
+    }
+
+
     const view = {
         PropostaId:       proposta.codigo || 'S/N',
         DataHoje:         dataHoje,
@@ -360,9 +385,11 @@ export const gerarPdfProposta = async (proposta: any, cliente: any, itens: any[]
         CondicoesPagamento: proposta.condicoesPagamento || '',
         ValidadeTexto:    validadeTexto,
         Vendedor:         proposta.vendedor || '',
+        Assinatura:       signatureUrl,
         EmpresaNome:      emp.razaoSocial || emp.nome || 'NACIONAL HIDROSANEAMENTO',
         EmpresaDoc:       emp.cnpj || emp.documento || '',
         ValorTotalExtenso: numeroExtenso(proposta.valorTotal || 0)
+
     };
 
     const templateHtml = await getTemplateHtml('proposta.html');

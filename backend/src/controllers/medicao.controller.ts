@@ -31,25 +31,33 @@ export const listMedicoes = async (req: AuthRequest, res: Response) => {
         const list = await prisma.medicao.findMany({
             where,
             include: {
-                cliente: { select: { id: true, nome: true, razaoSocial: true, email: true, telefone: true } },
+                cliente: { select: { id: true, nome: true, codigo: true, razaoSocial: true, email: true, telefone: true } },
                 ordensServico: {
-                    select: { id: true, codigo: true, valorPrecificado: true, status: true }
-                }
+                    select: { id: true, codigo: true, valorPrecificado: true, status: true, tipoCobranca: true }
+                },
+                cobrancasEmail: { orderBy: { dataEnvio: 'desc' as any }, take: 5 }
             },
             orderBy: { createdAt: 'desc' }
         });
 
-        // Kanban grouping
+        // Enrich with vendedor name
+        const vendedorIds = [...new Set(list.filter(m => m.vendedorId).map(m => m.vendedorId!))];
+        const vendedores = vendedorIds.length > 0
+            ? await prisma.user.findMany({ where: { id: { in: vendedorIds } }, select: { id: true, name: true } })
+            : [];
+        const vendedorMap = Object.fromEntries(vendedores.map(v => [v.id, v]));
+        const enrichedList = list.map(m => ({ ...m, vendedor: m.vendedorId ? vendedorMap[m.vendedorId] || null : null }));
+
         const kanban = {
-            EM_ABERTO:            list.filter((m: any) => m.status === 'EM_ABERTO'),
-            EM_CONFERENCIA:       list.filter((m: any) => m.status === 'EM_CONFERENCIA'),
-            AGUARDANDO_APROVACAO: list.filter((m: any) => m.status === 'AGUARDANDO_APROVACAO'),
-            APROVADA:             list.filter((m: any) => m.status === 'APROVADA' || m.status === 'APROVADA_PARCIAL'),
-            CONTESTADA:           list.filter((m: any) => m.status === 'CONTESTADA'),
-            FINALIZADA:           list.filter((m: any) => m.status === 'FINALIZADA'),
+            EM_ABERTO:            enrichedList.filter((m: any) => m.status === 'EM_ABERTO'),
+            EM_CONFERENCIA:       enrichedList.filter((m: any) => m.status === 'EM_CONFERENCIA'),
+            AGUARDANDO_APROVACAO: enrichedList.filter((m: any) => m.status === 'AGUARDANDO_APROVACAO'),
+            APROVADA:             enrichedList.filter((m: any) => m.status === 'APROVADA' || m.status === 'APROVADA_PARCIAL'),
+            CONTESTADA:           enrichedList.filter((m: any) => m.status === 'CONTESTADA'),
+            FINALIZADA:           enrichedList.filter((m: any) => m.status === 'FINALIZADA'),
         };
 
-        res.json({ kanban, list, total: list.length });
+        res.json({ kanban, list: enrichedList, total: enrichedList.length });
     } catch (error) {
         console.error('List medicoes error:', error);
         res.status(500).json({ error: 'Failed to fetch measurements' });
@@ -70,7 +78,8 @@ export const getMedicao = async (req: AuthRequest, res: Response) => {
                         servicos: true,
                         proposta: true,
                     }
-                }
+                },
+                cobrancasEmail: { orderBy: { dataEnvio: 'desc' as any }, take: 20 }
             }
         });
         if (!medicao) return res.status(404).json({ error: 'Medicao not found' });
@@ -100,10 +109,9 @@ export const getMedicaoEmailHistory = async (req: AuthRequest, res: Response) =>
 // ─── CREATE MEDICAO ─────────────────────────────────────────────
 export const createMedicao = async (req: AuthRequest, res: Response) => {
     try {
-        const {
-            clienteId, osIds, periodo, observacoes, subitens,
             totalServico, totalHora, adicional, desconto,
-            cte, solicitante, vendedorId, porcentagemRL: overridePct
+            cte, solicitante, vendedorId, porcentagemRL: overridePct,
+            tipoDocumento
         } = req.body;
 
         if (!osIds || osIds.length === 0) {
@@ -167,6 +175,7 @@ export const createMedicao = async (req: AuthRequest, res: Response) => {
                 status: 'EM_ABERTO',
                 observacoes,
                 subitens: subitens || [],
+                tipoDocumento: tipoDocumento || 'RL',
                 ordensServico: { connect: osIds.map((id: string) => ({ id })) }
             },
             include: {
@@ -191,11 +200,9 @@ export const createMedicao = async (req: AuthRequest, res: Response) => {
 export const updateMedicao = async (req: AuthRequest, res: Response) => {
     try {
         const id = req.params.id as string;
-        const {
-            periodo, observacoes, subitens,
             totalServico, totalHora, adicional, desconto,
             cte, solicitante, vendedorId, porcentagemRL: overridePct,
-            osIds // OS a adicionar/remover
+            osIds, tipoDocumento // OS a adicionar/remover
         } = req.body;
 
         const current = await prisma.medicao.findUnique({
@@ -232,6 +239,7 @@ export const updateMedicao = async (req: AuthRequest, res: Response) => {
             valorRL,
             valorNFSe,
             porcentagemRL: pctRL,
+            tipoDocumento: tipoDocumento ?? current.tipoDocumento,
         };
         if (totalServico  !== undefined) updateData.totalServico = Number(totalServico);
         if (totalHora     !== undefined) updateData.totalHora    = Number(totalHora);
@@ -472,6 +480,7 @@ export const updateMedicaoStatus = async (req: AuthRequest, res: Response) => {
         }
         else if (status === 'CANCELADA') {
             updateData.justificativaCancelamento = justificativaCancelamento;
+            updateData.dataCancelamento = new Date();
         }
 
         const medicao = await prisma.medicao.update({
@@ -563,7 +572,8 @@ export const enviarAoCliente = async (req: AuthRequest, res: Response) => {
             where: { id },
             data: {
                 status: 'AGUARDANDO_APROVACAO',
-                dataCobranca: new Date()
+                dataCobranca: new Date(),
+                dataAprovacaoInterna: currentMedicao.dataAprovacaoInterna || new Date(), // Set if not exist
             }
         });
 
@@ -626,22 +636,46 @@ export const fecharPorRDO = async (req: AuthRequest, res: Response) => {
         const valorHoraBase = valorBaseOS / (totalRDOs * franquia);
 
         let totalExtras = 0, totalNoturnas = 0, valorExtrasHE = 0, valorNoturnoAdd = 0;
+        let diasFimSemana = 0, valorFimSemanaAdd = 0;
+        
+        const addFimSemana = Number(prop.adicionalFimSemana || 50) / 100;
+
         rdos.forEach((r: any) => {
             const he  = Number(r.horasExtras   || 0);
             const not = Number(r.horasNoturnas || 0);
+            
+            // Verifica se é fim de semana (Sábado=6, Domingo=0)
+            const d = new Date(r.data);
+            const isWeekend = d.getUTCDay() === 0 || d.getUTCDay() === 6;
+
             totalExtras   += he;
             totalNoturnas += not;
+            
             valorExtrasHE   += he  * valorHoraBase * (1 + addHE);
             valorNoturnoAdd += not * valorHoraBase * addNoturno;
+
+            if (isWeekend) {
+                diasFimSemana++;
+                // O adicional de fim de semana geralmente incide sobre a diária/base do dia
+                valorFimSemanaAdd += (franquia * valorHoraBase) * addFimSemana;
+            }
         });
 
         const subitens = [
             { id: 'BASE',    descricao: `Valor Base (OS ${os.codigo})`,           valor: valorBaseOS },
-            { id: 'HE',      descricao: `Horas Extras (${totalExtras}h)`,          valor: valorExtrasHE },
-            { id: 'NOTURNO', descricao: `Adicional Noturno (${totalNoturnas}h)`,   valor: valorNoturnoAdd }
+            { id: 'HE',      descricao: `Horas Extras (${totalExtras.toFixed(2)}h)`, valor: valorExtrasHE },
+            { id: 'NOTURNO', descricao: `Adicional Noturno (${totalNoturnas.toFixed(2)}h)`, valor: valorNoturnoAdd }
         ];
 
-        const valorTotal = valorBaseOS + valorExtrasHE + valorNoturnoAdd;
+        if (diasFimSemana > 0) {
+            subitens.push({
+                id: 'FIM_SEMANA',
+                descricao: `Adicional Fim de Semana (${diasFimSemana} dias)`,
+                valor: valorFimSemanaAdd
+            });
+        }
+
+        const valorTotal = valorBaseOS + valorExtrasHE + valorNoturnoAdd + valorFimSemanaAdd;
         const pctRL      = os.cliente?.porcentagemRL ? Number(os.cliente.porcentagemRL) : 90;
         const valorRL    = valorTotal * (pctRL / 100);
         const valorNFSe  = valorTotal - valorRL;

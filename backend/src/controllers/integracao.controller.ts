@@ -123,6 +123,42 @@ export const createIntegracao = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const confirmarPresenca = async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    
+    // Buscar a integração atual para saber quem é o cliente
+    const integracao = await prisma.integracaoCliente.findUnique({
+      where: { id },
+      include: { cliente: true }
+    });
+
+    if (!integracao) {
+      return res.status(404).json({ error: 'Integração não encontrada' });
+    }
+
+    const dataEmissao = new Date();
+    const diasValidade = integracao.cliente?.prazoIntegracao || 365;
+    const dataVencimento = new Date();
+    dataVencimento.setDate(dataVencimento.getDate() + diasValidade);
+
+    const integracaoConfirmada = await prisma.integracaoCliente.update({
+      where: { id },
+      data: {
+        status: 'VALIDO',
+        dataEmissao,
+        dataVencimento,
+        observacoes: `${integracao.observacoes || ''}\n[Sistema] Presença confirmada em ${dataEmissao.toLocaleString('pt-BR')}`.trim()
+      }
+    });
+
+    res.json(integracaoConfirmada);
+  } catch (error) {
+    console.error('Error confirming presence:', error);
+    res.status(500).json({ error: 'Erro ao confirmar presença na integração' });
+  }
+};
+
 export const updateIntegracao = async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
@@ -247,9 +283,9 @@ export const getIntegracoesPendentes = async (req: AuthRequest, res: Response) =
 
       if (integraExigidas.length === 0 && catsExigidas.length === 0) continue;
 
-      // Filtrar funcionários que pertencem às categorias exigidas deste cliente
+      // Filtrar funcionários que pertencem às categorias exigidas deste cliente ou se não houver filtro de categoria, todos alvos
       const funcionariosAlvo = funcionariosAtivos.filter(f => 
-        f.categoria && catsExigidas.includes(f.categoria)
+        (catsExigidas.length === 0) || (f.categoria && catsExigidas.includes(f.categoria))
       );
 
       for (const funcionario of funcionariosAlvo) {

@@ -3,8 +3,9 @@ import api from '../services/api';
 import { 
   Shield, Check, X, Plus, Trash2, 
   Settings, ShieldAlert, Loader2, Save,
-  Users as UsersIcon, Mail, Phone, Lock, Building
+  Users as UsersIcon, Mail, Phone, Lock, Building, Upload
 } from 'lucide-react';
+
 
 export default function Usuarios() {
   const [categorias, setCategorias] = useState<any[]>([]);
@@ -347,9 +348,38 @@ export default function Usuarios() {
                         )}
                       </div>
                       <div className="w-64 space-y-3">
+                        <div className="relative">
+                          <input 
+                            type="file" 
+                            id="signature-upload"
+                            className="hidden" 
+                            accept="image/*"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const formData = new FormData();
+                              formData.append('file', file);
+                              try {
+                                const res = await api.post('/upload', formData, {
+                                  headers: { 'Content-Type': 'multipart/form-data' }
+                                });
+                                setEditingUser({ ...editingUser, signatureUrl: res.data.url });
+                              } catch (err) {
+                                console.error('Upload failed', err);
+                                alert('Falha ao subir imagem');
+                              }
+                            }}
+                          />
+                          <label 
+                            htmlFor="signature-upload"
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-4 py-3 text-[10px] font-black uppercase italic tracking-widest text-center cursor-pointer flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/10"
+                          >
+                             <Upload className="w-4 h-4" /> Selecionar Imagem
+                          </label>
+                        </div>
                         <input 
                           type="text" 
-                          placeholder="URL da Assinatura (ex: https://...)" 
+                          placeholder="URL da Assinatura..." 
                           className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/10 transition-all"
                           value={editingUser.signatureUrl || ''}
                           onChange={e => setEditingUser({...editingUser, signatureUrl: e.target.value})}

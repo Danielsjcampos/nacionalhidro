@@ -15,6 +15,7 @@ router.get('/pendencias', integracaoController.getIntegracoesPendentes);
 router.get('/funcionario/:funcionarioId', integracaoController.getIntegracoesByFuncionario);
 router.post('/', integracaoController.createIntegracao);
 router.put('/:id', integracaoController.updateIntegracao);
+router.post('/:id/confirmar', integracaoController.confirmarPresenca); // Nova rota de homologação logística
 router.delete('/:id', integracaoController.deleteIntegracao);
 
 // Relacionados ao Cliente (Listar e atualizar opções disponíveis no Cliente)

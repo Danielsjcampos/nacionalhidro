@@ -346,8 +346,10 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
           </div>
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{user?.name || 'Administrador'}</p>
-              <p className="text-xs text-slate-500 truncate">{user?.email || 'admin@nacional.com'}</p>
+              <NavLink to="/perfil" className="block hover:text-blue-400 transition-colors">
+                <p className="text-sm font-medium truncate">{user?.name || 'Administrador'}</p>
+                <p className="text-xs text-slate-500 truncate">{user?.email || 'admin@nacional.com'}</p>
+              </NavLink>
             </div>
           )}
           <button

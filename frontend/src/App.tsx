@@ -64,6 +64,8 @@ import WorkflowBoard from './pages/Workflow/WorkflowBoard';
 import WorkflowSettings from './pages/Workflow/WorkflowSettings';
 import PublicWorkflowForm from './pages/Workflow/PublicWorkflowForm';
 import IntegracoesPage from './pages/IntegracoesPage';
+import PerfilPage from './pages/PerfilPage';
+
 
 // Route-to-permission mapping
 const routePermissions: Record<string, string[]> = {
@@ -200,7 +202,9 @@ function App() {
         <Route path="/monitor" element={<ProtectedRoute><Monitor /></ProtectedRoute>} />
         <Route path="/crm" element={<ProtectedRoute><CRM /></ProtectedRoute>} />
         <Route path="/administracao" element={<ProtectedRoute><Administracao /></ProtectedRoute>} />
+        <Route path="/perfil" element={<ProtectedRoute><PerfilPage /></ProtectedRoute>} />
         <Route path="/pedidos-compra" element={<ProtectedRoute><PedidosCompraPage /></ProtectedRoute>} />
+
 
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

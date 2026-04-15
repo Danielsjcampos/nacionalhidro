@@ -324,7 +324,10 @@ model Medicao {
   totalHora                 Decimal?        @db.Decimal(10, 2)
   totalServico              Decimal?        @db.Decimal(10, 2)
   vendedorId                String?
+  tipoDocumento             String?         @default("RL")
   dataCobranca              DateTime?
+  dataAprovacaoInterna      DateTime?
+  dataCancelamento          DateTime?
   cobrancasEmail            CobrancaEmail[]
   cliente                   Cliente         @relation(fields: [clienteId], references: [id])
   ordensServico             OrdemServico[]

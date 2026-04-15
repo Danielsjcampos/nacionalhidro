@@ -9,9 +9,13 @@ function timeToMinutes(timeStr: string): number {
     return (isNaN(h) ? 0 : h) * 60 + (isNaN(m) ? 0 : m);
 }
 
-function calcularHorasRDO(entrada: string, saida: string, almoco: string, franquiaDia: number) {
-    let workedMinutes = timeToMinutes(saida) - timeToMinutes(entrada);
-    if (workedMinutes < 0) workedMinutes += 24 * 60; // Passou da meia noite
+function calcularHorasRDO(entrada: string, saida: string, almoco: string, franquiaDia: number, dataRDO: Date) {
+    let startMin = timeToMinutes(entrada);
+    let endMin = timeToMinutes(saida);
+    
+    if (endMin < startMin) endMin += 24 * 60; // Passou da meia noite
+    
+    let workedMinutes = endMin - startMin;
 
     if (almoco) {
         if (almoco.includes('-')) {
@@ -20,22 +24,42 @@ function calcularHorasRDO(entrada: string, saida: string, almoco: string, franqu
             if (almocoMin < 0) almocoMin += 24 * 60;
             workedMinutes -= Math.max(0, almocoMin);
         } else {
-            // Supondo que enviou em minutos (ex: "60") ou horas (se menor que 10)
             const val = Number(almoco);
             workedMinutes -= (val < 10 ? val * 60 : val) || 0;
         }
     }
 
+    // Cálculo de Horas Noturnas (22h as 05h)
+    let nightMinutes = 0;
+    const nightStart = 22 * 60; // 1320
+    const nightEnd = (24 + 5) * 60; // 1740 (5am do dia seguinte)
+    
+    // Intersecção de [startMin, endMin] com o período noturno do dia 1 -> dia 2
+    const intersectStart = Math.max(startMin, nightStart);
+    const intersectEnd = Math.min(endMin, nightEnd);
+    if (intersectEnd > intersectStart) {
+        nightMinutes += (intersectEnd - intersectStart);
+    }
+    
+    // Intersecção com a madrugada do dia 1 (00h às 05h)
+    const morningEnd = 5 * 60; // 300
+    const morningIntersectEnd = Math.min(endMin, morningEnd);
+    if (morningIntersectEnd > startMin) {
+        nightMinutes += (morningIntersectEnd - startMin);
+    }
+
+    const dayOfWeek = new Date(dataRDO).getUTCDay(); // 0 is Sunday, 6 is Saturday
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
     const horasTrabalhadas = Math.max(0, workedMinutes / 60);
     const horasExtras = Math.max(0, horasTrabalhadas - franquiaDia);
-    
-    // Cálculo simplificado de Horas Noturnas (22h as 05h). Se trabalhou na madrugada.
-    // Para simplificar a implementação nativa sem biblioteca, confiaremos no input manual do front para casos complexos noturnos,
-    // mas retornamos as base corretamente.
+    const horasNoturnas = Math.max(0, nightMinutes / 60);
     
     return {
         horasTrabalhadas: Number(horasTrabalhadas.toFixed(2)),
-        horasExtras: Number(horasExtras.toFixed(2))
+        horasExtras: Number(horasExtras.toFixed(2)),
+        horasNoturnas: Number(horasNoturnas.toFixed(2)),
+        isWeekend
     };
 }
 
@@ -84,16 +108,16 @@ export const createRDO = async (req: AuthRequest, res: Response) => {
 
         // Auto-cálculo se enviou horários mas não as horas calculadas
         if (rest.entrada && rest.saida && (!calcTrabalhadas || !calcExtras)) {
-             // Buscar OS para descobrir franquia da proposta
              const os = await (prisma as any).ordemServico.findUnique({
                  where: { id: rest.osId },
-                 include: { proposta: { include: { itens: true } } }
+                 include: { proposta: true }
              });
-             const franquiaDia = Number(os?.proposta?.itens?.[0]?.horasPorDia || 8);
+             const franquiaDia = Number(os?.proposta?.franquiaHoras || 8);
              
-             const calc = calcularHorasRDO(rest.entrada, rest.saida, rest.almoco, franquiaDia);
+             const calc = calcularHorasRDO(rest.entrada, rest.saida, rest.almoco, franquiaDia, new Date(data));
              if (!calcTrabalhadas) calcTrabalhadas = calc.horasTrabalhadas;
              if (!calcExtras) calcExtras = calc.horasExtras;
+             if (!horasNoturnas) (rest as any).horasNoturnas = calc.horasNoturnas;
         }
 
         const rdo = await (prisma as any).rDO.create({
@@ -125,19 +149,19 @@ export const updateRDO = async (req: AuthRequest, res: Response) => {
 
         // Auto-cálculo se alterou horários
         if (rest.entrada && rest.saida) {
-             const rdoAntigo = await (prisma as any).rDO.findUnique({ where: { id }, select: { osId: true } });
+             const rdoAntigo = await (prisma as any).rDO.findUnique({ where: { id }, select: { osId: true, data: true } });
              if (rdoAntigo) {
                  const os = await (prisma as any).ordemServico.findUnique({
                      where: { id: rdoAntigo.osId },
-                     include: { proposta: { include: { itens: true } } }
+                     include: { proposta: true }
                  });
-                 const franquiaDia = Number(os?.proposta?.itens?.[0]?.horasPorDia || 8);
+                 const franquiaDia = Number(os?.proposta?.franquiaHoras || 8);
                  
-                 const calc = calcularHorasRDO(rest.entrada, rest.saida, rest.almoco, franquiaDia);
+                 const calc = calcularHorasRDO(rest.entrada, rest.saida, rest.almoco, franquiaDia, data ? new Date(data) : rdoAntigo.data);
                  
-                 // Sobrescreve apenas se o usuário NÃO enviou explicitamente via input do frontend
                  if (horasTrabalhadas === undefined) calcTrabalhadas = calc.horasTrabalhadas;
                  if (horasExtras === undefined) calcExtras = calc.horasExtras;
+                 if (horasNoturnas === undefined) (rest as any).horasNoturnas = calc.horasNoturnas;
              }
         }
 

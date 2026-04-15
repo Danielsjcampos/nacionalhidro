@@ -5,7 +5,7 @@ interface AvailabilityResult {
   motivoIndisponibilidade?: string;
   integracao?: {
     existe: boolean;
-    status: 'OK' | 'VENCENDO' | 'VENCIDO' | 'INEXISTENTE';
+    status: 'OK' | 'VENCENDO' | 'VENCIDO' | 'INEXISTENTE' | 'AGENDADO';
     vencimento?: Date;
   };
   aso?: {
@@ -57,9 +57,29 @@ export const checkEmployeeAvailability = async (
             }
         }
     }
+    }
   }
 
-  // 3. Se uma data específica for passada, verificar os afastamentos detalhados
+  // 3. Bloqueio Global: Documentos da Empresa (PGR / PCMSO)
+  const docsEmpresa = await prisma.documento.findMany({
+    where: {
+      tipo: { in: ['PGR', 'PCMSO'] },
+      funcionarioId: null,
+      clienteId: null
+    }
+  });
+
+  const pgrValido = docsEmpresa.some(d => d.tipo === 'PGR' && d.status === 'VALIDO' && d.dataVencimento && d.dataVencimento > new Date());
+  const pcmsoValido = docsEmpresa.some(d => d.tipo === 'PCMSO' && d.status === 'VALIDO' && d.dataVencimento && d.dataVencimento > new Date());
+
+  if (!pgrValido || !pcmsoValido) {
+    return { 
+      disponivel: false, 
+      motivoIndisponibilidade: `Bloqueio de Conformidade Empresa: ${!pgrValido ? 'PGR' : ''} ${!pcmsoValido ? 'PCMSO' : ''} Vencido ou Inexistente. Operação em campo proibida por Segurança do Trabalho.` 
+    };
+  }
+
+  // 4. Se uma data específica for passada, verificar os afastamentos detalhados
   if (dataString) {
     const checkDate = new Date(dataString);
     const afastamento = await (prisma as any).afastamento.findFirst({
@@ -122,14 +142,16 @@ export const checkEmployeeAvailability = async (
 
     result.integracao = {
       existe: !!integracao,
-      status: checkStatus(integracao?.dataVencimento),
+      status: integracao?.status === 'AGENDADO' ? 'AGENDADO' : checkStatus(integracao?.dataVencimento),
       vencimento: integracao?.dataVencimento || undefined
     };
 
-    if (result.integracao.status === 'VENCIDO' || result.integracao.status === 'INEXISTENTE') {
+    if (result.integracao.status === 'VENCIDO' || result.integracao.status === 'INEXISTENTE' || result.integracao.status === 'AGENDADO') {
       return { 
         disponivel: false, 
-        motivoIndisponibilidade: `Integração de Segurança para o cliente pendente ou vencida.` 
+        motivoIndisponibilidade: result.integracao.status === 'AGENDADO' 
+          ? `Integração para o cliente AGENDADA (Aguardando confirmação de presença pela Logística).`
+          : `Integração de Segurança para o cliente pendente ou vencida.` 
       };
     }
   }
