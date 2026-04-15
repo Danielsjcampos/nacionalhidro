@@ -147,10 +147,10 @@ export const createProposta = async (req: AuthRequest, res: Response) => {
           dimensionamentoEquipe: rest.dimensionamentoEquipe || '',
           qtdEquipamentos: rest.qtdEquipamentos || '',
           diasTrabalho: rest.diasTrabalho || '',
-          pRL: rest.pRL != null ? Number(rest.pRL) : undefined,
+          pRL: !isNaN(Number(rest.pRL)) ? Number(rest.pRL) : undefined,
           cTe: rest.cTe,
           pagamentoAntecipado: rest.pagamentoAntecipado,
-          valorTotal: typeof rest.valorTotal === 'number' ? rest.valorTotal : parseFloat(rest.valorTotal) || 0,
+          valorTotal: !isNaN(Number(rest.valorTotal)) ? Number(rest.valorTotal) : 0,
           vendedor: rest.vendedor,
           empresa: rest.empresa,
           contato: rest.contato,
@@ -158,12 +158,13 @@ export const createProposta = async (req: AuthRequest, res: Response) => {
           cliente: { connect: { id: clienteId } },
           itens: {
             create: itens?.map((i: any) => ({
-              equipamento: i.equipamento,
+              equipamento: String(i.equipamento || ''),
               quantidade: parseFloat(i.quantidade) || 1,
-              area: i.area,
-              tipoCobranca: i.tipoCobranca,
+              area: i.area ? String(i.area) : null,
+              tipoCobranca: i.tipoCobranca ? String(i.tipoCobranca) : null,
               valorAcobrar: parseFloat(i.valorAcobrar) || 0,
-              horasPorDia: i.horasPorDia ? parseInt(i.horasPorDia) : null,
+              horaAdicional: parseFloat(i.horaAdicional) || null,
+              horasPorDia: !isNaN(parseInt(i.horasPorDia)) ? parseInt(i.horasPorDia) : null,
               usoPrevisto: i.usoPrevisto ? String(i.usoPrevisto) : null,
               mobilizacao: parseFloat(i.mobilizacao) || 0,
               valorTotal: parseFloat(i.valorTotal) || 0
@@ -171,24 +172,24 @@ export const createProposta = async (req: AuthRequest, res: Response) => {
           },
           acessorios: {
             create: acessorios?.map((a: any) => ({
-              acessorio: a.acessorio,
+              acessorio: String(a.acessorio || ''),
               quantidade: parseFloat(a.quantidade) || 1,
               valor: parseFloat(a.valor) || 0
             }))
           },
           responsabilidades: {
             create: responsabilidades?.map((r: any) => ({
-              tipo: r.tipo,
-              descricao: r.descricao
+              tipo: String(r.tipo || ''),
+              descricao: String(r.descricao || '')
             }))
           },
           equipe: {
             create: equipe?.map((e: any) => ({
-              funcao: e.funcao,
-              equipamento: e.equipamento,
-              quantidade: e.quantidade || 1,
-              nome: e.nome,
-              cargo: e.cargo
+              funcao: e.funcao ? String(e.funcao) : null,
+              equipamento: e.equipamento ? String(e.equipamento) : null,
+              quantidade: parseInt(e.quantidade) || 1,
+              nome: e.nome ? String(e.nome) : null,
+              cargo: e.cargo ? String(e.cargo) : null
             }))
           }
         },
@@ -358,10 +359,10 @@ export const updateProposta = async (req: AuthRequest, res: Response) => {
           dimensionamentoEquipe: rest.dimensionamentoEquipe || '',
           qtdEquipamentos: rest.qtdEquipamentos || '',
           diasTrabalho: rest.diasTrabalho || '',
-          pRL: rest.pRL != null ? Number(rest.pRL) : undefined,
+          pRL: !isNaN(Number(rest.pRL)) ? Number(rest.pRL) : undefined,
           cTe: rest.cTe,
           pagamentoAntecipado: rest.pagamentoAntecipado,
-          valorTotal: typeof rest.valorTotal === 'number' ? rest.valorTotal : (rest.valorTotal != null ? parseFloat(rest.valorTotal) : undefined),
+          valorTotal: !isNaN(Number(rest.valorTotal)) ? Number(rest.valorTotal) : 0,
           vendedor: rest.vendedor,
           empresa: rest.empresa,
           contato: rest.contato,
@@ -369,12 +370,13 @@ export const updateProposta = async (req: AuthRequest, res: Response) => {
           cliente: clienteId ? { connect: { id: clienteId } } : undefined,
           itens: {
             create: itens?.map((i: any) => ({
-              equipamento: i.equipamento,
+              equipamento: String(i.equipamento || ''),
               quantidade: parseFloat(i.quantidade) || 1,
-              area: i.area,
-              tipoCobranca: i.tipoCobranca,
+              area: i.area ? String(i.area) : null,
+              tipoCobranca: i.tipoCobranca ? String(i.tipoCobranca) : null,
               valorAcobrar: parseFloat(i.valorAcobrar) || 0,
-              horasPorDia: i.horasPorDia ? parseInt(i.horasPorDia) : null,
+              horaAdicional: parseFloat(i.horaAdicional) || null,
+              horasPorDia: !isNaN(parseInt(i.horasPorDia)) ? parseInt(i.horasPorDia) : null,
               usoPrevisto: i.usoPrevisto ? String(i.usoPrevisto) : null,
               mobilizacao: parseFloat(i.mobilizacao) || 0,
               valorTotal: parseFloat(i.valorTotal) || 0
@@ -382,24 +384,24 @@ export const updateProposta = async (req: AuthRequest, res: Response) => {
           },
           acessorios: {
             create: acessorios?.map((a: any) => ({
-              acessorio: a.acessorio,
+              acessorio: String(a.acessorio || ''),
               quantidade: parseFloat(a.quantidade) || 1,
               valor: parseFloat(a.valor) || 0
             }))
           },
           responsabilidades: {
             create: responsabilidades?.map((r: any) => ({
-              tipo: r.tipo,
-              descricao: r.descricao
+              tipo: String(r.tipo || ''),
+              descricao: String(r.descricao || '')
             }))
           },
           equipe: {
             create: equipe?.map((e: any) => ({
-              funcao: e.funcao,
-              equipamento: e.equipamento,
-              quantidade: e.quantidade || 1,
-              nome: e.nome,
-              cargo: e.cargo
+              funcao: e.funcao ? String(e.funcao) : null,
+              equipamento: e.equipamento ? String(e.equipamento) : null,
+              quantidade: parseInt(e.quantidade) || 1,
+              nome: e.nome ? String(e.nome) : null,
+              cargo: e.cargo ? String(e.cargo) : null
             }))
           }
         },
