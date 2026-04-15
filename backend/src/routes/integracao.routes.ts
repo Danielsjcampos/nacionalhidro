@@ -6,6 +6,11 @@ const router = Router();
 
 router.use(authenticate);
 
+// Dashboard e Alertas Globais (Módulo Viviane)
+router.get('/dashboard', integracaoController.getAllIntegracoes);
+router.get('/alertas', integracaoController.getIntegracoesAlertas);
+router.get('/pendencias', integracaoController.getIntegracoesPendentes);
+
 // Relacionados ao Funcionário (Cadastrar, Listar, Deletar Integrações de um funcionário)
 router.get('/funcionario/:funcionarioId', integracaoController.getIntegracoesByFuncionario);
 router.post('/', integracaoController.createIntegracao);

@@ -63,12 +63,20 @@ export class PipefyBridgeService {
     }
   }
 
-  async fetchPipeMetadata(pipeId: string): Promise<PipefyPipeMetadata> {
+  async fetchPipeMetadata(pipeId: string): Promise<any> {
     const query = `
       query GetPipeMetadata($id: ID!) {
         pipe(id: $id) {
           id
           name
+          start_form_fields {
+            id
+            label
+            type
+            required
+            description
+            options
+          }
           phases {
             id
             name
@@ -77,6 +85,7 @@ export class PipefyBridgeService {
               label
               type
               required
+              description
               options
             }
           }
@@ -192,7 +201,37 @@ export class PipefyBridgeService {
     // 2. Importar Templates de E-mail
     await this.importEmailTemplates(workflow.id, pipeId);
 
-    // 3. Criar as fases (Stages)
+    // 3. Criar os campos Iniciais (Start Form)
+    for (let j = 0; j < (metadata.start_form_fields || []).length; j++) {
+      const field = metadata.start_form_fields[j];
+      await prisma.workflowField.upsert({
+        where: { id: field.id },
+        update: { 
+          nome: field.id, 
+          label: field.label, 
+          descricao: field.description,
+          tipo: this.mapType(field.type), 
+          obrigatorio: field.required || false,
+          isStartField: true,
+          opcoes: field.options as any,
+          ordem: j 
+        },
+        create: {
+          id: field.id,
+          nome: field.id,
+          label: field.label,
+          descricao: field.description,
+          tipo: this.mapType(field.type),
+          obrigatorio: field.required || false,
+          isStartField: true,
+          opcoes: field.options as any,
+          ordem: j,
+          workflow: { connect: { id: workflow.id } }
+        },
+      });
+    }
+
+    // 4. Criar as fases (Stages) e Campos de Fase
     for (let i = 0; i < metadata.phases.length; i++) {
       const phase = metadata.phases[i];
       const stage = await prisma.workflowStage.upsert({
@@ -206,28 +245,35 @@ export class PipefyBridgeService {
         },
       });
 
-      // 4. Importar Automações para esta fase
+      // Importar Automações para esta fase
       await this.importAutomationsForStage(workflow.id, stage.id, pipeId);
 
-      // 5. Criar os campos (Fields)
+      // Criar os campos (Fields) desta fase
       for (let j = 0; j < phase.fields.length; j++) {
         const field = phase.fields[j];
+        // Se o campo já foi criado no Start Form, não vinculamos ao stage? 
+        // No Pipefy eles podem se repetir, mas aqui mantemos o stageId para campos internos.
         await prisma.workflowField.upsert({
           where: { id: field.id },
           update: { 
             nome: field.id, 
             label: field.label, 
+            descricao: field.description,
             tipo: this.mapType(field.type), 
             obrigatorio: field.required || false,
+            isStartField: false,
             opcoes: field.options as any,
-            ordem: j 
+            ordem: j,
+            stageId: stage.id
           },
           create: {
             id: field.id,
             nome: field.id,
             label: field.label,
+            descricao: field.description,
             tipo: this.mapType(field.type),
             obrigatorio: field.required || false,
+            isStartField: false,
             opcoes: field.options as any,
             ordem: j,
             workflow: { connect: { id: workflow.id } },

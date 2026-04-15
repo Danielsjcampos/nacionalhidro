@@ -85,17 +85,19 @@ const menuGroups: MenuGroup[] = [
   {
     icon: Users, label: 'RH',
     children: [
-      { label: 'Gestão de Colaboradores', path: '/gestao-colaboradores' },
-      { label: 'Painel RH', path: '/rh' },
-      { label: 'Recrutamento', path: '/recrutamento' },
-      { label: 'Admissão', path: '/admissao' },
-      { label: 'Férias', path: '/ferias' },
-      { label: 'Desligamentos', path: '/desligamento' },
-      { label: 'Controle ASO', path: '/aso-controle' },
-      { label: 'Relatórios', path: '/relatorios-rh' },
-      { label: 'Ponto Eletrônico', path: '/ponto' },
+      { label: 'Recrutamento (Kanban)', path: '/workflows/305769026' },
+      { label: 'Admissão (Kanban)', path: '/workflows/305769030' },
+      { label: 'Gestão de Colaboradores (Kanban)', path: '/workflows/306170058' },
+      { label: 'Férias (Kanban)', path: '/workflows/306169969' },
+      { label: 'Desligamento (Kanban)', path: '/workflows/305806492' },
+      { label: '---', path: '#' },
+      { label: 'Dashboard de Integrações', path: '/integracoes' },
+      { label: 'Gestão Avançada (Legado)', path: '/rh' },
       { label: 'Triagem IA', path: '/triagem-ia' },
-      { label: 'WhatsApp', path: '/whatsapp' },
+      { label: 'Controle ASO', path: '/aso-controle' },
+      { label: 'Ponto Eletrônico', path: '/ponto' },
+      { label: 'Relatórios RH', path: '/relatorios-rh' },
+      { label: 'WhatsApp RH', path: '/whatsapp' },
     ]
   },
   {
@@ -121,8 +123,6 @@ const menuGroups: MenuGroup[] = [
       { label: 'Configurações', path: '/configuracoes' },
       { label: 'Monitoramento', path: '/monitor' },
       { label: 'Log de Alterações', path: '/audit-log' },
-      { label: 'WhatsApp', path: '/whatsapp' },
-      { label: 'Workflows Nativos', path: '/workflows' },
       { label: 'Migração de Dados', path: '/migracao' },
     ]
   },
@@ -315,18 +315,22 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
               >
                 <div className="ml-4 pl-3 border-l border-white/10 py-1 space-y-0.5">
                   {group.children?.map((child) => (
-                    <NavLink
-                      key={child.path}
-                      to={child.path}
-                      className={({ isActive }) =>
-                        `block px-3 py-1.5 rounded-md transition-all text-xs ${isActive
-                          ? 'bg-blue-600/80 text-white font-bold'
-                          : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'
-                        }`
-                      }
-                    >
-                      {child.label}
-                    </NavLink>
+                    child.label === '---' ? (
+                      <div key={child.path} className="h-px bg-white/10 my-2 mx-3" />
+                    ) : (
+                      <NavLink
+                        key={child.path}
+                        to={child.path}
+                        className={({ isActive }) =>
+                          `block px-3 py-1.5 rounded-md transition-all text-xs ${isActive
+                            ? 'bg-blue-600/80 text-white font-bold'
+                            : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'
+                          }`
+                        }
+                      >
+                        {child.label}
+                      </NavLink>
+                    )
                   ))}
                 </div>
               </div>

@@ -89,6 +89,8 @@ model Cliente {
   matrizId            String?
   tipoCliente         String              @default("PADRAO")
   integracoesExigidas Json?
+  categoriasExigidas  Json?
+  prazoIntegracao     Int?                @default(365)
   contatos            Json?
   agendamentos        Agendamento[]
   matriz              Cliente?            @relation("ClienteHierarquia", fields: [matrizId], references: [id])
@@ -102,6 +104,7 @@ model Cliente {
   medicoes            Medicao[]
   ordensServico       OrdemServico[]
   propostas           Proposta[]
+  documentosAnexos    Documento[]
 }
 
 model Contrato {
@@ -471,6 +474,7 @@ model Funcionario {
   episEntregues                  EPIEntregue[]
   integracoes                    IntegracaoCliente[]
   treinamentos                   TreinamentoRealizado[]
+  documentosAnexos               Documento[]
 }
 
 model EPI {
@@ -541,6 +545,7 @@ model IntegracaoCliente {
   nome           String
   dataEmissao    DateTime
   dataVencimento DateTime
+  status         String      @default("PENDENTE")
   observacoes    String?
   createdAt      DateTime    @default(now())
   arquivoUrl     String?
@@ -1569,17 +1574,19 @@ model WorkflowStage {
 }
 
 model WorkflowField {
-  id          String         @id @default(uuid())
-  workflowId  String
-  stageId     String?
-  nome        String
-  label       String
-  tipo        String         @default("TEXT")
-  obrigatorio Boolean        @default(false)
-  opcoes      Json?
-  ordem       Int            @default(0)
-  workflow    Workflow       @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  stage       WorkflowStage? @relation(fields: [stageId], references: [id])
+  id           String         @id @default(uuid())
+  workflowId   String
+  stageId      String?
+  nome         String
+  label        String
+  descricao    String?
+  tipo         String         @default("TEXT")
+  obrigatorio  Boolean        @default(false)
+  isStartField Boolean        @default(false)
+  opcoes       Json?
+  ordem        Int            @default(0)
+  workflow     Workflow       @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  stage        WorkflowStage? @relation(fields: [stageId], references: [id])
 }
 
 model WorkflowCard {
@@ -1618,4 +1625,21 @@ model WorkflowEmailTemplate {
   updatedAt   DateTime             @updatedAt
   workflow    Workflow             @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   automations WorkflowAutomation[]
+}
+
+model Documento {
+  id             String       @id @default(uuid())
+  nome           String
+  tipo           String       // ASO, PGR, PCMSO, NR10, etc
+  dataEmissao    DateTime?
+  dataVencimento DateTime?
+  status         String       @default("VALIDO")
+  arquivoUrl     String?
+  funcionarioId  String?
+  clienteId      String?
+  observacoes    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  cliente        Cliente?     @relation(fields: [clienteId], references: [id])
+  funcionario    Funcionario? @relation(fields: [funcionarioId], references: [id])
 }

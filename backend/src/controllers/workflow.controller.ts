@@ -56,7 +56,67 @@ export const getWorkflow = async (req: AuthRequest, res: Response) => {
 };
 
 /**
- * Cria ou atualiza um Card com dados dinâmicos.
+ * Retorna apenas campos públicos (Start Form) de um workflow
+ */
+export const getPublicWorkflow = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const workflow = await (prisma as any).workflow.findUnique({
+      where: { id },
+      include: {
+        fields: { 
+          where: { isStartField: true },
+          orderBy: { ordem: 'asc' } 
+        }
+      }
+    });
+
+    if (!workflow) return res.status(404).json({ error: 'Workflow não encontrado' });
+    res.json(workflow);
+  } catch (error: any) {
+    console.error('[WorkflowController] getPublicWorkflow error:', error.message);
+    res.status(500).json({ error: 'Erro ao buscar dados públicos' });
+  }
+};
+
+/**
+ * Cria um card a partir de um formulário público.
+ */
+export const createPublicCard = async (req: AuthRequest, res: Response) => {
+  try {
+    const { workflowId, titulo, dados } = req.body;
+
+    if (!workflowId) return res.status(400).json({ error: 'workflowId é obrigatório' });
+
+    // Buscar a primeira fase para inserir o card
+    const firstStage = await (prisma as any).workflowStage.findFirst({
+      where: { workflowId },
+      orderBy: { ordem: 'asc' }
+    });
+
+    if (!firstStage) return res.status(404).json({ error: 'Nenhuma fase configurada neste workflow' });
+
+    const card = await (prisma as any).workflowCard.create({
+      data: { 
+        workflowId, 
+        stageId: firstStage.id, 
+        titulo: titulo || 'Nova Inscrição Pública', 
+        dados: dados || {} 
+      }
+    });
+
+    // Disparar automações de entrada na fase
+    workflowAutomationService.processMove(card.id, firstStage.id);
+
+    return res.status(201).json(card);
+  } catch (error: any) {
+    console.error('[WorkflowController] createPublicCard error:', error.message);
+    res.status(500).json({ error: 'Erro ao processar sua inscrição' });
+  }
+};
+
+/**
+ * Cria ou atualiza um Card com dados dinâmicos (Interno).
  */
 export const upsertCard = async (req: AuthRequest, res: Response) => {
   try {

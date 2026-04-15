@@ -130,6 +130,9 @@ export default function SegurancaTrabalhoPage() {
                             <Plus className="w-4 h-4" /> Novo Treinamento
                         </button>
                     )}
+                    <a href="/integracoes" className="bg-indigo-50 text-indigo-600 border border-indigo-200 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-tighter flex items-center gap-2 hover:bg-indigo-100 transition-all">
+                        <ShieldCheck className="w-4 h-4" /> Gestão de Integrações
+                    </a>
                 </div>
             </div>
 

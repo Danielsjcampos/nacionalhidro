@@ -4,7 +4,7 @@ import api from '../../services/api';
 import { 
   Plus, Loader2, MoreVertical, ChevronRight, 
   Settings, Database, Filter, Search, X, 
-  Save, AlertCircle, CheckCircle2, Layout, Mail
+  Save, AlertCircle, CheckCircle2, Layout, Mail, Link, Copy
 } from 'lucide-react';
 import FormRenderer from '../../components/Workflow/FormRenderer';
 
@@ -129,8 +129,21 @@ export default function WorkflowBoard() {
             Templates
           </button>
           <button 
+            onClick={() => {
+                const url = `${window.location.origin}/workflow/apply/${workflowId}`;
+                navigator.clipboard.writeText(url);
+                alert('Link de inscrição copiado com sucesso!');
+            }}
+            className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-100 rounded-lg text-blue-600 text-xs font-bold transition-all border border-blue-100 bg-blue-50/50"
+            title="Copiar Link Público de Inscrição"
+          >
+            <Link className="w-4 h-4" />
+            Link Público
+          </button>
+          <button 
             onClick={() => window.location.href = `/workflows/${workflowId}/settings`}
             className="p-2 hover:bg-gray-100 rounded-full text-gray-600"
+            title="Configurações do Workflow"
           >
             <Settings className="w-5 h-5" />
           </button>
@@ -294,9 +307,20 @@ export default function WorkflowBoard() {
                 <h2 className="text-lg font-bold text-gray-800">
                   {selectedCard ? 'Editar Card' : 'Novo Card'}
                 </h2>
-                <p className="text-xs text-gray-500 uppercase font-black tracking-widest mt-1">
-                  Fase: {workflow.stages.find((s: any) => s.id === selectedStageId)?.nome}
-                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest">
+                    Fase Atual:
+                  </p>
+                  <select
+                    className="text-[10px] font-bold text-blue-600 bg-blue-50 border-none rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-blue-400"
+                    value={selectedStageId}
+                    onChange={(e) => setSelectedStageId(e.target.value)}
+                  >
+                    {workflow.stages.map((s: any) => (
+                      <option key={s.id} value={s.id}>{s.nome}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <button 
                 onClick={() => setShowCardModal(false)}
@@ -323,7 +347,11 @@ export default function WorkflowBoard() {
 
                 {/* DYNAMIC FORM RENDERER */}
                 <FormRenderer 
-                  fields={workflow.fields.filter((f: any) => !f.stageId || f.stageId === selectedStageId)}
+                  fields={
+                    !selectedCard 
+                      ? workflow.fields.filter((f: any) => f.isStartField) // Somente campos de entrada no Novo
+                      : workflow.fields.filter((f: any) => f.stageId === selectedStageId || f.isStartField) // Todos da fase + entrada na edição
+                  }
                   values={formData}
                   onChange={(nome, value) => setFormData({ ...formData, [nome]: value })}
                 />

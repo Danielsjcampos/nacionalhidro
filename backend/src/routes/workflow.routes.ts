@@ -11,6 +11,10 @@ import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
 
+// Rotas Públicas (Sem Autenticação)
+router.get('/public/:id', getPublicWorkflow);
+router.post('/public/apply', createPublicCard);
+
 router.use(authenticate);
 
 router.get('/', listWorkflows);

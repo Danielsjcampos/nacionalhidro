@@ -62,6 +62,8 @@ import Agendamentos from './pages/Agendamentos';
 import WorkflowList from './pages/Workflow/WorkflowList';
 import WorkflowBoard from './pages/Workflow/WorkflowBoard';
 import WorkflowSettings from './pages/Workflow/WorkflowSettings';
+import PublicWorkflowForm from './pages/Workflow/PublicWorkflowForm';
+import IntegracoesPage from './pages/IntegracoesPage';
 
 // Route-to-permission mapping
 const routePermissions: Record<string, string[]> = {
@@ -88,6 +90,7 @@ const routePermissions: Record<string, string[]> = {
   '/recrutamento': ['rh'], '/admissao': ['rh', 'dp'],
   '/ferias': ['rh', 'dp'], '/desligamento': ['rh', 'dp'],
   '/aso-controle': ['rh'], '/relatorios-rh': ['rh', 'dp'],
+  '/integracoes': ['rh', 'dp'],
   '/ponto': ['rh', 'dp'], '/triagem-ia': ['rh'],
   '/workflows': ['rh', 'dp', 'admin'],
 };
@@ -133,6 +136,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/inscricao/:vagaId" element={<InscricaoPublica />} />
+        <Route path="/workflow/apply/:workflowId" element={<PublicWorkflowForm />} />
         <Route path="/admissao-portal/:id" element={<PortalAdmissao />} />
         <Route path="/escala" element={<ProtectedRoute><Escala /></ProtectedRoute>} />
         <Route path="/contratos" element={<ProtectedRoute><Contratos /></ProtectedRoute>} />
@@ -185,6 +189,7 @@ function App() {
         <Route path="/desligamento" element={<ProtectedRoute><DesligamentoPage /></ProtectedRoute>} />
         <Route path="/relatorios-rh" element={<ProtectedRoute><RelatoriosRHPage /></ProtectedRoute>} />
         <Route path="/aso-controle" element={<ProtectedRoute><ASOControlePage /></ProtectedRoute>} />
+        <Route path="/integracoes" element={<ProtectedRoute><IntegracoesPage /></ProtectedRoute>} />
         <Route path="/agendamentos" element={<ProtectedRoute><Agendamentos /></ProtectedRoute>} />
         <Route path="/workflows" element={<ProtectedRoute><WorkflowList /></ProtectedRoute>} />
         <Route path="/workflows/:id" element={<ProtectedRoute><WorkflowBoard /></ProtectedRoute>} />

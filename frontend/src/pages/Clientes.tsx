@@ -18,7 +18,10 @@ const TABS = [
   { id: 'documentos', label: 'Documentos', icon: FileUp },
 ];
 
+const CATEGORIAS_RH = ['MOTORISTA', 'OPERADOR', 'AJUDANTE', 'JATISTA', 'ADMINISTRATIVO', 'LIDER'];
+
 export default function Clientes() {
+  // ... existing state ...
   const [clientes, setClientes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,6 +32,7 @@ export default function Clientes() {
   // Form State
   const [isListCollapsed, setIsListCollapsed] = useState(false);
   const [formData, setFormData] = useState<any>({});
+  const [cargos, setCargos] = useState<any[]>([]);
 
   const fetchClientes = async () => {
     try {
@@ -42,8 +46,18 @@ export default function Clientes() {
     }
   };
 
+  const fetchCargos = async () => {
+    try {
+      const response = await api.get('/cargos');
+      setCargos(response.data);
+    } catch (err) {
+      console.error('Failed to fetch cargos', err);
+    }
+  };
+
   useEffect(() => {
     fetchClientes();
+    fetchCargos();
   }, [searchTerm]);
 
   const handleOpenCliente = async (cliente: any) => {
@@ -536,15 +550,29 @@ export default function Clientes() {
                         <Users className="w-4 h-4 text-emerald-500" />
                         <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Integrações / Treinamentos Exigidos (RH)</h3>
                       </div>
-                      <div className="space-y-4">
-                        <p className="text-xs text-slate-500">
-                          Quais integrações ou aptidões específicas este cliente exige dos funcionários para liberar a entrada? (Ex: NR-35, Integração Ambev)
-                        </p>
-                        
-                        <div className="flex flex-col gap-2">
-                          {(formData.integracoesExigidas || []).map((nomeItem: string, idx: number) => (
-                            <div key={idx} className="flex items-center gap-2">
-                              <span className="bg-emerald-100 text-emerald-700 font-bold text-xs px-3 py-1.5 rounded-lg border border-emerald-200 flex-1 flex items-center justify-between">
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Prazo de Integração (Dias)</label>
+                            <input
+                              type="number"
+                              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold"
+                              placeholder="Ex: 365"
+                              value={formData.prazoIntegracao || ''}
+                              onChange={(e) => setFormData({ ...formData, prazoIntegracao: parseInt(e.target.value) || 0 })}
+                            />
+                            <p className="text-[9px] text-slate-400 italic font-medium">Define a validade automática da integração para este cliente.</p>
+                          </div>
+                        </div>
+
+                        {/* List Component for Integrations */}
+                        <div className="space-y-3">
+                          <label className="text-[11px] font-black text-slate-700 uppercase tracking-tighter">1. Nome das Integrações/Treinamentos</label>
+                          <p className="text-[10px] text-slate-400">Adicione os nomes das integrações exigidas (ex: Integração Suzano, NR-35).</p>
+                          
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {(formData.integracoesExigidas || []).map((nomeItem: string, idx: number) => (
+                              <span key={idx} className="bg-emerald-100 text-emerald-700 font-bold text-[10px] px-3 py-1.5 rounded-lg border border-emerald-200 flex items-center gap-2 animate-in fade-in zoom-in duration-200">
                                 {nomeItem}
                                 <button
                                   type="button"
@@ -555,51 +583,89 @@ export default function Clientes() {
                                   }}
                                   className="text-emerald-400 hover:text-red-500 transition-colors"
                                 >
-                                  <Trash2 className="w-4 h-4" />
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               </span>
-                            </div>
-                          ))}
-                        </div>
+                            ))}
+                          </div>
 
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            id="novaIntegracaoInput"
-                            placeholder="Nome do Treinamento/Integração"
-                            className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all flex-1"
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                const val = e.currentTarget.value.trim();
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              id="novaIntegracaoInput"
+                              placeholder="Digite o nome e pressione Enter"
+                              className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all flex-1"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const val = e.currentTarget.value.trim();
+                                  if (val) {
+                                    const current = formData.integracoesExigidas || [];
+                                    if (!current.includes(val)) {
+                                      setFormData({ ...formData, integracoesExigidas: [...current, val] });
+                                    }
+                                    e.currentTarget.value = '';
+                                  }
+                                }
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 transition-colors"
+                              onClick={() => {
+                                const input = document.getElementById('novaIntegracaoInput') as HTMLInputElement;
+                                const val = input?.value.trim();
                                 if (val) {
                                   const current = formData.integracoesExigidas || [];
                                   if (!current.includes(val)) {
                                     setFormData({ ...formData, integracoesExigidas: [...current, val] });
                                   }
-                                  e.currentTarget.value = '';
+                                  input.value = '';
                                 }
-                              }
-                            }}
-                          />
-                          <button
-                            type="button"
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 transition-colors"
-                            onClick={() => {
-                              const input = document.getElementById('novaIntegracaoInput') as HTMLInputElement;
-                              const val = input?.value.trim();
-                              if (val) {
-                                const current = formData.integracoesExigidas || [];
-                                if (!current.includes(val)) {
-                                  setFormData({ ...formData, integracoesExigidas: [...current, val] });
-                                }
-                                input.value = '';
-                              }
-                            }}
-                          >
-                            <Plus className="w-4 h-4" />
-                            Adicionar
-                          </button>
+                              }}
+                            >
+                              <Plus className="w-4 h-4" />
+                              Adicionar
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Checklist Component for Categories */}
+                        <div className="pt-4 border-t border-slate-200/50 space-y-3">
+                          <label className="text-[11px] font-black text-slate-700 uppercase tracking-tighter">2. Funções que Exigem Integração</label>
+                          <p className="text-[10px] text-slate-400">Marque quais funções são obrigadas a ter estas integrações para este cliente.</p>
+                          
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            {CATEGORIAS_RH.map((cat) => (
+                              <label key={cat} className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer group ${
+                                (formData.categoriasExigidas || []).includes(cat)
+                                  ? 'bg-indigo-50 border-indigo-200 ring-1 ring-indigo-200 shadow-sm'
+                                  : 'bg-white border-slate-200 hover:border-indigo-200 hover:bg-slate-50'
+                              }`}>
+                                <div className="relative flex items-center justify-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={(formData.categoriasExigidas || []).includes(cat)}
+                                    onChange={(e) => {
+                                      const current = formData.categoriasExigidas || [];
+                                      if (e.target.checked) {
+                                        setFormData({ ...formData, categoriasExigidas: [...current, cat] });
+                                      } else {
+                                        setFormData({ ...formData, categoriasExigidas: current.filter((c: string) => c !== cat) });
+                                      }
+                                    }}
+                                    className="peer appearance-none w-5 h-5 rounded-md border-2 border-slate-300 bg-white checked:bg-indigo-600 checked:border-indigo-600 transition-all"
+                                  />
+                                  <Plus className="w-3 h-3 text-white absolute opacity-0 peer-checked:opacity-100 transition-opacity rotate-45" />
+                                </div>
+                                <span className={`text-[11px] font-black uppercase transition-colors ${
+                                  (formData.categoriasExigidas || []).includes(cat) ? 'text-indigo-700' : 'text-slate-600'
+                                }`}>
+                                  {cat}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </section>
