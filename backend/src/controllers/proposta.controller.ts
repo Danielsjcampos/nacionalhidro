@@ -126,8 +126,11 @@ export const createProposta = async (req: AuthRequest, res: Response) => {
     } = req.body;
 
     const proposta = await prisma.$transaction(async (tx) => {
-      // Automatic code generation if not provided
-      const codigo = rest.codigo || await SequenceService.generateCode('proposta', 'PROP');
+      // Automatic code generation if not provided or if it's the UI placeholder
+      let codigo = rest.codigo;
+      if (!codigo || codigo.includes('-000')) {
+        codigo = await SequenceService.generateCode('proposta', 'PROP');
+      }
 
       // Create the main proposal
       const novaProposta = await tx.proposta.create({
