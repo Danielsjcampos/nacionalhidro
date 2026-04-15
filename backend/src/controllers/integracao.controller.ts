@@ -242,10 +242,10 @@ export const getIntegracoesPendentes = async (req: AuthRequest, res: Response) =
     const pendencias: any[] = [];
 
     for (const cliente of clientesExigentes) {
-      const integraExigidas = (cliente.integracoesExigidas as string[]) || [];
-      const catsExigidas = (cliente.categoriasExigidas as string[]) || [];
+      const integraExigidas = Array.isArray(cliente.integracoesExigidas) ? (cliente.integracoesExigidas as string[]) : [];
+      const catsExigidas = Array.isArray(cliente.categoriasExigidas) ? (cliente.categoriasExigidas as string[]) : [];
 
-      if (integraExigidas.length === 0 || catsExigidas.length === 0) continue;
+      if (integraExigidas.length === 0 && catsExigidas.length === 0) continue;
 
       // Filtrar funcionários que pertencem às categorias exigidas deste cliente
       const funcionariosAlvo = funcionariosAtivos.filter(f => 

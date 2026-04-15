@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { HardHat, Trash2, Plus, X, FileText, CheckCircle, AlertTriangle } from 'lucide-react';
+import { HardHat, Trash2, Plus, X, FileText, CheckCircle, AlertTriangle, ShieldCheck } from 'lucide-react';
 import api from '../services/api';
 
 interface EPI { id: string; nome: string; descricao: string; ca: string; validadeDias: number; }
