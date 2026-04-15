@@ -96,7 +96,7 @@ export const createOS = async (req: AuthRequest, res: Response) => {
 
     const proposta = await prisma.proposta.findUnique({
       where: { id: propostaId },
-      select: { id: true, status: true, clienteId: true }
+      select: { id: true, status: true, clienteId: true, franquiaHoras: true }
     });
 
     if (!proposta) {
@@ -127,6 +127,7 @@ export const createOS = async (req: AuthRequest, res: Response) => {
           ...rest,
           codigo,
           propostaId: propostaId || undefined,
+          minimoHoras: proposta.franquiaHoras ? Number(proposta.franquiaHoras) : undefined,
           dataInicial: dataInicial ? new Date(dataInicial) : new Date(),
           entrada: entrada ? new Date(entrada) : undefined,
           saida: saida ? new Date(saida) : undefined,

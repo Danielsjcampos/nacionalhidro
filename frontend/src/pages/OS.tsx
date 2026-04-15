@@ -33,16 +33,33 @@ const STATUS_MAP: Record<OsTab, string[]> = {
   canceladas: ['CANCELADA'],
 };
 
-function calcHorasTotais(entrada: string, saida: string, almoco: string, descontarAlmoco: boolean): { total: string, adicional: string } {
-  if (!entrada || !saida) return { total: '---', adicional: '---' };
+function calcHorasTotais(entrada: string, saida: string, almoco: string, descontarAlmoco: boolean, minimoHorasStr: string): { total: string, adicional: string, diffRaw: number, adicRaw: number } {
+  if (!entrada || !saida) return { total: '---', adicional: '---', diffRaw: 0, adicRaw: 0 };
   const e = new Date(entrada).getTime();
   const s = new Date(saida).getTime();
-  if (isNaN(e) || isNaN(s) || s <= e) return { total: '---', adicional: '---' };
+  if (isNaN(e) || isNaN(s) || s <= e) return { total: '---', adicional: '---', diffRaw: 0, adicRaw: 0 };
+  
   let diff = (s - e) / 3600000;
   if (descontarAlmoco && almoco) diff -= 1;
   const h = Math.floor(diff);
   const m = Math.round((diff - h) * 60);
-  return { total: `${h}h${m > 0 ? m + 'm' : ''}`, adicional: '---' };
+  const totalStr = `${h}h${m > 0 ? m + 'm' : ''}`;
+
+  let adicionalStr = '---';
+  let adicRaw = 0;
+  const minHoras = Number(minimoHorasStr);
+  if (!isNaN(minHoras) && minHoras > 0) {
+    if (diff > minHoras) {
+      adicRaw = diff - minHoras;
+      const ha = Math.floor(adicRaw);
+      const ma = Math.round((adicRaw - ha) * 60);
+      adicionalStr = `${ha}h${ma > 0 ? ma + 'm' : ''}`;
+    } else {
+      adicionalStr = '0h';
+    }
+  }
+
+  return { total: totalStr, adicional: adicionalStr, diffRaw: diff, adicRaw };
 }
 
 export default function OS() {
@@ -123,7 +140,21 @@ export default function OS() {
       ]);
 
       setOsList(Array.isArray(osRes.data) ? osRes.data : []);
-      setPropostas(Array.isArray(propsRes.data) ? propsRes.data : (propsRes.data?.data || []));
+      let fetchedPropostas = Array.isArray(propsRes.data) ? propsRes.data : (propsRes.data?.data || []);
+      
+      // M03: Esconder propostas supersedidas. Mostrar apenas a revisão mais alta de cada código.
+      const mapP = new Map<string, any>();
+      fetchedPropostas.forEach((p: any) => {
+          if (!p.codigo) {
+              mapP.set(p.id, p); // Se não tem código, mantém
+              return;
+          }
+          const current = mapP.get(p.codigo);
+          if (!current || (p.revisao > current.revisao)) {
+              mapP.set(p.codigo, p);
+          }
+      });
+      setPropostas(Array.from(mapP.values()));
       setProdutos(Array.isArray(prodRes.data) ? prodRes.data : []);
     } catch (err) {
       console.error('Erro ao buscar dados da OS', err);
@@ -430,7 +461,13 @@ export default function OS() {
     try {
       setSaving(true);
       const status = baixarEstoque ? 'BAIXADA' : (baixar ? 'EM_EXECUCAO' : 'ABERTA');
-      const payload: any = { ...form, status };
+      
+      const payload: any = { 
+        ...form, 
+        status,
+        horasTotais: horas.diffRaw > 0 ? Number(horas.diffRaw.toFixed(2)) : undefined,
+        horasAdicionais: horas.adicRaw > 0 ? Number(horas.adicRaw.toFixed(2)) : undefined,
+      };
       // Incluir materiais utilizados se estiver baixando com estoque
       if (baixarEstoque && materiaisUtilizados.length > 0) {
         payload.materiaisUtilizados = materiaisUtilizados.filter((m: any) => m.produtoId && m.quantidade > 0);
@@ -481,7 +518,7 @@ export default function OS() {
     }
   };
 
-  const horas = calcHorasTotais(form.entrada, form.saida, form.almoco, form.descontarAlmoco);
+  const horas = calcHorasTotais(form.entrada, form.saida, form.almoco, form.descontarAlmoco, form.minimoHoras);
 
   // ── Tab config ──────────────────────────────────────────────────
   const tabs: { id: OsTab; label: string; color: string; dotColor: string; count: number }[] = [

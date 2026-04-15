@@ -1108,18 +1108,29 @@ export default function Histograma() {
                                                         try {
                                                             const res = await api.get(`/logistica/validar-os/${encodeURIComponent(codigo)}`);
                                                             if (res.data.valida) {
-                                                                // Auto-fill client from OS
-                                                                if (res.data.os?.clienteId && !modalEscala.clienteId) {
-                                                                    setModalEscala((prev: any) => ({ ...prev, clienteId: res.data.os.clienteId }));
+                                                                const osClienteId = res.data.os?.clienteId;
+                                                                if (osClienteId) {
+                                                                    // VALIDAÇÃO ESTRITA M01: Bloquear divergência de cliente (Bug Tainara)
+                                                                    if (modalEscala.clienteId && modalEscala.clienteId !== osClienteId) {
+                                                                        showToast(`❌ BLOQUEADO: A OS ${codigo} pertence a outro cliente! A escala não pode ser misturada.`);
+                                                                        setModalEscala((prev: any) => ({ ...prev, codigoOS: '' }));
+                                                                        return;
+                                                                    }
+                                                                    // Auto-fill caso vazio
+                                                                    if (!modalEscala.clienteId) {
+                                                                        setModalEscala((prev: any) => ({ ...prev, clienteId: osClienteId }));
+                                                                    }
                                                                 }
                                                                 if (res.data.jaVinculada) {
-                                                                    showToast(`⚠️ OS ${codigo} já possui ${res.data.escalasVinculadas} escala(s) vinculada(s).`);
+                                                                    showToast(`⚠️ OS ${codigo} já possui ${res.data.escalasVinculadas} escala(s) vinculada(s). (Multi-turno detectado)`);
                                                                 }
                                                             } else {
-                                                                showToast(res.data.error || `OS ${codigo} não encontrada.`);
+                                                                showToast(`❌ OS Inválida: ${res.data.error || 'A OS não foi encontrada.'}`);
+                                                                setModalEscala((prev: any) => ({ ...prev, codigoOS: '' }));
                                                             }
                                                         } catch {
-                                                            // silent — validation is advisory
+                                                            showToast(`❌ Falha de conexão ao validar a OS ${codigo}. Tente novamente.`);
+                                                            setModalEscala((prev: any) => ({ ...prev, codigoOS: '' }));
                                                         }
                                                     }}
                                                     placeholder="Ex: OS-2026-0001"
