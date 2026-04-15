@@ -56,9 +56,8 @@ export const checkEmployeeAvailability = async (
                 return { disponivel: false, motivoIndisponibilidade: 'Este veículo exige motorista com certificado MOPP ativo.' };
             }
         }
+        }
     }
-    }
-  }
 
   // 3. Bloqueio Global: Documentos da Empresa (PGR / PCMSO)
   const docsEmpresa = await prisma.documento.findMany({
@@ -157,4 +156,4 @@ export const checkEmployeeAvailability = async (
   }
 
   return result;
-};
+}

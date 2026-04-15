@@ -109,6 +109,8 @@ export const getMedicaoEmailHistory = async (req: AuthRequest, res: Response) =>
 // ─── CREATE MEDICAO ─────────────────────────────────────────────
 export const createMedicao = async (req: AuthRequest, res: Response) => {
     try {
+        const { 
+            clienteId, osIds, subitens, periodo, observacoes,
             totalServico, totalHora, adicional, desconto,
             cte, solicitante, vendedorId, porcentagemRL: overridePct,
             tipoDocumento
@@ -200,9 +202,10 @@ export const createMedicao = async (req: AuthRequest, res: Response) => {
 export const updateMedicao = async (req: AuthRequest, res: Response) => {
     try {
         const id = req.params.id as string;
+        const {
             totalServico, totalHora, adicional, desconto,
             cte, solicitante, vendedorId, porcentagemRL: overridePct,
-            osIds, tipoDocumento // OS a adicionar/remover
+            osIds, tipoDocumento, periodo, observacoes, subitens // OS a adicionar/remover
         } = req.body;
 
         const current = await prisma.medicao.findUnique({

@@ -339,7 +339,7 @@ export default function IntegracoesPage() {
             )}
           </section>
         </>
-      ) : (
+      ) : activeTab === 'pendencias' ? (
         /* Pendencias View */
         <section className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col overflow-hidden min-h-[400px]">
           <div className="bg-indigo-50/50 p-6 border-b border-indigo-100">
@@ -496,7 +496,7 @@ export default function IntegracoesPage() {
             )}
           </div>
         </section>
-      )}
+      ) : null}
 
       {/* Config Modal */}
       {showConfig && (
