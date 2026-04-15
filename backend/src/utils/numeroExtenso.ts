@@ -2,8 +2,8 @@
  * Converte um valor numérico para sua representação por extenso em reais.
  * Portado do sistema legatário Nacional Hidro.
  */
-export const numeroExtenso = (vlr: number | string): string => {
-  const Num = typeof vlr === 'string' ? parseFloat(vlr) : vlr;
+export const numeroExtenso = (vlr: any): string => {
+  const Num = Number(vlr);
   
   if (isNaN(Num) || Num === 0) {
     return 'zero reais';
