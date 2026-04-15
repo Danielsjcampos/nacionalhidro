@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
 import { 
-  Users, Search, Filter, AlertTriangle, CheckCircle, Clock, 
+  Users, Search, Filter, AlertTriangle, CheckCircle, 
   ExternalLink, Loader2, RefreshCw, FileText, ChevronRight, ShieldCheck
 } from 'lucide-react';
 

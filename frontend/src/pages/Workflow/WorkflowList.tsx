@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { 
   Plus, Loader2, Database, Layout, 
-  ArrowRight, Settings, Trash2, Import
+  ArrowRight, Settings, Import, X
 } from 'lucide-react';
 
 export default function WorkflowList() {

@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../../services/api';
 import { 
-  Plus, Loader2, MoreVertical, ChevronRight, 
-  Settings, Database, Filter, Search, X, 
-  Save, AlertCircle, CheckCircle2, Layout, Mail, Link, Copy
+  Plus, Loader2, MoreVertical, 
+  Settings, Search, X, 
+  Save, AlertCircle, CheckCircle2, Layout, Mail, Link
 } from 'lucide-react';
 import FormRenderer from '../../components/Workflow/FormRenderer';
 
