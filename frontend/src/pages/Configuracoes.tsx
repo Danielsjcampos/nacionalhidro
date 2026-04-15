@@ -553,7 +553,7 @@ const ConfigForm = () => {
                                 <div className="space-y-1">
                                     <p className="text-xs text-blue-900 font-bold">Instruções de Configuração:</p>
                                     <p className="text-[11px] text-blue-700 leading-relaxed">
-                                        1. No Pipefy, vá em **Recursos de Organização** > **Service Accounts**.<br />
+                                        1. No Pipefy, vá em **Recursos de Organização** &gt; **Service Accounts**.<br />
                                         2. Crie ou selecione uma conta e gere as credenciais **OAuth 2.0**.<br />
                                         3. Insira o Client ID e Secret acima e clique em **Salvar Alterações**.
                                     </p>

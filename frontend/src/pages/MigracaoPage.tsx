@@ -177,6 +177,3 @@ function PipefyImportCard() {
         </div>
     );
 }
-        </div>
-    );
-}
