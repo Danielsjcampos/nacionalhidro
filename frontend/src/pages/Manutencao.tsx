@@ -304,22 +304,22 @@ export default function Manutencao() {
                           {pecasUtilizadas.map((peca: any, idx: number) => {
                             // const prod = produtos.find((p: any) => p.id === peca.produtoId);
                             return (
-                              <div key={idx} className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 mb-2 items-end">
+                              <div key={idx} className="grid grid-cols-[3fr_1fr_auto] gap-4 mb-2 items-end">
                                 <div className="space-y-1">
-                                  {idx === 0 && <label className="text-[9px] font-black text-slate-400 uppercase">Produto</label>}
+                                  {idx === 0 && <label className="text-[9px] font-black text-slate-400 uppercase">Produto Selecionado</label>}
                                   <select
                                     value={peca.produtoId}
                                     onChange={e => updatePeca(idx, 'produtoId', e.target.value)}
                                     className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-3 py-2.5 text-xs font-bold outline-none focus:border-amber-500"
                                   >
-                                    <option value="">Selecione...</option>
+                                    <option value="">Selecione a Peça...</option>
                                     {produtos.map((p: any) => (
                                       <option key={p.id} value={p.id}>{p.nome} (Est: {p.estoqueAtual})</option>
                                     ))}
                                   </select>
                                 </div>
                                 <div className="space-y-1">
-                                  {idx === 0 && <label className="text-[9px] font-black text-slate-400 uppercase">Qtd</label>}
+                                  {idx === 0 && <label className="text-[9px] font-black text-slate-400 uppercase">Quantidade</label>}
                                   <input
                                     type="number" min={0.01} step={0.01}
                                     value={peca.quantidade}
@@ -327,25 +327,8 @@ export default function Manutencao() {
                                     className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-3 py-2.5 text-xs font-bold outline-none focus:border-amber-500"
                                   />
                                 </div>
-                                <div className="space-y-1">
-                                  {idx === 0 && <label className="text-[9px] font-black text-slate-400 uppercase">Val. Unit.</label>}
-                                  <input
-                                    type="number" min={0} step={0.01}
-                                    value={peca.valorUnitario}
-                                    onChange={e => updatePeca(idx, 'valorUnitario', Number(e.target.value))}
-                                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-3 py-2.5 text-xs font-bold outline-none focus:border-amber-500"
-                                  />
-                                </div>
-                                <div className="space-y-1">
-                                  {idx === 0 && <label className="text-[9px] font-black text-slate-400 uppercase">Total</label>}
-                                  <input
-                                    readOnly
-                                    value={`R$ ${((Number(peca.quantidade) || 0) * (Number(peca.valorUnitario) || 0)).toLocaleString('pt-BR')}`}
-                                    className="w-full bg-slate-100 border-2 border-slate-100 rounded-xl px-3 py-2.5 text-xs font-bold italic text-emerald-700"
-                                  />
-                                </div>
                                 <button onClick={() => removePeca(idx)} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
-                                  <X className="w-4 h-4" />
+                                  <X className="w-5 h-5 mb-1 text-slate-400" />
                                 </button>
                               </div>
                             );
@@ -358,22 +341,9 @@ export default function Manutencao() {
                           )}
                        </div>
 
-                       <div className="grid grid-cols-2 gap-6">
+                       <div className="grid grid-cols-1 gap-6">
                           <div className="space-y-2">
-                             <label className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest">Custo de Peças (R$)</label>
-                             <input 
-                                type="number" 
-                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3.5 text-sm font-black italic focus:border-emerald-500 outline-none"
-                                value={pecasUtilizadas.length > 0 ? totalPecas : (selectedMaint.custoPecas || 0)}
-                                readOnly={pecasUtilizadas.length > 0}
-                                onChange={e => pecasUtilizadas.length === 0 && setSelectedMaint({...selectedMaint, custoPecas: Number(e.target.value)})}
-                             />
-                             {pecasUtilizadas.length > 0 && (
-                               <p className="text-[9px] text-amber-600 font-bold italic">Auto-calculado das peças acima</p>
-                             )}
-                          </div>
-                          <div className="space-y-2">
-                             <label className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest">Mão de Obra (R$)</label>
+                             <label className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest flex items-center gap-2">Mão de Obra Externa (R$) <span className="text-[8px] tracking-normal px-2 py-0.5 bg-slate-100 rounded-full">Se aplicável</span></label>
                              <input 
                                 type="number" 
                                 className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3.5 text-sm font-black italic focus:border-emerald-500 outline-none"
@@ -383,35 +353,33 @@ export default function Manutencao() {
                           </div>
                        </div>
 
-                       <div className="bg-emerald-50 p-6 rounded-2xl border-2 border-emerald-100 shadow-inner flex items-center justify-between">
+                       <div className="bg-emerald-50 p-6 rounded-2xl border-2 border-emerald-100 shadow-inner">
                           <div>
-                             <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest italic">Valor Total Calculado</p>
-                             <h4 className="text-3xl font-black text-emerald-700 italic tracking-tighter">R$ {((pecasUtilizadas.length > 0 ? totalPecas : Number(selectedMaint.custoPecas || 0)) + Number(selectedMaint.custoMaoObra || 0)).toLocaleString('pt-BR')}</h4>
+                             <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest italic">Valor Total (Mão de Obra)</p>
+                             <h4 className="text-3xl font-black text-emerald-700 italic tracking-tighter">R$ {Number(selectedMaint.custoMaoObra || 0).toLocaleString('pt-BR')}</h4>
                           </div>
-                          <DollarSign className="w-10 h-10 text-emerald-200" />
-                       </div>
-
-                       <div className="grid grid-cols-2 gap-6">
-                          <div className="space-y-2">
-                             <label className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest">Situação de Pagamento</label>
-                             <select 
-                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3.5 text-sm font-bold outline-none focus:border-blue-500"
-                                value={selectedMaint.statusFinanceiro}
-                                onChange={e => setSelectedMaint({...selectedMaint, statusFinanceiro: e.target.value})}
-                              >
-                                <option value="PENDENTE">🔴 PENDENTE</option>
-                                <option value="PAGO">🔵 LIQUIDADO</option>
-                             </select>
-                          </div>
-                          <div className="space-y-2">
-                             <label className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest">Data do Pagamento</label>
-                             <input 
-                                type="date" 
-                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3.5 text-sm font-bold" 
-                                value={selectedMaint.dataPagamento ? new Date(selectedMaint.dataPagamento).toISOString().split('T')[0] : ''}
-                                onChange={e => setSelectedMaint({...selectedMaint, dataPagamento: e.target.value})}
-                              />
-                          </div>
+                          <div className="grid grid-cols-2 gap-6 pt-4 border-t border-emerald-200 mt-4">
+                            <div className="space-y-2">
+                               <label className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest">Situação de Pagamento</label>
+                               <select 
+                                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3.5 text-sm font-bold outline-none focus:border-blue-500"
+                                  value={selectedMaint.statusFinanceiro}
+                                  onChange={e => setSelectedMaint({...selectedMaint, statusFinanceiro: e.target.value})}
+                                >
+                                  <option value="PENDENTE">🔴 PENDENTE</option>
+                                  <option value="PAGO">🔵 LIQUIDADO</option>
+                               </select>
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest">Data do Pagamento</label>
+                               <input 
+                                  type="date" 
+                                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3.5 text-sm font-bold" 
+                                  value={selectedMaint.dataPagamento ? new Date(selectedMaint.dataPagamento).toISOString().split('T')[0] : ''}
+                                  onChange={e => setSelectedMaint({...selectedMaint, dataPagamento: e.target.value})}
+                                />
+                            </div>
+                         </div>
                        </div>
                     </div>
                  </section>

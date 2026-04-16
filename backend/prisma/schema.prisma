@@ -370,10 +370,11 @@ model Produto {
   precoVenda    Decimal               @db.Decimal(10, 2)
   estoqueAtual  Decimal               @default(0) @db.Decimal(10, 3)
   estoqueMinimo Decimal               @default(0) @db.Decimal(10, 3)
-  unidadeMedida String                @default("UN")
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
-  movimentacoes MovimentacaoEstoque[]
+  unidadeMedida      String                 @default("UN")
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  movimentacoes      MovimentacaoEstoque[]
+  itensPedidoCompra  ItemPedidoCompra[]
 }
 
 model MovimentacaoEstoque {
@@ -1072,13 +1073,15 @@ model PedidoCompra {
 model ItemPedidoCompra {
   id            String       @id @default(uuid())
   pedidoId      String
+  produtoId     String?
   descricao     String
-  quantidade    Int          @default(1)
+  quantidade    Decimal      @default(1) @db.Decimal(10, 3)
   valorUnitario Decimal      @default(0) @db.Decimal(12, 2)
   valorTotal    Decimal      @default(0) @db.Decimal(12, 2)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   pedido        PedidoCompra @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  produto       Produto?     @relation(fields: [produtoId], references: [id])
 }
 
 model ContaPagar {

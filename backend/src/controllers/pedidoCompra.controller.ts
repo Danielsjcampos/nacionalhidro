@@ -40,10 +40,11 @@ export const createPedido = async (req: Request, res: Response) => {
         valorTotal,
         itens: {
           create: itens.map((item: any) => ({
-            descricao: item.descricao,
-            quantidade: parseInt(item.quantidade),
-            valorUnitario: parseFloat(item.valorUnitario),
-            valorTotal: parseInt(item.quantidade) * parseFloat(item.valorUnitario),
+            produtoId: item.produtoId || null,
+            descricao: item.descricao || "Item de Compra",
+            quantidade: parseFloat(item.quantidade) || 1,
+            valorUnitario: parseFloat(item.valorUnitario) || 0,
+            valorTotal: (parseFloat(item.quantidade) || 1) * (parseFloat(item.valorUnitario) || 0),
           })),
         },
       },
@@ -64,7 +65,7 @@ export const approvePedido = async (req: Request, res: Response) => {
 
     const pedido = await prisma.pedidoCompra.findUnique({
       where: { id },
-      include: { fornecedor: true }
+      include: { fornecedor: true, itens: true }
     });
 
     if (!pedido) return res.status(404).json({ error: 'Pedido não encontrado' });
@@ -94,6 +95,38 @@ export const approvePedido = async (req: Request, res: Response) => {
         where: { id },
         data: { contaPagarId: novaContaPagar.id }
       });
+    }
+
+    // Se RECEBIDO, atualizar o estoque
+    if (status === 'RECEBIDO' && pedido.status !== 'RECEBIDO') {
+      const authReq = req as any;
+      const usuarioId = authReq.user?.userId || authReq.user?.id || null;
+      
+      const txQueries = [];
+      for (const item of pedido.itens) {
+        if (item.produtoId) {
+          txQueries.push(
+            prisma.produto.update({
+              where: { id: item.produtoId },
+              data: { estoqueAtual: { increment: item.quantidade } }
+            })
+          );
+          txQueries.push(
+            prisma.movimentacaoEstoque.create({
+              data: {
+                produtoId: item.produtoId,
+                quantidade: item.quantidade,
+                tipo: 'ENTRADA',
+                motivo: `RECEBIMENTO PEDIDO #${pedido.numero}`,
+                usuarioId: usuarioId
+              }
+            })
+          );
+        }
+      }
+      if (txQueries.length > 0) {
+        await prisma.$transaction(txQueries);
+      }
     }
 
     // Retorna pedido atualizado (o include contaPagar é pego numa busca final para atualizar a interface)

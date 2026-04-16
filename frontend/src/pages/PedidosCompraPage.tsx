@@ -2,7 +2,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useForm, useFieldArray } from 'react-hook-form';
-import { Loader2, Plus, ShoppingCart, CheckCircle, XCircle, Trash2, X, Building2 } from 'lucide-react';
+import { Loader2, Plus, ShoppingCart, CheckCircle, XCircle, Trash2, X, Building2, PackageCheck } from 'lucide-react';
 
 type Pedido = {
   id: string;
@@ -22,6 +22,7 @@ export default function PedidosCompraPage() {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
   const [fornecedores, setFornecedores] = useState<any[]>([]);
+  const [produtos, setProdutos] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
   
   const { register, control, handleSubmit, reset } = useForm({
@@ -38,12 +39,14 @@ export default function PedidosCompraPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [resPedidos, resForn] = await Promise.all([
+      const [resPedidos, resForn, resProd] = await Promise.all([
         api.get('/pedidos-compra'),
-        api.get('/fornecedores')
+        api.get('/fornecedores'),
+        api.get('/estoque').catch(() => ({ data: [] }))
       ]);
       setPedidos(resPedidos.data);
       setFornecedores(resForn.data.filter((f: any) => f.ativo));
+      setProdutos(resProd.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -70,8 +73,10 @@ export default function PedidosCompraPage() {
     if (!confirm(`Deseja alterar o status do pedido para ${status}?`)) return;
     try {
       const res = await api.patch(`/pedidos-compra/${id}/status`, { status });
-      if (res.data?.contaPagarId) {
-          showToast('Pedido aprovado e integrado ao Contas a Pagar com sucesso!');
+      if (status === 'APROVADO') {
+          showToast('Pedido aprovado e encaminhado ao Contas a Pagar!');
+      } else if (status === 'RECEBIDO') {
+          showToast('Pedido recebido! Estoque físico foi atualizado.');
       }
       fetchData();
     } catch (err) {
@@ -125,6 +130,7 @@ export default function PedidosCompraPage() {
                 <td className="px-6 py-4">
                   <div className="flex flex-col gap-1">
                     <span className={`px-2.5 py-1 text-[10px] items-center text-center font-black rounded-full uppercase tracking-widest inline-flex self-start ${
+                      pedido.status === 'RECEBIDO' ? 'bg-indigo-100 text-indigo-700' :
                       pedido.status === 'APROVADO' ? 'bg-emerald-100 text-emerald-700' :
                       pedido.status === 'REPROVADO' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
                     }`}>
@@ -157,6 +163,11 @@ export default function PedidosCompraPage() {
                           <XCircle className="w-5 h-5" />
                         </button>
                       </>
+                    )}
+                    {pedido.status === 'APROVADO' && (
+                      <button onClick={() => handleStatusChange(pedido.id, 'RECEBIDO')} className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors" title="Marcar como Recebido (Dá Entrada no Estoque)">
+                        <PackageCheck className="w-5 h-5" />
+                      </button>
                     )}
                     <button onClick={() => handleDelete(pedido.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Excluir">
                       <Trash2 className="w-5 h-5" />
@@ -216,15 +227,29 @@ export default function PedidosCompraPage() {
                   
                   <div className="space-y-4">
                     {fields.map((field, index) => (
-                      <div key={field.id} className="flex gap-4 items-center bg-slate-50 p-4 rounded-xl border border-slate-200 relative group">
-                        <div className="flex-1">
-                          <input {...register(`itens.${index}.descricao`, { required: true })} placeholder="Nome do Produto / Serviço" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                      <div key={field.id} className="flex gap-2 items-center bg-slate-50 p-4 rounded-xl border border-slate-200 relative group flex-wrap">
+                        <div className="w-full mb-2">
+                           <select {...register(`itens.${index}.produtoId`)} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 text-slate-700 bg-white" onChange={(e) => {
+                             const nome = produtos.find(p => p.id === e.target.value)?.nome;
+                             if(nome) {
+                               const el = document.querySelector(`input[name="itens.${index}.descricao"]`) as HTMLInputElement;
+                               if(el) el.value = nome;
+                             }
+                           }}>
+                             <option value="">(Sem vínculo com estoque)</option>
+                             {produtos.map(p => <option key={p.id} value={p.id}>{p.nome} - Est: {p.estoqueAtual}</option>)}
+                           </select>
                         </div>
-                        <div className="w-24">
-                          <input type="number" {...register(`itens.${index}.quantidade`, { required: true })} placeholder="Qtd" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" min="1" />
-                        </div>
-                        <div className="w-32">
-                          <input type="number" step="0.01" {...register(`itens.${index}.valorUnitario`, { required: true })} placeholder="R$ Unit." className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" min="0" />
+                        <div className="flex-1 flex gap-2">
+                          <div className="flex-[2]">
+                            <input {...register(`itens.${index}.descricao`, { required: true })} placeholder="Nome / Descrição" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                          </div>
+                          <div className="flex-1">
+                            <input type="number" step="0.001" {...register(`itens.${index}.quantidade`, { required: true })} placeholder="Qtd" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" min="0.001" />
+                          </div>
+                          <div className="flex-1">
+                            <input type="number" step="0.01" {...register(`itens.${index}.valorUnitario`, { required: true })} placeholder="R$ Unit." className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" min="0" />
+                          </div>
                         </div>
                         {fields.length > 1 && (
                           <button type="button" onClick={() => remove(index)} className="text-slate-400 hover:text-red-500 p-2 opacity-0 group-hover:opacity-100 transition-opacity">

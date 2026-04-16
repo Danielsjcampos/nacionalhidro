@@ -103,13 +103,8 @@ export const updateManutencao = async (req: AuthRequest, res: Response) => {
       ...rest
     } = req.body;
     
-    // Auto-calcular custoPecas se peças foram informadas
-    let custoPecasFinal = Number(custoPecas) || 0;
-    if (Array.isArray(pecasUtilizadas) && pecasUtilizadas.length > 0) {
-      custoPecasFinal = pecasUtilizadas.reduce((sum: number, p: any) => {
-        return sum + (Number(p.quantidade) || 0) * (Number(p.valorUnitario) || 0);
-      }, 0);
-    }
+    // O Custo de Peças é ignorado no financeiro da manutenção, pois já é pago no momento da Compra do Estoque (Pedido de Compra).
+    let custoPecasFinal = 0;
 
     const valorTotal = custoPecasFinal + (Number(custoMaoObra) || 0);
 
