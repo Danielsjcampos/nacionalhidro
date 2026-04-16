@@ -42,6 +42,9 @@ export const createFornecedor = async (req: AuthRequest, res: Response) => {
         const f = await prisma.fornecedor.create({ data: req.body });
         res.status(201).json(f);
     } catch (error: any) {
+        if (error.code === 'P2002') {
+            return res.status(400).json({ error: 'Já existe um fornecedor com este Nome ou Documento.' });
+        }
         console.error('Create fornecedor error:', error);
         res.status(500).json({ error: 'Failed to create supplier', details: error.message });
     }
@@ -53,6 +56,9 @@ export const updateFornecedor = async (req: AuthRequest, res: Response) => {
         const f = await prisma.fornecedor.update({ where: { id: req.params.id as string }, data: req.body });
         res.json(f);
     } catch (error: any) {
+        if (error.code === 'P2002') {
+            return res.status(400).json({ error: 'Já existe um fornecedor com este Nome ou Documento.' });
+        }
         console.error('Update fornecedor error:', error);
         res.status(500).json({ error: 'Failed to update supplier', details: error.message });
     }

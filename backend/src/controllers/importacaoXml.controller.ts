@@ -262,9 +262,17 @@ export const importarXml = async (req: AuthRequest, res: Response) => {
 
     // Find or create fornecedor
     let fornecedorId: string | null = null;
-    if (nfe.emitente?.cnpj) {
+    const emitenteNome = nfe.emitente.nomeFantasia || nfe.emitente.razaoSocial;
+    
+    if (nfe.emitente?.cnpj || emitenteNome) {
+      // Buscar por Documento (CNPJ) OU por Nome exato para evitar duplicatas por nome
       const fornecedorExistente = await prisma.fornecedor.findFirst({
-        where: { cnpj: nfe.emitente.cnpj },
+        where: { 
+          OR: [
+            nfe.emitente?.cnpj ? { documento: nfe.emitente.cnpj } : undefined,
+            emitenteNome ? { nome: emitenteNome } : undefined
+          ].filter(Boolean) as any
+        },
       });
 
       if (fornecedorExistente) {
@@ -272,9 +280,9 @@ export const importarXml = async (req: AuthRequest, res: Response) => {
       } else {
         const novoFornecedor = await prisma.fornecedor.create({
           data: {
-            nome: nfe.emitente.nomeFantasia || nfe.emitente.razaoSocial,
+            nome: emitenteNome,
             razaoSocial: nfe.emitente.razaoSocial,
-            cnpj: nfe.emitente.cnpj,
+            documento: nfe.emitente.cnpj,
             inscricaoEstadual: nfe.emitente.inscricaoEstadual,
             endereco: nfe.emitente.endereco,
             cidade: nfe.emitente.cidade,

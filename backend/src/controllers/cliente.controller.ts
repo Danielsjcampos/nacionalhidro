@@ -91,7 +91,7 @@ export const createCliente = async (req: AuthRequest, res: Response) => {
     res.status(201).json(cliente);
   } catch (error: any) {
     if (error.code === 'P2002') {
-      return res.status(400).json({ error: 'Document or Code already exists' });
+      return res.status(400).json({ error: 'Já existe um cliente com este Nome, Documento ou Código.' });
     }
     console.error('Create Cliente Error:', error);
     res.status(500).json({ error: 'Failed to create client' });
@@ -113,7 +113,10 @@ export const updateCliente = async (req: AuthRequest, res: Response) => {
     });
 
     res.json(cliente);
-  } catch (error) {
+  } catch (error: any) {
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'Já existe um cliente com este Nome, Documento ou Código.' });
+    }
     console.error('Update Cliente Error:', error);
     res.status(500).json({ error: 'Failed to update client' });
   }
