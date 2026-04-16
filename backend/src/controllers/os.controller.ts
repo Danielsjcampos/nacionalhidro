@@ -289,7 +289,7 @@ export const updateOS = async (req: AuthRequest, res: Response) => {
 
           // Baixar estoque se flag ativa
           if (item.darBaixaEstoque !== false) {
-            const novaQtd = produto.estoqueAtual - qtd;
+            const novaQtd = Number(produto.estoqueAtual) - qtd;
             await tx.produto.update({
               where: { id: item.produtoId },
               data: { estoqueAtual: novaQtd }

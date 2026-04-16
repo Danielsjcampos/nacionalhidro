@@ -99,10 +99,10 @@ export const getAlertasGerais = async (req: AuthRequest, res: Response) => {
 
     // Estoque
     const estoqueBaixo = estoqueResponse
-      .filter(p => p.estoqueAtual <= p.estoqueMinimo)
+      .filter(p => Number(p.estoqueAtual) <= Number(p.estoqueMinimo))
       .map(p => ({
         ...p,
-        status: p.estoqueAtual <= 0 ? 'ESGOTADO' : p.estoqueAtual <= p.estoqueMinimo * 0.5 ? 'CRITICO' : 'BAIXO',
+        status: Number(p.estoqueAtual) <= 0 ? 'ESGOTADO' : Number(p.estoqueAtual) <= Number(p.estoqueMinimo) * 0.5 ? 'CRITICO' : 'BAIXO',
       }));
 
     // Veículos

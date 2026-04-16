@@ -63,7 +63,7 @@ export const createTemplate = async (req: AuthRequest, res: Response) => {
 
 export const updateTemplate = async (req: AuthRequest, res: Response) => {
   try {
-    const id = req.params.id;
+    const id = req.params.id as string;
     const { nome, tipo, ativo, grupos } = req.body;
 
     // Update template basic info
@@ -118,7 +118,7 @@ export const updateTemplate = async (req: AuthRequest, res: Response) => {
 
 export const deleteTemplate = async (req: AuthRequest, res: Response) => {
   try {
-    const id = req.params.id;
+    const id = req.params.id as string;
     await prisma.checklistTemplate.delete({ where: { id } });
     res.status(204).send();
   } catch (error: any) {
@@ -176,7 +176,7 @@ export const executeChecklist = async (req: AuthRequest, res: Response) => {
 
 export const completeChecklist = async (req: AuthRequest, res: Response) => {
   try {
-    const id = req.params.id;
+    const id = req.params.id as string;
     const { respostas, observacaoGeral, criarManutencao } = req.body;
     // respostas: [{ itemNome, grupoNome, status, observacao?, fotoUrl? }]
 
@@ -247,7 +247,7 @@ export const completeChecklist = async (req: AuthRequest, res: Response) => {
 
 export const getHistoricoVeiculo = async (req: AuthRequest, res: Response) => {
   try {
-    const veiculoId = req.params.id;
+    const veiculoId = req.params.id as string;
 
     const [veiculo, checklists, manutencoes] = await Promise.all([
       prisma.veiculo.findUnique({ where: { id: veiculoId } }),
@@ -263,7 +263,7 @@ export const getHistoricoVeiculo = async (req: AuthRequest, res: Response) => {
         orderBy: { createdAt: 'desc' },
         take: 50
       })
-    ]);
+    ]) as any[];
 
     if (!veiculo) return res.status(404).json({ error: 'Veículo não encontrado' });
 
@@ -338,7 +338,8 @@ export const getHistoricoVeiculo = async (req: AuthRequest, res: Response) => {
 
 export const listExecucoes = async (req: AuthRequest, res: Response) => {
   try {
-    const { veiculoId, status } = req.query;
+    const veiculoId = req.query.veiculoId as string | undefined;
+    const status = req.query.status as string | undefined;
     const where: any = {};
     if (veiculoId) where.veiculoId = veiculoId;
     if (status) where.status = status;
