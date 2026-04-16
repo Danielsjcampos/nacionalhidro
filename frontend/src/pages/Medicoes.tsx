@@ -116,7 +116,13 @@ export default function Medicoes() {
     // ─── MODALS / FORMS ───
     const [showCreate, setShowCreate] = useState(false);
     const [showItemForm, setShowItemForm] = useState(false);
-    const [itemForm, setItemForm] = useState({ descricao: '', quantidade: '', valorUnitario: '', percentualAdicional: '' });
+    const [itemForm, setItemForm] = useState({ 
+        descricao: '', 
+        quantidade: '1', 
+        valorUnitario: '', 
+        percentualAdicional: '',
+        centroCustoId: ''
+    });
     const [showAutoCalc, setShowAutoCalc] = useState(false);
     const [autoCalcForm, setAutoCalcForm] = useState({ 
         valorDiaria: '', 
@@ -128,7 +134,8 @@ export default function Medicoes() {
         saidaHora: '',
         almoco: '00:00',
         franquia: '08:00',
-        valorHoraExtra: ''
+        valorHoraExtra: '',
+        aplicarMinimoHE: true
     });
     const [calculo, setCalculo] = useState<any>(null);
 
@@ -142,6 +149,7 @@ export default function Medicoes() {
     const [cte, setCte] = useState(false);
     const [porcentagemRL, setPorcentagemRL] = useState<number>(90);
     const [propostaId, setPropostaId] = useState('');
+    const [centrosCusto, setCentrosCusto] = useState<any[]>([]);
 
     // ─── FETCH LOGIC ───
     const fetchData = useCallback(async () => {
@@ -161,11 +169,26 @@ export default function Medicoes() {
                 finalizadas: (resMed.data.list || []).filter((m: any) => ['FINALIZADA', 'APROVADA'].includes(m.status)).length,
                 cancelados: (resMed.data.list || []).filter((m: any) => m.status === 'CANCELADA').length,
             });
-        } catch (err) { console.error(err); }
-        finally { setLoading(false); }
+        } catch (err: any) {
+            console.error('FetchData error:', err);
+        } finally {
+            setLoading(false);
+        }
     }, [search, dataInicio, dataFim]);
 
-    useEffect(() => { fetchData(); }, [fetchData]);
+    const fetchCC = useCallback(async () => {
+        try {
+            const { data } = await api.get('/centro-custo');
+            setCentrosCusto(data);
+        } catch (err: any) {
+            console.error('Fetch CC error:', err);
+        }
+    }, []);
+
+    useEffect(() => { 
+        fetchData(); 
+        fetchCC();
+    }, [fetchData, fetchCC]);
 
     // ─── OS PRICING ACTIONS ───
     const openPricing = async (os: any) => {
@@ -180,17 +203,15 @@ export default function Medicoes() {
     const handleAddItem = async () => {
         if (!selectedOS) return;
         try {
-            await api.post(`/precificacao/${selectedOS.id}/itens`, {
-                descricao: itemForm.descricao,
-                quantidade: parseFloat(itemForm.quantidade),
-                valorUnitario: parseFloat(itemForm.valorUnitario),
-                percentualAdicional: itemForm.percentualAdicional ? parseFloat(itemForm.percentualAdicional) : null
-            });
-            setItemForm({ descricao: '', quantidade: '', valorUnitario: '', percentualAdicional: '' });
+            await api.post(`/precificacao/${selectedOS.id}/itens`, itemForm);
+            setItemForm({ descricao: '', quantidade: '1', valorUnitario: '', percentualAdicional: '', centroCustoId: '' });
             setShowItemForm(false);
             openPricing(selectedOS);
             fetchData();
-        } catch {}
+            showToast('Item adicionado');
+        } catch (err: any) {
+            showToast(err.response?.data?.error || 'Erro ao adicionar item', 'error');
+        }
     };
 
     const handlePrecificar = async () => {
@@ -200,7 +221,9 @@ export default function Medicoes() {
             setSelectedOS(null);
             fetchData();
             showToast('OS precificada com sucesso!');
-        } catch {}
+        } catch (err: any) {
+            showToast(err.response?.data?.error || 'Erro ao finalizar precificação', 'error');
+        }
     };
 
     const handleAutoCalcular = async () => {
@@ -214,10 +237,12 @@ export default function Medicoes() {
                 saida: autoCalcForm.saidaData && autoCalcForm.saidaHora ? `${autoCalcForm.saidaData}T${autoCalcForm.saidaHora}` : null,
                 almoco: autoCalcForm.almoco,
                 franquia: autoCalcForm.franquia,
-                valorHoraExtra: autoCalcForm.valorHoraExtra ? parseFloat(autoCalcForm.valorHoraExtra) : null
+                valorHoraExtra: autoCalcForm.valorHoraExtra ? parseFloat(autoCalcForm.valorHoraExtra) : null,
+                aplicarMinimoHE: autoCalcForm.aplicarMinimoHE
             });
             setSelectedOS(res.data.os);
             setCalculo(res.data.calculo);
+            showToast('Cálculo realizado com sucesso!');
             setShowAutoCalc(false);
         } catch (err: any) { showToast(err.response?.data?.error || 'Erro no cálculo'); }
     };
@@ -777,6 +802,18 @@ export default function Medicoes() {
                                                 <label className="text-[10px] font-black text-slate-400 uppercase">Vlr. Hora Extra (Manual)</label>
                                                 <input type="number" value={autoCalcForm.valorHoraExtra} onChange={e => setAutoCalcForm({...autoCalcForm, valorHoraExtra: e.target.value})} placeholder="Opcional" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold" />
                                             </div>
+                                            <div className="space-y-1.5 flex items-center gap-2 pt-4 col-span-2">
+                                                <input 
+                                                    type="checkbox" 
+                                                    id="minHe"
+                                                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                                    checked={autoCalcForm.aplicarMinimoHE}
+                                                    onChange={e => setAutoCalcForm({ ...autoCalcForm, aplicarMinimoHE: e.target.checked })}
+                                                />
+                                                <label htmlFor="minHe" className="text-[10px] font-black text-slate-500 uppercase cursor-pointer">
+                                                    Mínimo de 2h de Hora Extra (Regra Legado)
+                                                </label>
+                                            </div>
                                         </div>
 
                                         <div className="pt-4 border-t border-slate-100 flex gap-4">
@@ -799,17 +836,30 @@ export default function Medicoes() {
 
                                         {showItemForm && (
                                             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-4 animate-in slide-in-from-top-4 duration-200">
-                                                <div className="grid grid-cols-4 gap-3">
+                                                <div className="grid grid-cols-6 gap-3">
                                                     <div className="col-span-2 space-y-1">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase">Descrição</label>
-                                                        <input value={itemForm.descricao} onChange={e => setItemForm({...itemForm, descricao: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-bold" />
+                                                        <input value={itemForm.descricao} onChange={e => setItemForm({...itemForm, descricao: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-bold" title="Descrição do item" />
+                                                    </div>
+                                                    <div className="col-span-2 space-y-1">
+                                                        <label className="text-[9px] font-black text-slate-400 uppercase">Centro de Custo</label>
+                                                        <select 
+                                                            value={itemForm.centroCustoId} 
+                                                            onChange={e => setItemForm({...itemForm, centroCustoId: e.target.value})} 
+                                                            className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-bold"
+                                                        >
+                                                            <option value="">DEPARTAMENTO PADRÃO</option>
+                                                            {centrosCusto.map(cc => (
+                                                                <option key={cc.id} value={cc.id}>{cc.nome}</option>
+                                                            ))}
+                                                        </select>
                                                     </div>
                                                     <div className="space-y-1">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase">Valor</label>
-                                                        <input type="number" value={itemForm.valorUnitario} onChange={e => setItemForm({...itemForm, valorUnitario: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-bold" />
+                                                        <input type="number" value={itemForm.valorUnitario} onChange={e => setItemForm({...itemForm, valorUnitario: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-bold" title="Valor unitário" />
                                                     </div>
                                                     <div className="flex items-end pb-0.5">
-                                                        <button onClick={handleAddItem} className="bg-slate-800 text-white w-full py-2 rounded-lg text-[9px] font-black uppercase">Adicionar</button>
+                                                        <button onClick={handleAddItem} className="bg-slate-800 text-white w-full py-2 rounded-lg text-[9px] font-black uppercase">Add</button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -821,8 +871,13 @@ export default function Medicoes() {
                                                     <div className="flex items-center gap-4">
                                                         <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-blue-600 border border-slate-200 font-black text-[10px]">{it.quantidade}x</div>
                                                         <div className="flex flex-col">
-                                                            <span className="font-bold text-slate-700 text-sm uppercase">{it.descricao}</span>
-                                                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{fmt(it.valorUnitario)} / UN</span>
+                                                            <span className="font-bold text-slate-700 text-sm uppercase leading-tight">{it.descricao}</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{fmt(it.valorUnitario)} / UN</span>
+                                                                {it.centroCusto && (
+                                                                    <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200 font-black uppercase tracking-tight">CC: {it.centroCusto.nome}</span>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-4">

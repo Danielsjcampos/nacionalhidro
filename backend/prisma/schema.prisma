@@ -288,8 +288,10 @@ model ItemCobranca {
   valorUnitario       Decimal      @db.Decimal(10, 2)
   percentualAdicional Decimal?     @db.Decimal(5, 2)
   valorTotal          Decimal      @db.Decimal(10, 2)
+  centroCustoId       String?
   createdAt           DateTime     @default(now())
   os                  OrdemServico @relation(fields: [osId], references: [id])
+  centroCusto         CentroCusto? @relation(fields: [centroCustoId], references: [id])
 }
 
 model Medicao {
@@ -360,10 +362,14 @@ model Produto {
   nome          String
   descricao     String?
   sku           String?               @unique
+  categoria     String?               // ELETRICO, MECANICO, HIDRAULICO, CONSUMIVEL, OUTROS
+  fabricante    String?
+  medida        String?               // dimensão/tamanho (ex: bico 3mm, mangueira 1/2")
+  localizacao   String?               // endereçamento: C2-P10 (Corredor 2, Prateleira 10)
   precoCusto    Decimal               @db.Decimal(10, 2)
   precoVenda    Decimal               @db.Decimal(10, 2)
-  estoqueAtual  Int                   @default(0)
-  estoqueMinimo Int                   @default(0)
+  estoqueAtual  Decimal               @default(0) @db.Decimal(10, 3)
+  estoqueMinimo Decimal               @default(0) @db.Decimal(10, 3)
   unidadeMedida String                @default("UN")
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
@@ -373,9 +379,10 @@ model Produto {
 model MovimentacaoEstoque {
   id         String   @id @default(uuid())
   produtoId  String
-  quantidade Int
+  quantidade Decimal  @db.Decimal(10, 3)
   tipo       String
   motivo     String?
+  usuarioId  String?
   createdAt  DateTime @default(now())
   produto    Produto  @relation(fields: [produtoId], references: [id])
 }
@@ -620,18 +627,18 @@ model Logistica {
 }
 
 model Veiculo {
-  id                             String       @id @default(uuid())
-  placa                          String       @unique
+  id                             String              @id @default(uuid())
+  placa                          String              @unique
   modelo                         String
   marca                          String?
   ano                            Int?
-  kmAtual                        Int          @default(0)
-  status                         String       @default("DISPONIVEL")
-  tipo                           String       @default("CAMINHAO")
-  createdAt                      DateTime     @default(now())
-  updatedAt                      DateTime     @updatedAt
-  nivelCombustivel               Decimal      @default(100.0) @db.Decimal(5, 2)
-  exibirNoHistograma             Boolean      @default(true)
+  kmAtual                        Int                 @default(0)
+  status                         String              @default("DISPONIVEL")
+  tipo                           String              @default("CAMINHAO")
+  createdAt                      DateTime            @default(now())
+  updatedAt                      DateTime            @updatedAt
+  nivelCombustivel               Decimal             @default(100.0) @db.Decimal(5, 2)
+  exibirNoHistograma             Boolean             @default(true)
   tipoEquipamento                String?
   anttVencimento                 DateTime?
   crlvVencimento                 DateTime?
@@ -640,6 +647,65 @@ model Veiculo {
   certificacaoLiquidosVencimento DateTime?
   escalas                        Escala[]
   manutencoes                    Manutencao[]
+  checklists                     ChecklistExecucao[]
+}
+
+// ── Checklist de Inspeção Veicular (substitui CRMobi) ───────────────
+
+model ChecklistTemplate {
+  id        String           @id @default(uuid())
+  nome      String
+  tipo      String           @default("VEICULO") // VEICULO, EQUIPAMENTO
+  ativo     Boolean          @default(true)
+  grupos    ChecklistGrupo[]
+  execucoes ChecklistExecucao[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+model ChecklistGrupo {
+  id         String            @id @default(uuid())
+  templateId String
+  nome       String
+  ordem      Int               @default(0)
+  itens      ChecklistItem[]
+  template   ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+}
+
+model ChecklistItem {
+  id      String         @id @default(uuid())
+  grupoId String
+  nome    String
+  ordem   Int            @default(0)
+  grupo   ChecklistGrupo @relation(fields: [grupoId], references: [id], onDelete: Cascade)
+}
+
+model ChecklistExecucao {
+  id              String              @id @default(uuid())
+  templateId      String
+  veiculoId       String?
+  motoristaNome   String?
+  motoristaCpf    String?
+  tipo            String              @default("SAIDA") // SAIDA, RETORNO, INSPECAO
+  status          String              @default("EM_ANDAMENTO") // EM_ANDAMENTO, CONCLUIDO
+  observacaoGeral String?
+  createdAt       DateTime            @default(now())
+  completadoEm    DateTime?
+  respostas       ChecklistResposta[]
+  template        ChecklistTemplate   @relation(fields: [templateId], references: [id])
+  veiculo         Veiculo?            @relation(fields: [veiculoId], references: [id])
+}
+
+model ChecklistResposta {
+  id         String            @id @default(uuid())
+  execucaoId String
+  itemNome   String
+  grupoNome  String
+  status     String            // OK, ATENCAO, DEFEITO
+  observacao String?
+  fotoUrl    String?
+  createdAt  DateTime          @default(now())
+  execucao   ChecklistExecucao @relation(fields: [execucaoId], references: [id], onDelete: Cascade)
 }
 
 model Escala {
@@ -1234,6 +1300,7 @@ model CentroCusto {
   contasPagar     ContaPagar[]
   contasReceber   ContaReceber[]    @relation("CentroCustoContasReceber")
   lancamentos     LancamentoCusto[]
+  itensCobranca   ItemCobranca[]
 }
 
 model LancamentoCusto {

@@ -79,7 +79,7 @@ export const getMedicao = async (req: AuthRequest, res: Response) => {
                 cliente: true,
                 ordensServico: {
                     include: {
-                        itensCobranca: true,
+                        itensCobranca: { include: { centroCusto: true } },
                         servicos: true,
                         proposta: true,
                     }

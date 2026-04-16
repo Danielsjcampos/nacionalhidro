@@ -57,7 +57,8 @@ export const listManutencoes = async (req: AuthRequest, res: Response) => {
     const list = await prisma.manutencao.findMany({
       include: {
         veiculo: true,
-        os: { include: { cliente: true } }
+        os: { include: { cliente: true } },
+        pecasUtilizadas: true
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -145,7 +146,7 @@ export const updateManutencao = async (req: AuthRequest, res: Response) => {
         console.error('Auto-create ContaPagar for manutencao error:', cpErr);
       }
 
-      // ── Baixa de Estoque: registrar peças utilizadas ──
+      // ── Baixa de Estoque: registrar peças utilizadas (Decimal-safe) ──
       if (Array.isArray(pecasUtilizadas) && pecasUtilizadas.length > 0) {
         for (const peca of pecasUtilizadas) {
           const produto = await prisma.produto.findUnique({ where: { id: peca.produtoId } });
@@ -167,8 +168,9 @@ export const updateManutencao = async (req: AuthRequest, res: Response) => {
             }
           });
 
-          // Decrementar estoque
-          const novaQtd = produto.estoqueAtual - qtd;
+          // Decrementar estoque (Decimal-safe)
+          const currentStock = Number(produto.estoqueAtual);
+          const novaQtd = currentStock - qtd;
           await prisma.produto.update({
             where: { id: peca.produtoId },
             data: { estoqueAtual: novaQtd }

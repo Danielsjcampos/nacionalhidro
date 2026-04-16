@@ -163,6 +163,8 @@ app.use('/webhook', webhookRoutes);  // Alias sem 'S' — usado pelo Google Ads
 app.use('/upload', uploadRoutes);
 app.use('/cargos', cargoRoutes);
 app.use('/pedidos-compra', pedidoCompraRoutes);
+import checklistRoutes from './routes/checklist.routes';
+app.use('/checklist', checklistRoutes);
 import agendamentoRoutes from './routes/agendamento.routes';
 import gestaoColaboradoresRoutes from './routes/gestaoColaboradores.routes';
 import workflowRoutes from './routes/workflow.routes';

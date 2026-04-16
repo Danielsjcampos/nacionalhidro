@@ -65,6 +65,7 @@ import WorkflowSettings from './pages/Workflow/WorkflowSettings';
 import PublicWorkflowForm from './pages/Workflow/PublicWorkflowForm';
 import IntegracoesPage from './pages/IntegracoesPage';
 import PerfilPage from './pages/PerfilPage';
+import ChecklistPage from './pages/ChecklistPage';
 
 
 // Route-to-permission mapping
@@ -77,6 +78,7 @@ const routePermissions: Record<string, string[]> = {
   '/painel-motorista': ['logistica', 'operacao'],
   '/frota/mapa': ['frota'], '/frota/veiculos': ['frota'],
   '/manutencao': ['frota', 'manutencao'],
+  '/checklist': ['frota', 'manutencao'],
   '/estoque/controle': ['estoque'], '/estoque/equipamentos': ['estoque'],
   '/seguranca-trabalho': ['rh'],
   '/medicoes': ['medicoes'],
@@ -155,6 +157,7 @@ function App() {
 
         <Route path="/manutencao" element={<ProtectedRoute><Manutencao /></ProtectedRoute>} />
         <Route path="/estoque/controle" element={<ProtectedRoute><EstoqueControle /></ProtectedRoute>} />
+        <Route path="/checklist" element={<ProtectedRoute><ChecklistPage /></ProtectedRoute>} />
         <Route path="/estoque/equipamentos" element={<ProtectedRoute><EstoqueEquipamentos /></ProtectedRoute>} />
         <Route path="/propostas" element={<ProtectedRoute><Propostas /></ProtectedRoute>} />
         <Route path="/contas-pagar" element={<ProtectedRoute><ContasPagarPage /></ProtectedRoute>} />

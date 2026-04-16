@@ -1,6 +1,6 @@
 import { useToast } from '../contexts/ToastContext';
 import { useState, useEffect } from 'react';
-import { Truck, AlertCircle, Plus, Edit, Trash2, X, FileText } from 'lucide-react';
+import { Truck, AlertCircle, Plus, Edit, Trash2, X, FileText, History, Wrench, ClipboardCheck, ChevronRight } from 'lucide-react';
 import api from '../services/api';
 
 const VeiculoForm = ({ initialData, onClose, onSave }: { initialData?: any, onClose: () => void, onSave: (data: any) => Promise<void> }) => {
@@ -115,11 +115,113 @@ const VeiculoForm = ({ initialData, onClose, onSave }: { initialData?: any, onCl
     );
 };
 
+const VeiculoTimeline = ({ veiculoId, onClose }: { veiculoId: string, onClose: () => void }) => {
+    const [data, setData] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchTimeline = async () => {
+            try {
+                const res = await api.get(`/checklist/veiculo/${veiculoId}/historico`);
+                setData(res.data);
+            } catch (e) { console.error(e); }
+            finally { setLoading(false); }
+        };
+        fetchTimeline();
+    }, [veiculoId]);
+
+    return (
+        <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200">
+                <div className="p-6 bg-slate-900 flex justify-between items-center text-white">
+                    <h2 className="text-sm font-black flex items-center gap-2 uppercase tracking-widest italic">
+                        <History className="w-5 h-5 text-amber-500" />
+                        Histórico Unificado: {data?.veiculo?.placa || '...'}
+                    </h2>
+                    <button type="button" onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X className="w-5 h-5" /></button>
+                </div>
+                
+                <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar bg-slate-50/50">
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center py-12">
+                            <Plus className="w-8 h-8 animate-spin text-slate-300" />
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-4">Sincronizando Timeline...</p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="grid grid-cols-3 gap-4 mb-8">
+                                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Investimento Total</p>
+                                    <p className="text-lg font-black text-emerald-600 italic">R$ {Number(data.stats.custoTotalManutencao).toLocaleString('pt-BR')}</p>
+                                </div>
+                                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Checklists</p>
+                                    <p className="text-lg font-black text-slate-800 italic">{data.stats.totalChecklists}</p>
+                                </div>
+                                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Manutenções</p>
+                                    <p className="text-lg font-black text-slate-800 italic">{data.stats.totalManutencoes}</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                {data.timeline.map((item: any, i: number) => (
+                                    <div key={i} className="relative pl-8 before:content-[''] before:absolute before:left-3 before:top-2 before:bottom-[-1.5rem] before:w-px before:bg-slate-200 last:before:hidden">
+                                        <div className={`absolute left-0 top-1 w-6 h-6 rounded-full flex items-center justify-center z-10 shadow-sm ${
+                                            item.tipo === 'CHECKLIST' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'
+                                        }`}>
+                                            {item.tipo === 'CHECKLIST' ? <ClipboardCheck className="w-3.5 h-3.5" /> : <Wrench className="w-3.5 h-3.5" />}
+                                        </div>
+                                        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:border-slate-300 transition-all">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div>
+                                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                                        {new Date(item.data).toLocaleDateString('pt-BR')} {new Date(item.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                    </p>
+                                                    <h4 className="text-xs font-black text-slate-800 uppercase italic tracking-tight">{item.descricao}</h4>
+                                                </div>
+                                                {item.tipo === 'MANUTENCAO' && (
+                                                    <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded italic">
+                                                        R$ {item.detalhes.custoTotal.toLocaleString('pt-BR')}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {item.tipo === 'CHECKLIST' ? (
+                                                <div className="flex gap-2">
+                                                    <span className={`text-[9px] font-black px-2 py-0.5 rounded ${item.detalhes.defeitos > 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                                        {item.detalhes.defeitos} Defeitos
+                                                    </span>
+                                                    <span className="text-[9px] font-black text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                                                        Motorista: {item.detalhes.motorista}
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <p className="text-[10px] text-slate-500 font-medium italic">{item.detalhes.status} • {item.detalhes.prioridade}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                                {data.timeline.length === 0 && (
+                                    <p className="text-center py-8 text-xs text-slate-400 font-bold italic">Nenhum evento registrado para este veículo.</p>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
+                <div className="p-6 border-t border-slate-200 flex justify-end bg-white">
+                    <button onClick={onClose} className="px-8 py-3 rounded-2xl bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-all italic">Fechar Histórico</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export default function FrotaVeiculos() {
     const [veiculos, setVeiculos] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [editingItem, setEditingItem] = useState<any>(null);
+    const [viewingTimeline, setViewingTimeline] = useState<string | null>(null);
 
     const fetchVeiculos = async () => {
         try {
@@ -274,7 +376,9 @@ export default function FrotaVeiculos() {
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 text-right">
-                                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onClick={() => setViewingTimeline(v.id)} className="p-2 text-amber-600 hover:bg-white rounded-xl border border-transparent hover:border-slate-100 transition-all shadow-sm" title="Ver Histórico">
+                                            <History className="w-4 h-4" />
+                                        </button>
                                         <button onClick={() => { setEditingItem(v); setShowForm(true); }} className="p-2 text-indigo-600 hover:bg-white rounded-xl border border-transparent hover:border-slate-100 transition-all shadow-sm">
                                             <Edit className="w-4 h-4" />
                                         </button>
@@ -289,6 +393,7 @@ export default function FrotaVeiculos() {
                 </table>
             </div>
             {showForm && <VeiculoForm initialData={editingItem} onClose={() => setShowForm(false)} onSave={handleSave} />}
+            {viewingTimeline && <VeiculoTimeline veiculoId={viewingTimeline} onClose={() => setViewingTimeline(null)} />}
         </div>
     );
 }

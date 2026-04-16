@@ -4,7 +4,22 @@ import { AuthRequest } from '../middleware/auth.middleware';
 
 export const listProdutos = async (req: AuthRequest, res: Response) => {
   try {
+    const { search, categoria, fabricante } = req.query;
+    const where: any = {};
+
+    if (search) {
+      where.OR = [
+        { nome: { contains: search as string, mode: 'insensitive' } },
+        { sku: { contains: search as string, mode: 'insensitive' } },
+        { fabricante: { contains: search as string, mode: 'insensitive' } },
+        { localizacao: { contains: search as string, mode: 'insensitive' } },
+      ];
+    }
+    if (categoria) where.categoria = categoria;
+    if (fabricante) where.fabricante = { contains: fabricante as string, mode: 'insensitive' };
+
     const list = await prisma.produto.findMany({
+      where,
       orderBy: { nome: 'asc' }
     });
     res.json(list);
@@ -69,14 +84,16 @@ export const updateEstoque = async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const { quantidade, tipo, motivo } = req.body; // tipo: ENTRADA ou SAIDA
+    const qtd = Number(quantidade) || 0;
     
     const mov = await prisma.$transaction(async (tx) => {
       const produto = await tx.produto.findUnique({ where: { id } });
       if (!produto) throw new Error('Product not found');
 
+      const current = Number(produto.estoqueAtual);
       const novaQtd = tipo === 'ENTRADA' 
-        ? produto.estoqueAtual + quantidade 
-        : produto.estoqueAtual - quantidade;
+        ? current + qtd 
+        : current - qtd;
 
       await tx.produto.update({
         where: { id },
@@ -86,9 +103,10 @@ export const updateEstoque = async (req: AuthRequest, res: Response) => {
       return tx.movimentacaoEstoque.create({
         data: {
           produtoId: id,
-          quantidade,
+          quantidade: qtd,
           tipo,
-          motivo
+          motivo,
+          usuarioId: req.user?.userId || null
         }
       });
     });
@@ -127,7 +145,8 @@ export const consumoOS = async (req: AuthRequest, res: Response) => {
         const qtd = Number(item.quantidade) || 0;
         if (qtd <= 0) throw new Error(`Quantidade inválida para ${produto.nome}`);
 
-        const novaQtd = produto.estoqueAtual - qtd;
+        const current = Number(produto.estoqueAtual);
+        const novaQtd = current - qtd;
         // Permitir negativo mas logar warning
         if (novaQtd < 0) {
           console.warn(`⚠️ Estoque negativo para ${produto.nome}: ${novaQtd}`);
@@ -143,10 +162,11 @@ export const consumoOS = async (req: AuthRequest, res: Response) => {
             produtoId: item.produtoId,
             quantidade: qtd,
             tipo: 'SAIDA',
-            motivo: `USO_EM_OS - ${os.codigo}`
+            motivo: `USO_EM_OS - ${os.codigo}`,
+            usuarioId: req.user?.userId || null
           }
         });
-        results.push({ ...mov, produtoNome: produto.nome, estoqueAnterior: produto.estoqueAtual, estoqueNovo: novaQtd });
+        results.push({ ...mov, produtoNome: produto.nome, estoqueAnterior: current, estoqueNovo: novaQtd });
       }
 
       return results;
@@ -167,29 +187,21 @@ export const consumoOS = async (req: AuthRequest, res: Response) => {
 // ─── T06: Alertas de estoque mínimo ───
 export const getAlertasEstoque = async (req: AuthRequest, res: Response) => {
   try {
-    // Buscar todos os produtos onde estoqueAtual <= estoqueMinimo
-    const alertas = await prisma.produto.findMany({
-      where: {
-        estoqueMinimo: { gt: 0 },
-        estoqueAtual: { lte: prisma.produto.fields.estoqueMinimo as any }
-      },
-      orderBy: { estoqueAtual: 'asc' }
-    });
-
-    // Fallback: Prisma doesn't support field-to-field comparison in where, so use raw query approach
     const allProducts = await prisma.produto.findMany({
       where: { estoqueMinimo: { gt: 0 } },
       orderBy: { estoqueAtual: 'asc' }
     });
 
-    const produtosEmAlerta = allProducts.filter(p => p.estoqueAtual <= p.estoqueMinimo);
+    const produtosEmAlerta = allProducts.filter(p => Number(p.estoqueAtual) <= Number(p.estoqueMinimo));
 
     const result = produtosEmAlerta.map(p => {
-      const percentual = p.estoqueMinimo > 0 ? (p.estoqueAtual / p.estoqueMinimo) * 100 : 0;
+      const atual = Number(p.estoqueAtual);
+      const minimo = Number(p.estoqueMinimo);
+      const percentual = minimo > 0 ? (atual / minimo) * 100 : 0;
       return {
         ...p,
         percentualEstoque: Math.round(percentual),
-        status: p.estoqueAtual <= 0 ? 'ESGOTADO' : p.estoqueAtual <= p.estoqueMinimo * 0.5 ? 'CRITICO' : 'BAIXO',
+        status: atual <= 0 ? 'ESGOTADO' : atual <= minimo * 0.5 ? 'CRITICO' : 'BAIXO',
       };
     });
 
@@ -215,4 +227,3 @@ export const getMovimentacoes = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch movements' });
   }
 };
-

@@ -105,6 +105,8 @@ const menuGroups: MenuGroup[] = [
     children: [
       { label: 'Monitoramento GPS', path: '/frota/mapa' },
       { label: 'Veículos e Documentos', path: '/frota/veiculos' },
+      { label: 'Checklist Veicular', path: '/checklist' },
+      { label: 'Manutenção', path: '/manutencao' },
     ]
   },
   {

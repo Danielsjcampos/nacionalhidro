@@ -68,7 +68,7 @@ export const getOSPrecificacao = async (req: AuthRequest, res: Response) => {
 export const addItemCobranca = async (req: AuthRequest, res: Response) => {
     try {
         const osId = req.params.id as string;
-        const { descricao, quantidade, valorUnitario, percentualAdicional } = req.body;
+        const { descricao, quantidade, valorUnitario, percentualAdicional, centroCustoId } = req.body;
 
         const qty = parseFloat(quantidade);
         const unitPrice = parseFloat(valorUnitario);
@@ -82,7 +82,8 @@ export const addItemCobranca = async (req: AuthRequest, res: Response) => {
                 quantidade: qty,
                 valorUnitario: unitPrice,
                 percentualAdicional: adicional || null,
-                valorTotal
+                valorTotal,
+                centroCustoId: centroCustoId || null
             }
         });
 
@@ -222,7 +223,10 @@ function isFDS(data: Date): boolean {
 export const autoCalcularItens = async (req: AuthRequest, res: Response) => {
     try {
         const id = req.params.id as string;
-        const { valorDiaria, valorHora, toleranciaHoras, entrada, saida, almoco, franquia, valorHoraExtra } = req.body;
+        const {
+            valorDiaria, valorHora, toleranciaHoras, entrada, saida, almoco,
+            franquia, valorHoraExtra, aplicarMinimoHE = true
+        } = req.body;
 
         if (!valorDiaria && !valorHora) {
             return res.status(400).json({ error: 'Informe valor da diária ou valor da hora' });
@@ -255,20 +259,20 @@ export const autoCalcularItens = async (req: AuthRequest, res: Response) => {
         const entradaDate = new Date(os.entrada);
         const saidaDate = new Date(os.saida);
         const almocoDec = timeToDecimal(almoco || '01:00');
-        
+
         // Parâmetros da Proposta ou Defaults
         const prop = os.proposta;
         const franquiaVal = franquia || (prop?.franquiaHoras?.toString()) || '08:00';
         const franquiaDec = timeToDecimal(franquiaVal);
-        
+
         const horasTrabalhadas = calcularHorasTrabalhadas(entradaDate, saidaDate, almocoDec);
         const tolerancia = toleranciaHoras ? parseFloat(toleranciaHoras) : 0;
         const vDiaria = valorDiaria ? parseFloat(valorDiaria) : 0;
         const vHora = valorHora ? parseFloat(valorHora) : 0;
-        
+
         // HE: Se não informado, usa proposta ou default 50% (agora 35% no legado?)
         const pctHe = prop?.adicionalHoraExtra ? Number(prop.adicionalHoraExtra) : 50;
-        const vHoraExtra = valorHoraExtra ? parseFloat(valorHoraExtra) : (vHora * (1 + pctHe/100));
+        const vHoraExtra = valorHoraExtra ? parseFloat(valorHoraExtra) : (vHora * (1 + pctHe / 100));
 
         const itemsToCreate: any[] = [];
 
@@ -294,12 +298,21 @@ export const autoCalcularItens = async (req: AuthRequest, res: Response) => {
         const horasExcedentes = Math.max(0, horasTrabalhadas - franquiaDec - tolerancia);
 
         if (horasExcedentes > 0) {
+            let qtyHE = parseFloat(horasExcedentes.toFixed(2));
+
+            // Regra Legado: Mínimo 2 horas de HE se houver excesso
+            if (aplicarMinimoHE && qtyHE < 2.0) {
+                qtyHE = 2.0;
+            }
+
             itemsToCreate.push({
                 osId: id,
-                descricao: 'Hora Extra',
-                quantidade: parseFloat(horasExcedentes.toFixed(2)),
+                descricao: qtyHE > parseFloat(horasExcedentes.toFixed(2))
+                    ? `Hora Extra (Mínimo 2h - Real: ${horasExcedentes.toFixed(2)}h)`
+                    : 'Hora Extra',
+                quantidade: qtyHE,
                 valorUnitario: vHoraExtra,
-                valorTotal: parseFloat((horasExcedentes * vHoraExtra).toFixed(2))
+                valorTotal: parseFloat((qtyHE * vHoraExtra).toFixed(2))
             });
         }
 
@@ -312,7 +325,7 @@ export const autoCalcularItens = async (req: AuthRequest, res: Response) => {
                 quantidade: parseFloat(noturnoInfo.horasNoturnas.toFixed(2)),
                 valorUnitario: vHora,
                 percentualAdicional: pctNoturno,
-                valorTotal: parseFloat((noturnoInfo.horasNoturnas * vHora * (pctNoturno/100)).toFixed(2))
+                valorTotal: parseFloat((noturnoInfo.horasNoturnas * vHora * (pctNoturno / 100)).toFixed(2))
             });
         }
 
@@ -324,7 +337,7 @@ export const autoCalcularItens = async (req: AuthRequest, res: Response) => {
                 quantidade: parseFloat(horasTrabalhadas.toFixed(2)),
                 valorUnitario: vHora,
                 percentualAdicional: pctFds,
-                valorTotal: parseFloat((horasTrabalhadas * vHora * (pctFds/100)).toFixed(2))
+                valorTotal: parseFloat((horasTrabalhadas * vHora * (pctFds / 100)).toFixed(2))
             });
         }
 
