@@ -376,6 +376,7 @@ export default function FrotaVeiculos() {
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 text-right">
+                                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button onClick={() => setViewingTimeline(v.id)} className="p-2 text-amber-600 hover:bg-white rounded-xl border border-transparent hover:border-slate-100 transition-all shadow-sm" title="Ver Histórico">
                                             <History className="w-4 h-4" />
                                         </button>
