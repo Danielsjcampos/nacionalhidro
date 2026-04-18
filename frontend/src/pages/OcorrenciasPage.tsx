@@ -415,8 +415,6 @@ const OcorrenciasPage: React.FC = () => {
   );
 };
 
-export default OcorrenciasPage;
-
     </div>
   );
 };
