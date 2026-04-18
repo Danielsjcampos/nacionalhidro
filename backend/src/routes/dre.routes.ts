@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getDrePorCnpj } from '../controllers/dre.controller';
+import { getDrePorCnpj, getAlocacaoCustosTrabalho } from '../controllers/dre.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();

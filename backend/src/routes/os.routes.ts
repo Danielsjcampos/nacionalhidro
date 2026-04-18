@@ -3,7 +3,7 @@ import {
     listOS, getOS, createOS, updateOS, deleteOS, printOS, downloadPdfOS, printLoteOSPdf,
     listItensCobranca, createItemCobranca, updateItemCobranca, deleteItemCobranca,
     duplicateOS, createOSLote, baixarOSLote,
-    finalizarOS, reverterCancelamentoOS
+    finalizarOS, reverterCancelamentoOS, sincronizarRDOComItensCobranca
 } from '../controllers/os.controller';
 import { listMateriaisOS, addMaterialOS, removeMaterialOS } from '../controllers/materialOS.controller';
 import { authenticate } from '../middleware/auth.middleware';
