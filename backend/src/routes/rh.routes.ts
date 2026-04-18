@@ -3,7 +3,7 @@ import {
     listFuncionarios, getFuncionario, createFuncionario, updateFuncionario,
     createAfastamento, listAfastamentos, deleteAfastamento,
     createIntegracao, listIntegracoes, deleteIntegracao,
-    getDisponibilidade, getResumoRH, getAttendanceToday
+    getDisponibilidade, getResumoRH, getAttendanceToday, checkCompliance
 } from '../controllers/rh.controller';
 import { authenticate } from '../middleware/auth.middleware';
 

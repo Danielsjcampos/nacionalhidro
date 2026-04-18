@@ -52,7 +52,7 @@ export const listFuncionarios = async (req: AuthRequest, res: Response) => {
       where.departamento = departamento as string;
     }
 
-    const list = await prisma.funcionario.findMany({
+    const list = await (prisma as any).funcionario.findMany({
       where,
       include: {
         afastamentos: {
@@ -102,7 +102,7 @@ export const getFuncionario = async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
 
-    const func = await prisma.funcionario.findUnique({
+    const func = await (prisma as any).funcionario.findUnique({
       where: { id },
       include: {
         afastamentos: { orderBy: { dataInicio: 'desc' as any } },
@@ -142,7 +142,7 @@ export const createFuncionario = async (req: AuthRequest, res: Response) => {
     if (data.feriasFim) data.feriasFim = new Date(data.feriasFim);
     if (data.dataDesligamento) data.dataDesligamento = new Date(data.dataDesligamento);
 
-    const func = await prisma.funcionario.create({ data });
+    const func = await (prisma as any).funcionario.create({ data });
     res.status(201).json(func);
   } catch (error: any) {
     console.error('Create employee error:', error);
@@ -162,7 +162,7 @@ export const updateFuncionario = async (req: AuthRequest, res: Response) => {
     if (data.feriasFim) data.feriasFim = new Date(data.feriasFim);
     if (data.dataDesligamento) data.dataDesligamento = new Date(data.dataDesligamento);
 
-    const func = await prisma.funcionario.update({ where: { id }, data });
+    const func = await (prisma as any).funcionario.update({ where: { id }, data });
     res.json(func);
   } catch (error: any) {
     console.error('Update employee error:', error);
@@ -191,8 +191,8 @@ export const createAfastamento = async (req: AuthRequest, res: Response) => {
     const inicio = new Date(dataInicio);
     const fim = new Date(dataFim);
     if (inicio <= now && fim >= now) {
-      await prisma.funcionario.update({
-        where: { id: funcionarioId },
+      await (prisma as any).funcionario.update({
+        where: { id: funcionarioId as string },
         data: {
           status: tipo === 'FERIAS' ? 'FERIAS' : 'AFASTADO',
           ...(tipo === 'FERIAS' ? { feriasInicio: inicio, feriasFim: fim } : {}),
@@ -311,7 +311,7 @@ export const getDisponibilidade = async (req: AuthRequest, res: Response) => {
 
     let clienteExigencias: string[] = [];
     if (clienteId) {
-       const clienteData = await prisma.cliente.findUnique({
+       const clienteData = await (prisma as any).cliente.findUnique({
           where: { id: clienteId as string },
           select: { integracoesExigidas: true }
        });
@@ -320,7 +320,7 @@ export const getDisponibilidade = async (req: AuthRequest, res: Response) => {
        }
     }
 
-    const funcionarios = await prisma.funcionario.findMany({
+    const funcionarios = await (prisma as any).funcionario.findMany({
       where: { ativo: true },
       include: {
         afastamentos: true,
@@ -475,7 +475,7 @@ export const getDisponibilidade = async (req: AuthRequest, res: Response) => {
 // ─── DASHBOARD COMPLETO DO RH ───────────────────────────────────
 export const getResumoRH = async (req: AuthRequest, res: Response) => {
   try {
-    const funcionarios = await prisma.funcionario.findMany({
+    const funcionarios = await (prisma as any).funcionario.findMany({
       include: { afastamentos: true, integracoes: true }
     });
 
@@ -686,8 +686,8 @@ export const checkCompliance = async (req: AuthRequest, res: Response) => {
     const now = new Date();
     
     // 1. Get Employee with ASO and Integrations
-    const funcionario = await prisma.funcionario.findUnique({
-      where: { id: funcionarioId },
+    const funcionario = await (prisma as any).funcionario.findUnique({
+      where: { id: funcionarioId as string },
       include: {
         asosControle: {
           orderBy: { dataVencimento: 'desc' as any },
@@ -716,7 +716,7 @@ export const checkCompliance = async (req: AuthRequest, res: Response) => {
     // 3. Check Integrations for specific client/OS
     let targetClienteId = clienteId as string;
     if (osId) {
-      const os = await prisma.oS.findUnique({ 
+      const os = await (prisma as any).oS.findUnique({ 
         where: { id: osId as string },
         select: { clienteId: true }
       });
@@ -724,7 +724,7 @@ export const checkCompliance = async (req: AuthRequest, res: Response) => {
     }
 
     if (targetClienteId) {
-      const cliente = await prisma.cliente.findUnique({
+      const cliente = await (prisma as any).cliente.findUnique({
         where: { id: targetClienteId },
         select: { nome: true, integracoesExigidas: true }
       });

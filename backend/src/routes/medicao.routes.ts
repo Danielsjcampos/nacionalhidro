@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import {
     listMedicoes, getMedicao, createMedicao,
-    getMedicaoEmailHistory, updateMedicao, gerarPdfMedicaoBaixar, enviarDocumentacaoFinal,
-    recalcularMedicao
+    getMedicaoEmailHistory, updateMedicao, updateMedicaoStatus, gerarPdfMedicaoBaixar, enviarDocumentacaoFinal,
+    recalcularMedicao, listOSDisponiveis, fecharPorRDO, enviarAoCliente
 } from '../controllers/medicao.controller';
 import { authenticate } from '../middleware/auth.middleware';
 

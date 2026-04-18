@@ -51,7 +51,7 @@ export const createProcesso = async (req: AuthRequest, res: Response) => {
 
 export const updateProcesso = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { status, valorEnvolvido, advogado, descricao } = req.body;
 
     const processoAtualizado = await prisma.processoTrabalhista.update({

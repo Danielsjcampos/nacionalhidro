@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { gerarPdfFichaRegistro, gerarPdfGuiaASO } from './legacyPdf.service';
 
 /**

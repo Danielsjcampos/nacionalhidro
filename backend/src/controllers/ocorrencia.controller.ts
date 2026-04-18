@@ -54,7 +54,7 @@ export const createOcorrencia = async (req: AuthRequest, res: Response) => {
 
 export const updateOcorrencia = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { data, valorDesconto, ...rest } = req.body;
 
     const ocorrencia = await prisma.ocorrenciaDisciplinar.update({
@@ -78,7 +78,7 @@ export const updateOcorrencia = async (req: AuthRequest, res: Response) => {
 
 export const deleteOcorrencia = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     await prisma.ocorrenciaDisciplinar.delete({ where: { id } });
     res.status(204).send();
   } catch (error) {

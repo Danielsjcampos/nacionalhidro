@@ -92,7 +92,7 @@ export const createHospedagem = async (req: AuthRequest, res: Response) => {
         if (funcionarioId) {
             // Compliance Check
             const now = new Date();
-            const funcionario = await prisma.funcionario.findUnique({
+            const funcionario = await (prisma as any).funcionario.findUnique({
                 where: { id: funcionarioId },
                 include: {
                     asosControle: { orderBy: { dataVencimento: 'desc' }, take: 1 },
@@ -107,9 +107,9 @@ export const createHospedagem = async (req: AuthRequest, res: Response) => {
                 }
 
                 if (osId) {
-                    const os = await prisma.oS.findUnique({ where: { id: osId }, select: { clienteId: true } });
+                    const os = await (prisma as any).oS.findUnique({ where: { id: osId }, select: { clienteId: true } });
                     if (os && os.clienteId) {
-                        const cliente = await prisma.cliente.findUnique({ where: { id: os.clienteId }, select: { integracoesExigidas: true } });
+                        const cliente = await (prisma as any).cliente.findUnique({ where: { id: os.clienteId }, select: { integracoesExigidas: true } });
                         if (cliente?.integracoesExigidas && Array.isArray(cliente.integracoesExigidas)) {
                             for (const ex of (cliente.integracoesExigidas as string[])) {
                                 const hasIntg = funcionario.integracoes.find(i => 
@@ -214,7 +214,7 @@ export const createPassagem = async (req: AuthRequest, res: Response) => {
         if (funcionarioId) {
             // Compliance Check
             const now = new Date();
-            const funcionario = await prisma.funcionario.findUnique({
+            const funcionario = await (prisma as any).funcionario.findUnique({
                 where: { id: funcionarioId },
                 include: {
                     asosControle: { orderBy: { dataVencimento: 'desc' }, take: 1 },
@@ -229,9 +229,9 @@ export const createPassagem = async (req: AuthRequest, res: Response) => {
                 }
 
                 if (osId) {
-                    const os = await prisma.oS.findUnique({ where: { id: osId }, select: { clienteId: true } });
+                    const os = await (prisma as any).oS.findUnique({ where: { id: osId }, select: { clienteId: true } });
                     if (os && os.clienteId) {
-                        const cliente = await prisma.cliente.findUnique({ where: { id: os.clienteId }, select: { integracoesExigidas: true } });
+                        const cliente = await (prisma as any).cliente.findUnique({ where: { id: os.clienteId }, select: { integracoesExigidas: true } });
                         if (cliente?.integracoesExigidas && Array.isArray(cliente.integracoesExigidas)) {
                             for (const ex of (cliente.integracoesExigidas as string[])) {
                                 const hasIntg = funcionario.integracoes.find(i => 
