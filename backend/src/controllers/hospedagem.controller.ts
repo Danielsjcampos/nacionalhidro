@@ -86,6 +86,7 @@ export const listHospedagens = async (req: AuthRequest, res: Response) => {
 };
 
 export const createHospedagem = async (req: AuthRequest, res: Response) => {
+    try {
         const { funcionarioId, osId } = req.body;
 
         if (funcionarioId) {
@@ -207,6 +208,7 @@ export const listPassagens = async (req: AuthRequest, res: Response) => {
 };
 
 export const createPassagem = async (req: AuthRequest, res: Response) => {
+    try {
         const { funcionarioId, osId } = req.body;
 
         if (funcionarioId) {

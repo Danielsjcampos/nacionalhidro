@@ -524,6 +524,8 @@ export const consultarStatusManual = async (req: AuthRequest, res: Response) => 
         console.error('Erro ao consultar status:', error);
         res.status(500).json({ error: 'Falha ao consultar status', details: error.message });
     }
+};
+
 export const cancelarManual = async (req: AuthRequest, res: Response) => {
     try {
         const id = req.params.id as string;

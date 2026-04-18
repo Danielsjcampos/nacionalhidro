@@ -353,6 +353,34 @@ export const focusNfeService = {
         return response.data;
     },
 
+    cancelar: async (faturamentoId: string, justificativa: string) => {
+        const fat = await (prisma as any).faturamento.findUnique({
+            where: { id: faturamentoId }
+        });
+        if (!fat?.focusRef || !fat.cnpjFaturamento) throw new Error('Faturamento sem referência Focus.');
+
+        const empresa = await (prisma as any).empresaCNPJ.findUnique({
+            where: { cnpj: fat.cnpjFaturamento }
+        });
+        if (!empresa?.focusToken) throw new Error('Token Focus não encontrado.');
+
+        const api = getApiClient(empresa.focusToken);
+        
+        let prefix = 'nfse';
+        if (fat.tipo === 'CTE') prefix = 'cte';
+        if (fat.tipo === 'NFE') prefix = 'nfe';
+
+        const endpoint = `/${prefix}/${fat.focusRef}`;
+        
+        // CTe requires POST to /cte/ref/cancelar, NFE /nfe/ref. JSON with justificativa.
+        // NFSe is usually DELETE /nfse/ref
+        let response;
+        if (fat.tipo === 'NFSE') {
+            response = await api.delete(endpoint, { data: { justificativa } });
+        } else {
+            response = await api.post(`${endpoint}/cancelar`, { justificativa });
+        }
+
         if (response.data.status === 'cancelado' || response.data.status === 'sucesso') {
              await (prisma as any).faturamento.update({
                 where: { id: faturamentoId },
