@@ -126,6 +126,7 @@ export const createIntegracao = async (req: AuthRequest, res: Response) => {
 export const confirmarPresenca = async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
+    const { arquivoUrl } = req.body;
     
     // Buscar a integração atual para saber quem é o cliente
     const integracao = await prisma.integracaoCliente.findUnique({
@@ -145,9 +146,10 @@ export const confirmarPresenca = async (req: AuthRequest, res: Response) => {
     const integracaoConfirmada = await prisma.integracaoCliente.update({
       where: { id },
       data: {
-        status: 'VALIDO',
+        status: 'EM_ANALISE',
         dataEmissao,
         dataVencimento,
+        arquivoUrl: arquivoUrl || integracao.arquivoUrl,
         observacoes: `${integracao.observacoes || ''}\n[Sistema] Presença confirmada em ${dataEmissao.toLocaleString('pt-BR')}`.trim()
       }
     });

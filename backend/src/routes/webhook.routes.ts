@@ -10,6 +10,7 @@ router.post('/lead', WebhookController.handleLeadWebhook);
 // Endpoints Fiscais (Focus NFe)
 router.post('/focus/nfse', FiscalWebhookController.handleNFSeWebhook);
 router.post('/focus/cte', FiscalWebhookController.handleCTEWebhook);
+router.post('/focus/nfe', FiscalWebhookController.handleNFEWebhook);
 
 // Endpoints específicos para manter compatibilidade, se necessário
 router.post('/fluent-forms', WebhookController.handleLeadWebhook);

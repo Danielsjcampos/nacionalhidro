@@ -5,8 +5,9 @@ import fs from 'fs';
 import {
     listAdmissoes, getAdmissao, createAdmissao,
     updateAdmissao, moverEtapaAdmissao, deleteAdmissao, getAdmissaoStats, assinarContrato,
-    getAdmissaoPortal, submitAdmissaoPortal
+    getAdmissaoPortal, submitAdmissaoPortal, generateFormPDF, generateAsoPDF
 } from '../controllers/admissao.controller';
+
 import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -42,7 +43,10 @@ router.get('/:id', getAdmissao);
 router.post('/', createAdmissao);
 router.patch('/:id/mover', moverEtapaAdmissao);
 router.post('/:id/sign', assinarContrato);
+router.post('/:id/pdf-ficha', generateFormPDF);
+router.post('/:id/pdf-aso', generateAsoPDF);
 router.patch('/:id', updateAdmissao);
 router.delete('/:id', deleteAdmissao);
+
 
 export default router;

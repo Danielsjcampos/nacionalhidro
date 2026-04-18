@@ -66,6 +66,10 @@ import PublicWorkflowForm from './pages/Workflow/PublicWorkflowForm';
 import IntegracoesPage from './pages/IntegracoesPage';
 import PerfilPage from './pages/PerfilPage';
 import ChecklistPage from './pages/ChecklistPage';
+import RelatoriosCentralPage from './pages/RelatoriosCentralPage';
+import OcorrenciasPage from './pages/OcorrenciasPage';
+import ProcessosTrabalhistasPage from './pages/ProcessosTrabalhistasPage';
+import VagaSolicitacaoPage from './pages/VagaSolicitacao';
 
 
 // Route-to-permission mapping
@@ -94,6 +98,7 @@ const routePermissions: Record<string, string[]> = {
   '/recrutamento': ['rh'], '/admissao': ['rh', 'dp'],
   '/ferias': ['rh', 'dp'], '/desligamento': ['rh', 'dp'],
   '/aso-controle': ['rh'], '/relatorios-rh': ['rh', 'dp'],
+  '/vaga-solicitacoes': ['rh', 'dp'],
   '/integracoes': ['rh', 'dp'],
   '/ponto': ['rh', 'dp'], '/triagem-ia': ['rh'],
   '/workflows': ['rh', 'dp', 'admin'],
@@ -172,11 +177,15 @@ function App() {
         <Route path="/medicoes" element={<ProtectedRoute><Medicoes /></ProtectedRoute>} />
         <Route path="/audit-log" element={<ProtectedRoute><AuditLog /></ProtectedRoute>} />
         <Route path="/recrutamento" element={<ProtectedRoute><Recrutamento /></ProtectedRoute>} />
+        <Route path="/vaga-solicitacoes" element={<ProtectedRoute><VagaSolicitacaoPage /></ProtectedRoute>} />
         <Route path="/rdo" element={<ProtectedRoute><RDO /></ProtectedRoute>} />
         <Route path="/faturamento" element={<ProtectedRoute><FaturamentoPage /></ProtectedRoute>} />
         <Route path="/dashboard-logistica" element={<ProtectedRoute><DashboardLogistica /></ProtectedRoute>} />
         <Route path="/fornecedores" element={<ProtectedRoute><Fornecedores /></ProtectedRoute>} />
         <Route path="/relatorios" element={<ProtectedRoute><FluxoCaixa /></ProtectedRoute>} />
+        <Route path="/ocorrencias" element={<ProtectedRoute><OcorrenciasPage /></ProtectedRoute>} />
+        <Route path="/processos-trabalhistas" element={<ProtectedRoute><ProcessosTrabalhistasPage /></ProtectedRoute>} />
+        <Route path="/relatorios-central" element={<ProtectedRoute><RelatoriosCentralPage /></ProtectedRoute>} />
         <Route path="/admissao" element={<ProtectedRoute><AdmissaoPage /></ProtectedRoute>} />
         <Route path="/painel-motorista" element={<ProtectedRoute><PainelMotorista /></ProtectedRoute>} />
         <Route path="/frota/mapa" element={<ProtectedRoute><FrotaMonitoramento /></ProtectedRoute>} />

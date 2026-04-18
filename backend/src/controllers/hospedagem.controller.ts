@@ -86,7 +86,47 @@ export const listHospedagens = async (req: AuthRequest, res: Response) => {
 };
 
 export const createHospedagem = async (req: AuthRequest, res: Response) => {
-    try {
+        const { funcionarioId, osId } = req.body;
+
+        if (funcionarioId) {
+            // Compliance Check
+            const now = new Date();
+            const funcionario = await prisma.funcionario.findUnique({
+                where: { id: funcionarioId },
+                include: {
+                    asosControle: { orderBy: { dataVencimento: 'desc' }, take: 1 },
+                    integracoes: true
+                }
+            });
+
+            if (funcionario) {
+                const aso = funcionario.asosControle?.[0];
+                if (!aso || (aso.dataVencimento && new Date(aso.dataVencimento) < now)) {
+                    return res.status(403).json({ error: 'BLOQUEIO DE COMPLIANCE: Funcionário com ASO vencido ou ausente.' });
+                }
+
+                if (osId) {
+                    const os = await prisma.oS.findUnique({ where: { id: osId }, select: { clienteId: true } });
+                    if (os && os.clienteId) {
+                        const cliente = await prisma.cliente.findUnique({ where: { id: os.clienteId }, select: { integracoesExigidas: true } });
+                        if (cliente?.integracoesExigidas && Array.isArray(cliente.integracoesExigidas)) {
+                            for (const ex of (cliente.integracoesExigidas as string[])) {
+                                const hasIntg = funcionario.integracoes.find(i => 
+                                    (i.tipoIntegracao === ex || i.nome === ex) && 
+                                    i.clienteId === os.clienteId &&
+                                    i.status === 'VALIDO' &&
+                                    (!i.dataVencimento || new Date(i.dataVencimento) >= now)
+                                );
+                                if (!hasIntg) {
+                                    return res.status(403).json({ error: `BLOQUEIO DE COMPLIANCE: Falta integração exigida: ${ex}` });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         const data = {
             ...req.body,
             valorDiaria: req.body.valorDiaria ? Number(req.body.valorDiaria) : undefined,
@@ -167,7 +207,47 @@ export const listPassagens = async (req: AuthRequest, res: Response) => {
 };
 
 export const createPassagem = async (req: AuthRequest, res: Response) => {
-    try {
+        const { funcionarioId, osId } = req.body;
+
+        if (funcionarioId) {
+            // Compliance Check
+            const now = new Date();
+            const funcionario = await prisma.funcionario.findUnique({
+                where: { id: funcionarioId },
+                include: {
+                    asosControle: { orderBy: { dataVencimento: 'desc' }, take: 1 },
+                    integracoes: true
+                }
+            });
+
+            if (funcionario) {
+                const aso = funcionario.asosControle?.[0];
+                if (!aso || (aso.dataVencimento && new Date(aso.dataVencimento) < now)) {
+                    return res.status(403).json({ error: 'BLOQUEIO DE COMPLIANCE: Funcionário com ASO vencido ou ausente.' });
+                }
+
+                if (osId) {
+                    const os = await prisma.oS.findUnique({ where: { id: osId }, select: { clienteId: true } });
+                    if (os && os.clienteId) {
+                        const cliente = await prisma.cliente.findUnique({ where: { id: os.clienteId }, select: { integracoesExigidas: true } });
+                        if (cliente?.integracoesExigidas && Array.isArray(cliente.integracoesExigidas)) {
+                            for (const ex of (cliente.integracoesExigidas as string[])) {
+                                const hasIntg = funcionario.integracoes.find(i => 
+                                    (i.tipoIntegracao === ex || i.nome === ex) && 
+                                    i.clienteId === os.clienteId &&
+                                    i.status === 'VALIDO' &&
+                                    (!i.dataVencimento || new Date(i.dataVencimento) >= now)
+                                );
+                                if (!hasIntg) {
+                                    return res.status(403).json({ error: `BLOQUEIO DE COMPLIANCE: Falta integração exigida: ${ex}` });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         const data = {
             ...req.body,
             valor: req.body.valor ? Number(req.body.valor) : undefined,

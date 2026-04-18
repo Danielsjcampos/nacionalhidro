@@ -43,6 +43,11 @@ export default function HospedagemPage() {
     // Fornecedores
     const [fornecedores, setFornecedores] = useState<any[]>([]);
 
+    // Funcionarios for selection
+    const [funcionarios, setFuncionarios] = useState<any[]>([]);
+    const [complianceData, setComplianceData] = useState<any>(null);
+    const [checkingCompliance, setCheckingCompliance] = useState(false);
+
     // Passagens
     const [passagens, setPassagens] = useState<any[]>([]);
     const [loadingP, setLoadingP] = useState(true);
@@ -58,6 +63,7 @@ export default function HospedagemPage() {
     useEffect(() => {
         api.get('/os').then(r => setOsList(r.data || [])).catch(() => setOsList([]));
         api.get('/fornecedores').then(r => setFornecedores(r.data || [])).catch(() => setFornecedores([]));
+        api.get('/rh').then(r => setFuncionarios(r.data || [])).catch(() => setFuncionarios([]));
     }, []);
 
     const fetchHospedagens = () => {
@@ -113,6 +119,19 @@ export default function HospedagemPage() {
     const handleStatusP = async (id: string, status: string) => {
         await api.patch(`/hospedagens/passagens/${id}`, { status });
         fetchPassagens();
+    };
+
+    const checkCompliance = async (funcId: string, osId?: string) => {
+        if (!funcId) { setComplianceData(null); return; }
+        try {
+            setCheckingCompliance(true);
+            const res = await api.get(`/rh/${funcId}/compliance-check`, { params: { osId } });
+            setComplianceData(res.data);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setCheckingCompliance(false);
+        }
     };
 
     const fmt = (v: number) => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -300,6 +319,36 @@ export default function HospedagemPage() {
                             <option value="">Vincular a um Fornecedor (Hotel/Pousada)</option>
                             {fornecedores.map((f: any) => <option key={f.id} value={f.id}>{f.nomeFantasia || f.razaoSocial}</option>)}
                         </select>
+                        <select 
+                            value={formH.funcionarioId} 
+                            onChange={e => { 
+                                setFormH({ ...formH, funcionarioId: e.target.value });
+                                checkCompliance(e.target.value, formH.osId);
+                            }}
+                            className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-bold appearance-none"
+                        >
+                            <option value="">Selecione o Funcionário *</option>
+                            {funcionarios.map((f: any) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+                        </select>
+
+                        {complianceData && (
+                            <div className={`p-3 rounded-lg border flex gap-3 ${complianceData.compliant ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
+                                <div className={`p-1.5 rounded-full ${complianceData.compliant ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
+                                    {complianceData.compliant ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                                </div>
+                                <div className="flex-1">
+                                    <p className={`text-[10px] font-black uppercase ${complianceData.compliant ? 'text-emerald-700' : 'text-red-700'}`}>
+                                        Status de Compliance: {complianceData.compliant ? 'REGULAR' : 'BLOQUEADO'}
+                                    </p>
+                                    {!complianceData.compliant && complianceData.errors.map((err: string, i: number) => (
+                                        <p key={i} className="text-[10px] text-red-600 font-bold">• {err}</p>
+                                    ))}
+                                    {complianceData.warnings.map((warn: string, i: number) => (
+                                        <p key={i} className="text-[10px] text-amber-600 font-bold">• {warn}</p>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         <div className="grid grid-cols-2 gap-3">
                             <input value={formH.hotel} onChange={e => setFormH({ ...formH, hotel: e.target.value })}
                                 placeholder="Nome do Hotel *" className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" />
@@ -347,8 +396,10 @@ export default function HospedagemPage() {
                         )}
                         <textarea value={formH.observacoes} onChange={e => setFormH({ ...formH, observacoes: e.target.value })}
                             placeholder="Observações" rows={2} className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" />
-                        <button onClick={handleCreateH} disabled={!formH.hotel || !formH.dataCheckin}
-                            className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold text-sm disabled:opacity-50">Registrar Hospedagem</button>
+                        <button onClick={handleCreateH} disabled={!formH.hotel || !formH.dataCheckin || !formH.funcionarioId || (complianceData && !complianceData.compliant)}
+                            className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold text-sm disabled:opacity-50">
+                            {checkingCompliance ? 'Verificando Compliance...' : 'Registrar Hospedagem'}
+                        </button>
                     </div>
                 </div>
             )}
@@ -366,6 +417,33 @@ export default function HospedagemPage() {
                             <option value="">Vincular a uma OS (opcional)</option>
                             {osList.map((os: any) => <option key={os.id} value={os.id}>OS {os.codigo} — {os.cliente?.nome || ''}</option>)}
                         </select>
+                        <select 
+                            value={formP.funcionarioId} 
+                            onChange={e => { 
+                                setFormP({ ...formP, funcionarioId: e.target.value });
+                                checkCompliance(e.target.value, formP.osId);
+                            }}
+                            className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-bold appearance-none"
+                        >
+                            <option value="">Selecione o Funcionário *</option>
+                            {funcionarios.map((f: any) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+                        </select>
+
+                        {complianceData && (
+                            <div className={`p-3 rounded-lg border flex gap-3 ${complianceData.compliant ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
+                                <div className={`p-1.5 rounded-full ${complianceData.compliant ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
+                                    {complianceData.compliant ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                                </div>
+                                <div className="flex-1">
+                                    <p className={`text-[10px] font-black uppercase ${complianceData.compliant ? 'text-emerald-700' : 'text-red-700'}`}>
+                                        Status de Compliance: {complianceData.compliant ? 'REGULAR' : 'BLOQUEADO'}
+                                    </p>
+                                    {!complianceData.compliant && complianceData.errors.map((err: string, i: number) => (
+                                        <p key={i} className="text-[10px] text-red-600 font-bold">• {err}</p>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         <div className="grid grid-cols-3 gap-3">
                             <select value={formP.tipo} onChange={e => setFormP({ ...formP, tipo: e.target.value })}
                                 className="border border-slate-200 rounded-lg p-2.5 text-sm font-bold">
@@ -396,8 +474,10 @@ export default function HospedagemPage() {
                         </div>
                         <textarea value={formP.observacoes} onChange={e => setFormP({ ...formP, observacoes: e.target.value })}
                             placeholder="Observações" rows={2} className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" />
-                        <button onClick={handleCreateP} disabled={!formP.origem || !formP.destino || !formP.dataIda}
-                            className="w-full bg-indigo-600 text-white py-2.5 rounded-xl font-bold text-sm disabled:opacity-50">Registrar Passagem</button>
+                        <button onClick={handleCreateP} disabled={!formP.origem || !formP.destino || !formP.dataIda || !formP.funcionarioId || (complianceData && !complianceData.compliant)}
+                            className="w-full bg-indigo-600 text-white py-2.5 rounded-xl font-bold text-sm disabled:opacity-50">
+                            {checkingCompliance ? 'Verificando Compliance...' : 'Registrar Passagem'}
+                        </button>
                     </div>
                 </div>
             )}

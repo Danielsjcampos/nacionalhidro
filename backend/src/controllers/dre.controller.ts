@@ -88,8 +88,12 @@ export const getDrePorCnpj = async (req: AuthRequest, res: Response) => {
         const receitaBruta = faturamentos.reduce((s: number, f: any) => s + toNum(f.valorBruto), 0);
 
         // Receitas classified
+        const receitaLocacao = faturamentos
+            .filter((f: any) => (!empresa || f.cnpjFaturamento?.includes(empresa as string)) && f.tipo === 'RL')
+            .reduce((s: number, f: any) => s + toNum(f.valorBruto), 0);
+
         const receitaServicos = faturamentos
-            .filter((f: any) => !empresa || f.cnpjFaturamento?.includes(empresa as string))
+            .filter((f: any) => (!empresa || f.cnpjFaturamento?.includes(empresa as string)) && f.tipo !== 'RL')
             .reduce((s: number, f: any) => s + toNum(f.valorBruto), 0);
 
         // Calculate sums by plano de contas groups (código prefix)
@@ -110,9 +114,9 @@ export const getDrePorCnpj = async (req: AuthRequest, res: Response) => {
         const receitaOperacional = sumByPrefix('1.1');
         const receitasFinanceiras = sumByPrefix('1.2');
         const outrasReceitas = sumByPrefix('1.3');
-        const totalReceitas = receitaBruta || (receitaOperacional + receitasFinanceiras + outrasReceitas);
+        const totalReceitas = (receitaLocacao + receitaServicos) || (receitaOperacional + receitasFinanceiras + outrasReceitas);
 
-        // Deduções (impostos)
+        // Deduções (impostos) - Note: RL usually has no tax, NFSe/CTe does
         const deducoes = sumByPrefix('2.4') || catSum('IMPOSTOS');
 
         // Receita Líquida
@@ -140,9 +144,10 @@ export const getDrePorCnpj = async (req: AuthRequest, res: Response) => {
         // Build DRE lines
         const linhas: DRELine[] = [
             { codigo: '1.0', descricao: '(+) RECEITA BRUTA', valor: totalReceitas, percentual: 100, tipo: 'TITULO', nivel: 1 },
-            { codigo: '1.1', descricao: 'Faturamento de Serviços', valor: receitaServicos, percentual: pct(receitaServicos), tipo: 'ANALITICA', nivel: 2 },
-            { codigo: '1.2', descricao: 'Receitas Financeiras', valor: receitasFinanceiras, percentual: pct(receitasFinanceiras), tipo: 'ANALITICA', nivel: 2 },
-            { codigo: '1.3', descricao: 'Outras Receitas', valor: outrasReceitas, percentual: pct(outrasReceitas), tipo: 'ANALITICA', nivel: 2 },
+            { codigo: '1.1', descricao: 'Faturamento de Locação (RL)', valor: receitaLocacao, percentual: pct(receitaLocacao), tipo: 'ANALITICA', nivel: 2 },
+            { codigo: '1.2', descricao: 'Prestação de Serviços (NFSe/CTe)', valor: receitaServicos, percentual: pct(receitaServicos), tipo: 'ANALITICA', nivel: 2 },
+            { codigo: '1.3', descricao: 'Receitas Financeiras', valor: receitasFinanceiras, percentual: pct(receitasFinanceiras), tipo: 'ANALITICA', nivel: 2 },
+            { codigo: '1.4', descricao: 'Outras Receitas', valor: outrasReceitas, percentual: pct(outrasReceitas), tipo: 'ANALITICA', nivel: 2 },
 
             { codigo: '2.0', descricao: '(-) DEDUÇÕES DA RECEITA', valor: deducoes, percentual: pct(deducoes), tipo: 'TITULO', nivel: 1 },
             { codigo: '2.4', descricao: 'Impostos e Contribuições', valor: deducoes, percentual: pct(deducoes), tipo: 'ANALITICA', nivel: 2 },
@@ -204,5 +209,23 @@ export const getDrePorCnpj = async (req: AuthRequest, res: Response) => {
     } catch (error) {
         console.error('DRE por CNPJ error:', error);
         res.status(500).json({ error: 'Failed to generate DRE' });
+    }
+};
+
+// ─── T15: Alocação de Custos de Mão de Obra por OS ───────────────
+export const getAlocacaoCustosTrabalho = async (req: AuthRequest, res: Response) => {
+    try {
+        const { dataInicio, dataFim } = req.query;
+        if (!dataInicio || !dataFim) {
+            return res.status(400).json({ error: 'Data início e fim são obrigatórias.' });
+        }
+
+        const { CustoTrabalhoService } = await import('../services/custoTrabalho.service');
+        const relatorio = await CustoTrabalhoService.calcularAlocacaoCusto(dataInicio as string, dataFim as string);
+
+        res.json(relatorio);
+    } catch (error: any) {
+        console.error('Alocação custos erro:', error);
+        res.status(500).json({ error: 'Falha ao calcular alocação de custos', details: error.message });
     }
 };

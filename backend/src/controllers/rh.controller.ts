@@ -677,3 +677,88 @@ export const getAttendanceToday = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch attendance data' });
   }
 };
+// ─── COMPLIANCE CHECK ───────────────────────────────────────────
+export const checkCompliance = async (req: AuthRequest, res: Response) => {
+  try {
+    const { funcionarioId } = req.params;
+    const { clienteId, osId } = req.query;
+
+    const now = new Date();
+    
+    // 1. Get Employee with ASO and Integrations
+    const funcionario = await prisma.funcionario.findUnique({
+      where: { id: funcionarioId },
+      include: {
+        asosControle: {
+          orderBy: { dataVencimento: 'desc' as any },
+          take: 1
+        },
+        integracoes: true
+      }
+    });
+
+    if (!funcionario) return res.status(404).json({ error: 'Funcionario not found' });
+
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    // 2. Check ASO
+    const latestAso = funcionario.asosControle?.[0];
+    if (!latestAso) {
+      errors.push('ASO não encontrado para este funcionário.');
+    } else if (latestAso.dataVencimento && new Date(latestAso.dataVencimento) < now) {
+      errors.push(`ASO Vencido em ${new Date(latestAso.dataVencimento).toLocaleDateString('pt-BR')}`);
+    } else if (latestAso.dataVencimento) {
+      const dias = (new Date(latestAso.dataVencimento).getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+      if (dias <= 15) warnings.push(`ASO vence em ${Math.ceil(dias)} dias.`);
+    }
+
+    // 3. Check Integrations for specific client/OS
+    let targetClienteId = clienteId as string;
+    if (osId) {
+      const os = await prisma.oS.findUnique({ 
+        where: { id: osId as string },
+        select: { clienteId: true }
+      });
+      if (os) targetClienteId = os.clienteId;
+    }
+
+    if (targetClienteId) {
+      const cliente = await prisma.cliente.findUnique({
+        where: { id: targetClienteId },
+        select: { nome: true, integracoesExigidas: true }
+      });
+
+      if (cliente && cliente.integracoesExigidas && Array.isArray(cliente.integracoesExigidas)) {
+        const exigencias = cliente.integracoesExigidas as string[];
+        exigencias.forEach(ex => {
+          const hasIntg = funcionario.integracoes.find(i => 
+            (i.tipoIntegracao === ex || i.nome === ex) && 
+            i.clienteId === targetClienteId &&
+            i.status === 'VALIDO'
+          );
+
+          if (!hasIntg) {
+            errors.push(`Falta Integração Exigida: ${ex} p/ ${cliente.nome}`);
+          } else if (hasIntg.dataVencimento && new Date(hasIntg.dataVencimento) < now) {
+            errors.push(`Integração ${ex} Vencida p/ ${cliente.nome}`);
+          }
+        });
+      }
+    }
+
+    res.json({
+      compliant: errors.length === 0,
+      errors,
+      warnings,
+      funcionario: {
+        nome: funcionario.nome,
+        cargo: funcionario.cargo
+      }
+    });
+
+  } catch (error) {
+    console.error('Compliance check error:', error);
+    res.status(500).json({ error: 'Failed to perform compliance check' });
+  }
+};

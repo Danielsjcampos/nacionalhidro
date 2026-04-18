@@ -4,6 +4,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { gerarPdfReciboLocacao } from '../services/legacyPdf.service';
 import { sendEmail } from '../services/email.service';
 import { focusNfeService } from '../services/focusNfe.service';
+import axios from 'axios';
 
 // ─── HELPER: Auto-criar Conta a Receber para um Faturamento ─────
 async function autoCreateContaReceber(fat: any): Promise<void> {
@@ -498,6 +499,8 @@ export const emitirManual = async (req: AuthRequest, res: Response) => {
             result = await focusNfeService.emitirNFSe(id);
         } else if (fat.tipo === 'CTE') {
             result = await focusNfeService.emitirCTE(id);
+        } else if (fat.tipo === 'NFE') {
+            result = await focusNfeService.emitirNFe(id);
         } else {
             return res.status(400).json({ error: 'Tipo de faturamento não suporta emissão fiscal automatizada.' });
         }
@@ -521,8 +524,6 @@ export const consultarStatusManual = async (req: AuthRequest, res: Response) => 
         console.error('Erro ao consultar status:', error);
         res.status(500).json({ error: 'Falha ao consultar status', details: error.message });
     }
-};
-
 export const cancelarManual = async (req: AuthRequest, res: Response) => {
     try {
         const id = req.params.id as string;
@@ -538,7 +539,18 @@ export const cancelarManual = async (req: AuthRequest, res: Response) => {
 };
 
 export const emitirCartaCorrecao = async (req: AuthRequest, res: Response) => {
-    res.json({ error: 'Não aplicável para NFS-e padrão Campinas na maioria das vezes, apenas cancelamento.' });
+    try {
+        const id = req.params.id as string;
+        const { correcao } = req.body;
+        
+        if (!correcao) return res.status(400).json({ error: 'Texto da correção é obrigatório' });
+
+        const result = await focusNfeService.corrigir(id, correcao);
+        res.json({ message: 'Carta de Correção enviada', result });
+    } catch (error: any) {
+        console.error('Erro ao emitir CC-e:', error);
+        res.status(500).json({ error: 'Falha ao emitir CC-e', details: error.message });
+    }
 };
 
 // ─── ENVIAR FATURAMENTO AO CLIENTE (Email / PDF) ────────────────
@@ -555,36 +567,81 @@ export const enviarFaturamentoAoCliente = async (req: AuthRequest, res: Response
         const empresa = await (prisma as any).empresaCNPJ.findUnique({ where: { cnpj: fat.cnpjFaturamento } }) || await (prisma as any).configuracao.findFirst() || {};
         const config = await (prisma as any).configuracao.findFirst() || {};
 
-        let pdfBuffer: Buffer | null = null;
-        let filename = 'Documento.pdf';
         let nfseLink = '';
+        const attachments: any[] = [];
         
         if (fat.tipo === 'RL') {
-             pdfBuffer = await gerarPdfReciboLocacao(fat, fat.cliente, config);
-             filename = `Recibo_Locacao_${fat.id.substring(0,6)}.pdf`;
+             const pdfBuffer = await gerarPdfReciboLocacao(fat, fat.cliente, config);
+             const filename = `Recibo_Locacao_${fat.numero || fat.id.substring(0,6)}.pdf`;
+             attachments.push({ filename, content: pdfBuffer, contentType: 'application/pdf' });
         } else if (fat.tipo === 'NFSE' && fat.numero && fat.nfseCodVerificacao) {
              // Link oficial prefeitura Campinas
              const inscricao = empresa.inscricaoMunicipal?.replace(/\D/g, '') || '';
              nfseLink = `https://nfse.campinas.sp.gov.br/nfse/visualizarNota.do?nota=${fat.numero}&inscricao=${inscricao}&codVerificacao=${fat.nfseCodVerificacao}`;
-        } else {
-             return res.status(400).json({ error: 'NFS-e ainda não emitida ou código de verificação pendente.' });
         }
 
-        let htmlText = `Prezado(a) ${fat.cliente.razaoSocial || fat.cliente.nome},<br><br>Gostaríamos de lhe enviar o documento anexo referente ao faturamento de código <b>${fat.numero || fat.id.substring(0,8)}</b>.<br>Valor: <b>R$ ${Number(fat.valorLiquido).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</b>.<br><br>`;
-        
-        if (nfseLink) {
-            htmlText += `<b>Visualizar Nota Fiscal:</b> <a href="${nfseLink}">${nfseLink}</a><br><br>`;
+        // Anexar PDF da nota se disponível via URL (Focus NFe)
+        if (fat.urlArquivoNota) {
+            try {
+                const response = await axios.get(fat.urlArquivoNota, { responseType: 'arraybuffer' });
+                const ext = fat.urlArquivoNota.split('.').pop() || 'pdf';
+                attachments.push({ 
+                    filename: `${fat.tipo}_${fat.numero || fat.id.substring(0,6)}.${ext}`, 
+                    content: Buffer.from(response.data), 
+                    contentType: ext === 'html' ? 'text/html' : 'application/pdf' 
+                });
+            } catch (err) {
+                console.warn(`[Email] Falha ao baixar PDF da nota: ${fat.urlArquivoNota}`);
+            }
         }
 
-        htmlText += `Atenciosamente,<br><b>Nacional Hidro</b>`;
+        // Anexar XML se disponível
+        if (fat.urlArquivoXml) {
+            try {
+                const response = await axios.get(fat.urlArquivoXml, { responseType: 'arraybuffer' });
+                attachments.push({ 
+                    filename: `${fat.tipo}_${fat.numero || fat.id.substring(0,6)}.xml`, 
+                    content: Buffer.from(response.data), 
+                    contentType: 'application/xml' 
+                });
+            } catch (err) {
+                console.warn(`[Email] Falha ao baixar XML da nota: ${fat.urlArquivoXml}`);
+            }
+        }
+
+        if (attachments.length === 0 && !nfseLink) {
+             return res.status(400).json({ error: 'Documento fiscal ainda não emitido ou arquivo indisponível.' });
+        }
+
+        const htmlText = `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px;">Faturamento Nacional Hidro</h2>
+            <p>Prezado(a) <strong>${fat.cliente.razaoSocial || fat.cliente.nome}</strong>,</p>
+            <p>Anexamos a esta mensagem os documentos referentes ao seu faturamento.</p>
+            
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                <p style="margin: 5px 0;"><strong>Nº Documento:</strong> ${fat.numero || fat.id.substring(0,8)}</p>
+                <p style="margin: 5px 0;"><strong>Valor:</strong> R$ ${Number(fat.valorLiquido).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                ${fat.dataVencimento ? `<p style="margin: 5px 0;"><strong>Vencimento:</strong> ${new Date(fat.dataVencimento).toLocaleDateString('pt-BR')}</p>` : ''}
+            </div>
+
+            ${nfseLink ? `
+            <p style="text-align: center; margin: 30px 0;">
+                <a href="${nfseLink}" style="background-color: #3498db; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">Visualizar Nota Fiscal (Prefeitura)</a>
+            </p>` : ''}
+
+            <p style="font-size: 0.9em; color: #7f8c8d; font-style: italic; margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px;">
+                Este é um e-mail automático. Em caso de dúvidas, permanemos à disposição no e-mail <strong>financeiro@nacionalhidro.com.br</strong>.
+            </p>
+            <p>Atenciosamente,<br><strong>Equipe Financeira - Nacional Hidro</strong></p>
+        </div>`;
 
         const resp = await sendEmail({
             to: fat.cliente.email,
-            subject: `Faturamento Nacional Hidro - ${fat.tipo} ${fat.numero || ''}`,
+            cc: ['financeiro@nacionalhidro.com.br'],
+            subject: `Faturamento Nacional Hidro - ${fat.tipo} ${fat.numero || fat.id.substring(0,8)}`,
             html: htmlText,
-            attachments: pdfBuffer ? [
-                { filename, content: pdfBuffer, contentType: 'application/pdf' }
-            ] : []
+            attachments
         });
 
         if (resp.success) {
@@ -594,11 +651,36 @@ export const enviarFaturamentoAoCliente = async (req: AuthRequest, res: Response
                      data: {
                          medicaoId: fat.medicaoId,
                          destinatario: fat.cliente.email || '',
-                         assunto: `Faturamento ${fat.tipo} Enviado`,
-                         corpo: `PDF enviado por email em ${new Date().toISOString()}`
+                         assunto: `Faturamento ${fat.tipo} ${fat.numero || ''} Enviado`,
+                         corpo: `PDF enviado por email em ${new Date().toISOString()}`,
+                         statusEnvio: 'ENVIADO'
                      }
                  });
              }
+
+             // --- LOG UNIFICADO: Histórico de Cobrança ---
+             try {
+                 const contaReceber = await (prisma as any).contaReceber.findFirst({
+                     where: { faturamentoId: id }
+                 });
+                 
+                 if (contaReceber) {
+                     await (prisma as any).historicoCobranca.create({
+                         data: {
+                             contaReceberId: contaReceber.id,
+                             tipo: 'EMAIL',
+                             canal: 'EMAIL',
+                             mensagem: `Faturamento ${fat.tipo} #${fat.numero || fat.id.substring(0,8)} enviado automaticamente ao cliente.`,
+                             destinatario: fat.cliente.email,
+                             enviadoPor: 'Sistema (Faturamento)',
+                             sucesso: true
+                         }
+                     });
+                 }
+             } catch (logErr) {
+                 console.error('[Email] Falha ao registrar HistoricoCobranca:', logErr);
+             }
+
              return res.json({ message: 'E-mail enviado com sucesso' });
         } else {
              throw new Error('Falha no disparo de e-mail');

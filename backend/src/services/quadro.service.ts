@@ -8,6 +8,8 @@ interface FuncionarioQuadro {
   status: 'DISPONIVEL' | 'ESCALADO' | 'AFASTADO' | 'FERIAS' | 'MANUTENCAO_DOC';
   escaladoPara?: string; // Nome do cliente onde já está escalado
   motivoIndisponibilidade?: string;
+  // ── Gap Analysis 2.3: Categoria detalhada de indisponibilidade ──
+  categoriaIndisponibilidade?: 'FERIAS' | 'ATESTADO' | 'AFASTAMENTO_INSS' | 'FOLGA' | 'TREINAMENTO' | 'FALTA_INJUSTIFICADA' | 'LICENCA' | null;
   integracaoStatus?: 'OK' | 'VENCENDO' | 'VENCIDO' | 'INEXISTENTE';
   asoStatus?: 'OK' | 'VENCENDO' | 'VENCIDO' | 'INEXISTENTE';
   categoriaCNH?: string | null;
@@ -147,13 +149,37 @@ export const getQuadroFuncionarios = async (
     let status: FuncionarioQuadro['status'] = 'DISPONIVEL';
     let motivo: string | undefined;
     let escaladoPara: string | undefined;
+    let categoriaIndisponibilidade: FuncionarioQuadro['categoriaIndisponibilidade'] = null;
 
     if (statusCriticos.includes(func.status)) {
       status = func.status === 'FERIAS' ? 'FERIAS' : 'AFASTADO';
       motivo = func.motivoAfastamento || func.status;
+      // Map to detailed category
+      const tipoMap: Record<string, FuncionarioQuadro['categoriaIndisponibilidade']> = {
+        'FERIAS': 'FERIAS',
+        'ATESTADO': 'ATESTADO',
+        'AFASTADO': 'AFASTAMENTO_INSS',
+        'DESLIGADO': null,
+      };
+      categoriaIndisponibilidade = tipoMap[func.status] || null;
     } else if (afastado) {
       status = 'AFASTADO';
       motivo = afastado;
+      // Map afastamento tipo to category
+      const afastTipoMap: Record<string, FuncionarioQuadro['categoriaIndisponibilidade']> = {
+        'FERIAS': 'FERIAS',
+        'ATESTADO': 'ATESTADO',
+        'ATESTADO_MEDICO': 'ATESTADO',
+        'AFASTAMENTO_INSS': 'AFASTAMENTO_INSS',
+        'INSS': 'AFASTAMENTO_INSS',
+        'FOLGA': 'FOLGA',
+        'TREINAMENTO': 'TREINAMENTO',
+        'FALTA_INJUSTIFICADA': 'FALTA_INJUSTIFICADA',
+        'LICENCA': 'LICENCA',
+        'LICENCA_MATERNIDADE': 'LICENCA',
+        'LICENCA_PATERNIDADE': 'LICENCA',
+      };
+      categoriaIndisponibilidade = afastTipoMap[afastado.toUpperCase()] || 'ATESTADO';
     } else if (funcionariosEscalados.has(func.id)) {
       status = 'ESCALADO';
       escaladoPara = funcionariosEscalados.get(func.id);
@@ -169,6 +195,7 @@ export const getQuadroFuncionarios = async (
       status,
       escaladoPara,
       motivoIndisponibilidade: motivo,
+      categoriaIndisponibilidade,
       integracaoStatus: intSt as any,
       asoStatus: asoSt,
       categoriaCNH: func.categoriaCNH,

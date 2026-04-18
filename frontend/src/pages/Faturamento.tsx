@@ -10,6 +10,7 @@ const TIPOS: Record<string, { label: string; color: string }> = {
     RL: { label: 'RL (Locação 90%)', color: 'bg-blue-100 text-blue-700' },
     NFSE: { label: 'NFS-e (Serviço 10%)', color: 'bg-emerald-100 text-emerald-700' },
     CTE: { label: 'CT-e (Transporte)', color: 'bg-amber-100 text-amber-700' },
+    NFE: { label: 'NF-e (Produtos)', color: 'bg-indigo-100 text-indigo-700' }
 };
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
@@ -306,6 +307,7 @@ export default function Faturamento() {
                     <option value="RL">RL</option>
                     <option value="NFSE">NFS-e</option>
                     <option value="CTE">CT-e</option>
+                    <option value="NFE">NF-e</option>
                 </select>
                 <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
                     className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
@@ -356,7 +358,7 @@ export default function Faturamento() {
                                             {f.medicao?.codigo || (f.osId ? `OS ${f.osId.slice(0,4)}` : '—')}
                                         </td>
                                         <td className="p-3">
-                                            {['NFSE', 'CTE'].includes(f.tipo) ? (
+                                            {['NFSE', 'CTE', 'NFE'].includes(f.tipo) ? (
                                                 <div className="flex flex-col gap-1 items-start">
                                                     {f.focusStatus ? (
                                                         <div className="flex items-center gap-2">
@@ -444,6 +446,7 @@ export default function Faturamento() {
                                     <option value="RL">RL (Locação)</option>
                                     <option value="NFSE">NFS-e (Serviço)</option>
                                     <option value="CTE">CT-e (Transporte)</option>
+                                    <option value="NFE">NF-e (Produtos)</option>
                                 </select>
                             </div>
                             <div className="space-y-1">

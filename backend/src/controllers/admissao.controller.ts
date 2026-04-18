@@ -2,7 +2,8 @@ import { Response } from 'express';
 import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { enviarMensagemWhatsApp } from '../services/whatsapp.service';
-import { gerarFichaAdmissao } from '../services/admissionDoc.service';
+import { gerarFichaAdmissao, gerarGuiaASO } from '../services/admissionDoc.service';
+
 import {
     sendADM01_BoasVindas,
     sendADM02_SeguroVida,
@@ -513,3 +514,52 @@ export const getAdmissaoStats = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ error: 'Failed to fetch stats' });
     }
 };
+
+export const generateFormPDF = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string;
+        const admissao = await (prisma as any).admissao.findUnique({ where: { id } });
+        if (!admissao) return res.status(404).json({ error: 'Admissão não encontrada' });
+
+        const ficha = await gerarFichaAdmissao(admissao);
+        
+        // Update documents list
+        const docsAtuais = Array.isArray(admissao.documentosEnviados) ? admissao.documentosEnviados : [];
+        if (!docsAtuais.some((d: any) => d.nome === ficha.nome)) {
+            await (prisma as any).admissao.update({
+                where: { id },
+                data: { documentosEnviados: [...docsAtuais, ficha] }
+            });
+        }
+
+        res.json(ficha);
+    } catch (error: any) {
+        console.error('Generate Form PDF error:', error);
+        res.status(500).json({ error: 'Failed to generate form PDF', details: error.message });
+    }
+};
+
+export const generateAsoPDF = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string;
+        const admissao = await (prisma as any).admissao.findUnique({ where: { id } });
+        if (!admissao) return res.status(404).json({ error: 'Admissão não encontrada' });
+
+        const guia = await gerarGuiaASO(admissao);
+
+        // Update documents list
+        const docsAtuais = Array.isArray(admissao.documentosEnviados) ? admissao.documentosEnviados : [];
+        if (!docsAtuais.some((d: any) => d.nome === guia.nome)) {
+            await (prisma as any).admissao.update({
+                where: { id },
+                data: { documentosEnviados: [...docsAtuais, guia] }
+            });
+        }
+
+        res.json(guia);
+    } catch (error: any) {
+        console.error('Generate ASO PDF error:', error);
+        res.status(500).json({ error: 'Failed to generate ASO PDF', details: error.message });
+    }
+};
+

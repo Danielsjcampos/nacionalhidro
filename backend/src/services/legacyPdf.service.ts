@@ -469,3 +469,27 @@ export const gerarPdfFichaRegistro = async (admissao: any): Promise<Buffer> => {
     const rendered = mustache.render(templateHtml, view);
     return generatePdfFromHtml(rendered);
 };
+
+// ==========================================
+// GUIA DE ENCAMINHAMENTO ASO (RH)
+// ==========================================
+export const gerarPdfGuiaASO = async (admissao: any): Promise<Buffer> => {
+    const formatDate = (date: any) => date ? moment(date).format('DD/MM/YYYY') : '---';
+
+    const view = {
+        Nome:              admissao.nome?.toLocaleUpperCase(),
+        CPF:               admissao.cpf || '---',
+        Cargo:             admissao.cargo || '---',
+        TipoExame:         admissao.tipoAso || 'Admissional',
+        Clinica:           admissao.clinicaASO || 'Vida Saúde Integrada',
+        DataAgendamento:   formatDate(admissao.dataAgendamentoExame),
+        RazaoSocial:       admissao.razaoSocial || 'NACIONAL HIDROMECÂNICA E SANEAMENTO LTDA',
+        CNPJ:              admissao.razaoSocial === 'Nacional Locação' ? '12.345.678/0001-99' : '98.765.432/0001-11', // Ideamente viria de config
+        DataHoje:          moment().format('DD/MM/YYYY')
+    };
+
+    const templateHtml = await getTemplateHtml('guia_aso.html');
+    const rendered = mustache.render(templateHtml, view);
+    return generatePdfFromHtml(rendered);
+};
+

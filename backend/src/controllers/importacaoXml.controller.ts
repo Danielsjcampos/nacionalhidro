@@ -197,6 +197,86 @@ function parseNFeXML(xmlContent: string): NFeData {
   };
 }
 
+function parseCTeXML(xmlContent: string): NFeData {
+  const xml = xmlContent;
+  const chaveMatch = xml.match(/<chCTe>([^<]+)<\/chCTe>/);
+  const ideMatch = xml.match(/<ide>([\s\S]*?)<\/ide>/);
+  const ide = ideMatch ? ideMatch[1] : '';
+  const emitMatch = xml.match(/<emit>([\s\S]*?)<\/emit>/);
+  const emit = emitMatch ? emitMatch[1] : '';
+  const destMatch = xml.match(/<dest>([\s\S]*?)<\/dest>/);
+  const dest = destMatch ? destMatch[1] : '';
+  const vPrestMatch = xml.match(/<vPrest>([\s\S]*?)<\/vPrest>/);
+  const vPrest = vPrestMatch ? vPrestMatch[1] : '';
+
+  const duplicatas: NFeData['duplicatas'] = [];
+  const fatMatch = xml.match(/<fat>([\s\S]*?)<\/fat>/);
+  if (fatMatch) {
+    const dupMatches = xml.matchAll(/<dup>([\s\S]*?)<\/dup>/g);
+    for (const dupMatch of dupMatches) {
+      const dup = dupMatch[1];
+      duplicatas.push({
+        numero: getTextContent(dup, 'nDup'),
+        vencimento: getTextContent(dup, 'dVenc'),
+        valor: getFloat(dup, 'vDup'),
+      });
+    }
+  }
+
+  const vTPrest = getFloat(vPrest, 'vTPrest');
+
+  return {
+    chaveAcesso: chaveMatch ? chaveMatch[1] : '',
+    numero: getTextContent(ide, 'nCT'),
+    serie: getTextContent(ide, 'serie'),
+    dataEmissao: getTextContent(ide, 'dhEmi'),
+    emitente: {
+      cnpj: getTextContent(emit, 'CNPJ') || getTextContent(emit, 'CPF'),
+      razaoSocial: getTextContent(emit, 'xNome'),
+      nomeFantasia: getTextContent(emit, 'xFant') || getTextContent(emit, 'xNome'),
+      inscricaoEstadual: getTextContent(emit, 'IE'),
+      endereco: getTextContent(emit, 'xLgr'),
+      cidade: getTextContent(emit, 'xMun'),
+      uf: getTextContent(emit, 'UF'),
+    },
+    destinatario: {
+      cnpj: getTextContent(dest, 'CNPJ') || getTextContent(dest, 'CPF'),
+      razaoSocial: getTextContent(dest, 'xNome'),
+    },
+    itens: [{
+      numero: 1,
+      codigo: 'CTE',
+      descricao: `Serviço de Transporte - Ref: ${getTextContent(ide, 'natOp')}`,
+      ncm: '',
+      cfop: getTextContent(ide, 'CFOP'),
+      unidade: 'UN',
+      quantidade: 1,
+      valorUnitario: vTPrest,
+      valorTotal: vTPrest,
+      icms: 0, ipi: 0, pis: 0, cofins: 0
+    }],
+    totais: {
+      baseCalculoICMS: getFloat(vPrest, 'vBC'),
+      valorICMS: getFloat(vPrest, 'vICMS'),
+      valorProdutos: vTPrest,
+      valorFrete: 0,
+      valorSeguro: 0,
+      valorDesconto: 0,
+      valorIPI: 0,
+      valorPIS: 0,
+      valorCOFINS: 0,
+      valorOutros: 0,
+      valorNF: vTPrest,
+    },
+    duplicatas,
+    frete: {
+      modalidade: '0',
+      transportadora: getTextContent(emit, 'xNome'),
+      placa: '',
+    }
+  };
+}
+
 // ─── PARSE XML (preview only, no persistence) ───────────────────
 export const parseXml = async (req: AuthRequest, res: Response) => {
   try {
@@ -207,27 +287,31 @@ export const parseXml = async (req: AuthRequest, res: Response) => {
 
     const xmlContent = file.buffer.toString('utf-8');
 
-    // Validate basic NF-e structure
-    if (!xmlContent.includes('<nfeProc') && !xmlContent.includes('<NFe') && !xmlContent.includes('<infNFe')) {
-      return res.status(400).json({ error: 'Arquivo não é um XML de NF-e válido' });
+    // Detect CTe or NFe
+    const isCte = xmlContent.includes('<cteProc') || xmlContent.includes('<CTe') || xmlContent.includes('<infCte');
+    const isNfe = xmlContent.includes('<nfeProc') || xmlContent.includes('<NFe') || xmlContent.includes('<infNFe');
+
+    if (!isCte && !isNfe) {
+      return res.status(400).json({ error: 'Arquivo não é um XML de NF-e ou CT-e válido' });
     }
 
-    const nfe = parseNFeXML(xmlContent);
+    const docData = isCte ? parseCTeXML(xmlContent) : parseNFeXML(xmlContent);
 
-    if (!nfe.numero) {
-      return res.status(400).json({ error: 'Não foi possível extrair o número da NF-e do XML' });
+    if (!docData.numero) {
+      return res.status(400).json({ error: `Não foi possível extrair o número do ${isCte ? 'CT-e' : 'NF-e'} do XML` });
     }
 
     // Check if already imported
     const existing = await prisma.contaPagar.findFirst({
       where: {
-        notaFiscal: nfe.numero,
-        serieNF: nfe.serie,
+        notaFiscal: docData.numero,
+        serieNF: docData.serie,
       },
     });
 
     res.json({
-      ...nfe,
+      ...docData,
+      tipo: isCte ? 'CTE' : 'NFE',
       jaImportada: !!existing,
       existingId: existing?.id || null,
     });
@@ -241,9 +325,10 @@ export const parseXml = async (req: AuthRequest, res: Response) => {
 export const importarXml = async (req: AuthRequest, res: Response) => {
   try {
     const { nfe, planoContasId, contaBancariaId, centroCusto, categoria } = req.body;
+    const tipo = nfe.tipo || 'NFE';
 
     if (!nfe || !nfe.numero || !nfe.totais) {
-      return res.status(400).json({ error: 'Dados da NF-e incompletos' });
+      return res.status(400).json({ error: `Dados do ${tipo} incompletos` });
     }
 
     const user = await prisma.user.findUnique({ where: { id: req.user?.userId } });
@@ -364,7 +449,7 @@ export const importarXml = async (req: AuthRequest, res: Response) => {
     }
 
     res.status(201).json({
-      message: `NF ${nfe.numero} importada com sucesso`,
+      message: `${tipo} ${nfe.numero} importada com sucesso`,
       fornecedorId,
       fornecedorNovo: !!(nfe.emitente?.cnpj && !fornecedorId),
       contasCriadas: contasCriadas.length,

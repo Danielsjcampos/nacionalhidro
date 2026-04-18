@@ -4,7 +4,7 @@ import api from '../services/api';
 import {
   Plus, Loader2, ChevronRight, X, Clock, Copy, Printer,
   CheckCircle2, AlertCircle, PlayCircle, FolderOpen, ChevronLeft, ChevronDown,
-  Package, Users, ArrowDownToLine
+  Package, Users, ArrowDownToLine, RotateCcw
 } from 'lucide-react';
 import { ImprimirOS } from '../components/ImprimirOS';
 import ModalBaixaLoteOS, { BaixaLoteData } from '../components/ModalBaixaLoteOS';
@@ -168,7 +168,12 @@ export default function OS() {
   const handleUpdateStatus = async (id: string, newStatus: string, justification?: string) => {
     try {
       setSaving(true);
-      await api.patch(`/os/${id}`, { status: newStatus, justificativaCancelamento: justification });
+      if (newStatus === 'FINALIZADA') {
+        const just = prompt('Deseja inserir alguma observação/justificativa para a finalização? (opcional)');
+        await api.patch(`/os/${id}/finalizar`, { justificativa: just });
+      } else {
+        await api.patch(`/os/${id}`, { status: newStatus, justificativaCancelamento: justification });
+      }
       showToast(`OS ${newStatus === 'CANCELADA' ? 'cancelada' : 'finalizada'} com sucesso!`);
       setShowCancelModal(false);
       setCancelJustification('');
@@ -177,6 +182,26 @@ export default function OS() {
     } catch (error) {
       console.error('Update status error:', error);
       showToast('Erro ao atualizar status da OS');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReverterCancelamento = async (id: string) => {
+    const justificativa = window.prompt('Justificativa para reverter o cancelamento:');
+    if (!justificativa || justificativa.trim().length < 3) {
+      showToast('Justificativa é obrigatória (mínimo 3 caracteres).');
+      return;
+    }
+    try {
+      setSaving(true);
+      await api.patch(`/os/${id}/reverter-cancelamento`, { justificativa });
+      showToast('Cancelamento revertido com sucesso!', 'success');
+      fetchData();
+      setShowModal(false);
+    } catch (error: any) {
+      console.error('Reverter cancelamento error:', error);
+      showToast(error.response?.data?.error || 'Erro ao reverter cancelamento.');
     } finally {
       setSaving(false);
     }
@@ -1291,6 +1316,19 @@ export default function OS() {
                       </button>
                     )}
                   </>
+                )}
+
+                {/* Gap Analysis 2.6: Reverter Cancelamento */}
+                {selectedOS && selectedOS.status === 'CANCELADA' && (
+                  <button
+                    onClick={() => handleReverterCancelamento(selectedOS.id)}
+                    disabled={saving}
+                    className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-5 py-2 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-60"
+                  >
+                    {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Reverter Cancelamento
+                  </button>
                 )}
 
                 <button

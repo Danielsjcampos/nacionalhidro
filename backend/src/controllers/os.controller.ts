@@ -746,7 +746,8 @@ export const listItensCobranca = async (req: AuthRequest, res: Response) => {
 export const createItemCobranca = async (req: AuthRequest, res: Response) => {
   try {
     const osId = req.params.osId as string;
-    const { descricao, quantidade, valorUnitario, percentualAdicional } = req.body;
+    const { descricao, quantidade, valorUnitario, percentualAdicional,
+            tipoCobranca, areaServico, horaInicio, horaFim, centroCustoId } = req.body;
 
     if (!descricao || !quantidade || !valorUnitario) {
       return res.status(400).json({ error: 'Campos obrigatórios: descricao, quantidade, valorUnitario' });
@@ -765,6 +766,11 @@ export const createItemCobranca = async (req: AuthRequest, res: Response) => {
         valorUnitario: vu,
         percentualAdicional: perc || undefined,
         valorTotal,
+        tipoCobranca: tipoCobranca || undefined,
+        areaServico: areaServico || undefined,
+        horaInicio: horaInicio || undefined,
+        horaFim: horaFim || undefined,
+        centroCustoId: centroCustoId || undefined,
       },
     });
 
@@ -772,7 +778,7 @@ export const createItemCobranca = async (req: AuthRequest, res: Response) => {
       entidade: 'OS',
       entidadeId: osId as string,
       acao: 'ITEM_COBRANCA_CRIAR',
-      descricao: `Item "${descricao}" (R$ ${valorTotal.toFixed(2)}) adicionado à OS`,
+      descricao: `Item "${descricao}" (R$ ${valorTotal.toFixed(2)}) ${tipoCobranca ? `[${tipoCobranca}]` : ''} ${areaServico ? `área: ${areaServico}` : ''} adicionado à OS`,
       usuarioId: req.user?.userId,
       usuarioNome: req.user?.userId,
     });
@@ -874,5 +880,209 @@ export const duplicateOS = async (req: AuthRequest, res: Response) => {
   } catch (error: any) {
     console.error('Duplicate OS error:', error);
     res.status(500).json({ error: 'Falha ao duplicar OS', details: error.message });
+  }
+};
+
+// ── Gap Analysis 2.6: Finalizar OS (distinto de Cancelar) ────────
+export const finalizarOS = async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { justificativa } = req.body;
+
+    const os = await prisma.ordemServico.findUnique({ where: { id }, select: { id: true, codigo: true, status: true } });
+    if (!os) return res.status(404).json({ error: 'OS não encontrada' });
+
+    if (!['ABERTA', 'EM_EXECUCAO', 'EM_ANDAMENTO', 'BAIXADA'].includes(os.status)) {
+      return res.status(400).json({ error: `OS com status "${os.status}" não pode ser finalizada.` });
+    }
+
+    const updated = await prisma.ordemServico.update({
+      where: { id },
+      data: {
+        status: 'FINALIZADA',
+        observacoes: justificativa ? `[FINALIZADA] ${justificativa}` : undefined,
+        dataBaixa: new Date(),
+      },
+      include: { cliente: true }
+    });
+
+    await registrarLog({
+      entidade: 'OS',
+      entidadeId: id,
+      acao: 'FINALIZAR',
+      descricao: `OS ${os.codigo} finalizada (serviço concluído antes do prazo). ${justificativa || ''}`,
+      valorAnterior: os.status,
+      valorNovo: 'FINALIZADA',
+      usuarioId: req.user?.userId,
+      usuarioNome: req.user?.userId,
+    });
+
+    res.json(updated);
+  } catch (error: any) {
+    console.error('Finalizar OS error:', error);
+    res.status(500).json({ error: 'Falha ao finalizar OS', details: error.message });
+  }
+};
+
+// ── Gap Analysis 2.6: Reverter Cancelamento de OS ────────────────
+export const reverterCancelamentoOS = async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { justificativa } = req.body;
+
+    if (!justificativa || justificativa.trim().length < 3) {
+      return res.status(400).json({ error: 'Justificativa para reversão é obrigatória (mínimo 3 caracteres).' });
+    }
+
+    const os = await prisma.ordemServico.findUnique({ where: { id }, select: { id: true, codigo: true, status: true, observacoes: true } });
+    if (!os) return res.status(404).json({ error: 'OS não encontrada' });
+
+    if (os.status !== 'CANCELADA') {
+      return res.status(400).json({ error: 'Somente OS canceladas podem ser revertidas.' });
+    }
+
+    const updated = await prisma.ordemServico.update({
+      where: { id },
+      data: {
+        status: 'ABERTA',
+        justificativaCancelamento: null,
+        observacoes: os.observacoes
+          ? `${os.observacoes} | REVERTIDO: ${justificativa}`
+          : `REVERTIDO: ${justificativa}`,
+      },
+      include: { cliente: true, servicos: true }
+    });
+
+    await registrarLog({
+      entidade: 'OS',
+      entidadeId: id,
+      acao: 'REVERTER_CANCELAMENTO',
+      descricao: `OS ${os.codigo} revertida de CANCELADA para ABERTA. Justificativa: ${justificativa}`,
+      valorAnterior: 'CANCELADA',
+      valorNovo: 'ABERTA',
+      usuarioId: req.user?.userId,
+      usuarioNome: req.user?.userId,
+    });
+
+    res.json(updated);
+  } catch (error: any) {
+    console.error('Reverter cancelamento OS error:', error);
+    res.status(500).json({ error: 'Falha ao reverter cancelamento', details: error.message });
+  }
+};
+
+// ─── T14: Sincronização Automática RDO -> Itens de Cobrança ──────
+export const sincronizarRDOComItensCobranca = async (req: AuthRequest, res: Response) => {
+  try {
+    const osId = req.params.id as string;
+
+    // 1. Buscar a OS com Proposta e Itens de Cobrança atuais
+    const os = await prisma.ordemServico.findUnique({
+      where: { id: osId },
+      include: {
+        proposta: { include: { itens: true } },
+        itensCobranca: true,
+        cliente: true
+      }
+    });
+
+    if (!os) return res.status(404).json({ error: 'OS não encontrada' });
+    if (!os.proposta) return res.status(400).json({ error: 'Esta OS não possui proposta vinculada para pricing.' });
+
+    // 2. Buscar RDOs assinados desta OS
+    const rdos = await (prisma as any).rDO.findMany({
+      where: { 
+        osId,
+        assinadoEm: { not: null }
+      }
+    });
+
+    if (rdos.length === 0) {
+      return res.status(400).json({ error: 'Nenhum RDO assinado encontrado para sincronização.' });
+    }
+
+    // 3. Agregar Totais
+    let totalHorasNormais = 0;
+    let totalHorasExtras = 0;
+    let totalHorasNoturnas = 0;
+
+    rdos.forEach((r: any) => {
+      totalHorasNormais += Number(r.horasTrabalhadas || 0);
+      totalHorasExtras += Number(r.horasExtras || 0);
+      totalHorasNoturnas += Number(r.horasNoturnas || 0);
+    });
+
+    // 4. Mapear Preços da Proposta
+    // Assumimos o primeiro item da proposta como base de locação/serviço para esta OS
+    const itemBase = os.proposta.itens[0]; 
+    const valorHoraNormal = Number(itemBase?.valorAcobrar || 0);
+    const valorHoraExtra = Number(itemBase?.horaAdicional || valorHoraNormal * 1.5); // Fallback 50%
+    const valorAdicionalNoturno = valorHoraNormal * 0.20; // Padrão 20% se não especificado
+
+    const itensSincronizados: any[] = [];
+
+    // Função auxiliar para Upsert de ItemCobranca
+    const upsertItem = async (descricao: string, qtd: number, valorUnit: number, tipo: string) => {
+       if (qtd <= 0) return;
+       
+       const existente = os.itensCobranca.find(i => i.descricao === descricao && i.tipoCobranca === tipo);
+       
+       if (existente) {
+         return await prisma.itemCobranca.update({
+           where: { id: existente.id },
+           data: {
+             quantidade: qtd,
+             valorUnitario: valorUnit,
+             valorTotal: qtd * valorUnit
+           }
+         });
+       } else {
+         return await prisma.itemCobranca.create({
+           data: {
+             osId,
+             descricao,
+             quantidade: qtd,
+             valorUnitario: valorUnit,
+             valorTotal: qtd * valorUnit,
+             tipoCobranca: tipo
+           }
+         });
+       }
+    };
+
+    // Aplicar a sincronização
+    if (totalHorasNormais > 0) {
+      const item = await upsertItem('Horas Normais (Sinc. RDO)', totalHorasNormais, valorHoraNormal, 'NORMAL');
+      itensSincronizados.push(item);
+    }
+    if (totalHorasExtras > 0) {
+      const item = await upsertItem('Horas Extras (Sinc. RDO)', totalHorasExtras, valorHoraExtra, 'EXTRA');
+      itensSincronizados.push(item);
+    }
+    if (totalHorasNoturnas > 0) {
+      // Adicional Noturno costuma ser um adicional sobre a hora, mas aqui tratamos como item separado conforme legado
+      const item = await upsertItem('Adicional Noturno (Sinc. RDO)', totalHorasNoturnas, valorAdicionalNoturno, 'NOTURNO');
+      itensSincronizados.push(item);
+    }
+
+    await registrarLog({
+      entidade: 'OS',
+      entidadeId: osId,
+      acao: 'SYNC_RDO',
+      descricao: `Sincronização de ${rdos.length} RDOs concluída. Totais: ${totalHorasNormais}h normais, ${totalHorasExtras}h extras.`,
+      usuarioId: req.user?.userId,
+      usuarioNome: req.user?.userId,
+    });
+
+    res.json({
+      message: 'Sincronização concluída com sucesso',
+      rdosProcessados: rdos.length,
+      totais: { totalHorasNormais, totalHorasExtras, totalHorasNoturnas },
+      itensSincronizados
+    });
+
+  } catch (error: any) {
+    console.error('Sincronizar RDO error:', error);
+    res.status(500).json({ error: 'Falha ao sincronizar RDO com itens de cobrança', details: error.message });
   }
 };

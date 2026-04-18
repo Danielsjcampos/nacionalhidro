@@ -7,6 +7,7 @@ import { SequenceService } from '../services/sequence.service';
 import { gerarPdfMedicao } from '../services/legacyPdf.service';
 import { sendEmail } from '../services/email.service';
 import { focusNfeService } from '../services/focusNfe.service';
+import { PricingService } from '../services/pricing.service';
 import axios from 'axios';
 import mustache from 'mustache';
 
@@ -869,5 +870,48 @@ export const listOSDisponiveis = async (req: AuthRequest, res: Response) => {
     } catch (error) {
         console.error('List OS disponiveis error:', error);
         res.status(500).json({ error: 'Failed to fetch available OS' });
+    }
+};
+
+// ─── RECALCULAR TODAS AS OS DA MEDIÇÃO ──────────────────────────
+export const recalcularMedicao = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string;
+        const configParams = req.body; 
+
+        const medicao = await prisma.medicao.findUnique({
+            where: { id },
+            include: { ordensServico: true }
+        });
+
+        if (!medicao) return res.status(404).json({ error: 'Medição não encontrada' });
+        if (medicao.status !== 'EM_ABERTO') {
+            return res.status(400).json({ error: 'Apenas medições em aberto podem ser recalculadas' });
+        }
+
+        const results = [];
+        for (const os of medicao.ordensServico) {
+            const result = await PricingService.autoCalcularItens(os.id, configParams);
+            results.push(result);
+        }
+
+        const total = results.reduce((sum, r) => sum + r.totalCalculado, 0);
+        const pctRL = medicao.porcentagemRL ? Number(medicao.porcentagemRL) : 90;
+        const valorRL = medicao.cte ? 0 : total * (pctRL / 100);
+        const valorNFSe = medicao.cte ? total : total - valorRL;
+
+        await prisma.medicao.update({
+            where: { id },
+            data: { 
+                valorTotal: total,
+                valorRL,
+                valorNFSe
+            }
+        });
+
+        res.json({ message: 'Medição recalculada com sucesso', total, results });
+    } catch (error: any) {
+        console.error('Recalcular medição error:', error);
+        res.status(500).json({ error: 'Erro ao recalcular', details: error.message });
     }
 };

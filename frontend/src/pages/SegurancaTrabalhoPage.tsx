@@ -28,6 +28,9 @@ export default function SegurancaTrabalhoPage() {
     const [treinamentoForm, setTreinamentoForm] = useState({ nome: '', validadeMeses: '', obrigatorio: false });
     const [realizacaoForm, setRealizacaoForm] = useState({ funcionarioId: '', treinamentoId: '', dataRealizacao: new Date().toISOString().substring(0, 10), certificadoUrl: '' });
 
+    const [complianceData, setComplianceData] = useState<{compliant: boolean, errors: string[], warnings: string[]} | null>(null);
+    const [checkingCompliance, setCheckingCompliance] = useState(false);
+
     useEffect(() => { loadData(); }, [tab]);
 
     const loadData = async () => {
@@ -71,10 +74,33 @@ export default function SegurancaTrabalhoPage() {
     };
 
     const handleEntregaEpi = async () => {
-        await api.post('/epis/entregas', entregaForm);
-        setShowEntregaModal(false);
-        setEntregaForm({ funcionarioId: '', epiId: '', dataEntrega: new Date().toISOString().substring(0, 10), quantidade: 1, tamanho: '' });
-        loadData();
+        try {
+            await api.post('/epis/entregas', entregaForm);
+            setShowEntregaModal(false);
+            setEntregaForm({ funcionarioId: '', epiId: '', dataEntrega: new Date().toISOString().substring(0, 10), quantidade: 1, tamanho: '' });
+            setComplianceData(null);
+            loadData();
+        } catch (error: any) {
+            if (error.response?.status === 403) {
+                alert(error.response.data.error || 'BLOQUEIO DE COMPLIANCE: Funcionário irregular.');
+            } else {
+                console.error(error);
+                alert('Erro ao registrar entrega. Verifique os dados.');
+            }
+        }
+    };
+
+    const checkCompliance = async (funcId: string) => {
+        if (!funcId) { setComplianceData(null); return; }
+        try {
+            setCheckingCompliance(true);
+            const res = await api.get(`/rh/${funcId}/compliance-check`);
+            setComplianceData(res.data);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setCheckingCompliance(false);
+        }
     };
 
     const handleDevolver = async (id: string) => {
@@ -319,11 +345,36 @@ export default function SegurancaTrabalhoPage() {
                             <button onClick={() => setShowEntregaModal(false)}><X className="w-5 h-5 text-slate-400" /></button>
                         </div>
                         <div className="space-y-3">
-                            <select value={entregaForm.funcionarioId} onChange={e => setEntregaForm({ ...entregaForm, funcionarioId: e.target.value })}
-                                className="w-full border border-slate-200 rounded-lg p-3 text-sm">
+                             <select 
+                                value={entregaForm.funcionarioId} 
+                                onChange={e => {
+                                    setEntregaForm({ ...entregaForm, funcionarioId: e.target.value });
+                                    checkCompliance(e.target.value);
+                                }}
+                                className="w-full border border-slate-200 rounded-lg p-3 text-sm font-bold"
+                            >
                                 <option value="">Selecionar Funcionário *</option>
                                 {funcionarios.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
                             </select>
+
+                            {complianceData && (
+                                <div className={`p-3 rounded-xl border flex gap-3 ${complianceData.compliant ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
+                                    <div className={`p-1.5 rounded-full ${complianceData.compliant ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
+                                        {complianceData.compliant ? <CheckCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className={`text-[10px] font-black uppercase ${complianceData.compliant ? 'text-emerald-700' : 'text-red-700'}`}>
+                                            Status de Compliance: {complianceData.compliant ? 'REGULAR' : 'BLOQUEADO'}
+                                        </p>
+                                        {!complianceData.compliant && complianceData.errors.map((err: string, i: number) => (
+                                            <p key={i} className="text-[10px] text-red-600 font-bold">• {err}</p>
+                                        ))}
+                                        {complianceData.warnings.map((warn: string, i: number) => (
+                                            <p key={i} className="text-[10px] text-amber-600 font-bold">• {warn}</p>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                             <select value={entregaForm.epiId} onChange={e => setEntregaForm({ ...entregaForm, epiId: e.target.value })}
                                 className="w-full border border-slate-200 rounded-lg p-3 text-sm">
                                 <option value="">Selecionar EPI *</option>
@@ -338,10 +389,10 @@ export default function SegurancaTrabalhoPage() {
                             <input type="date" value={entregaForm.dataEntrega} onChange={e => setEntregaForm({ ...entregaForm, dataEntrega: e.target.value })}
                                 className="w-full border border-slate-200 rounded-lg p-3 text-sm" />
                         </div>
-                         <button onClick={handleEntregaEpi} disabled={!entregaForm.funcionarioId || !entregaForm.epiId} 
-                            className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95">
-                            <CheckCircle className="w-4 h-4" /> Finalizar Entrega
-                        </button>
+                         <button onClick={handleEntregaEpi} disabled={!entregaForm.funcionarioId || !entregaForm.epiId || (complianceData && !complianceData.compliant)} 
+                             className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 disabled:opacity-50">
+                             {checkingCompliance ? 'Verificando...' : <><CheckCircle className="w-4 h-4" /> Finalizar Entrega</>}
+                         </button>
                     </div>
                 </div>
             )}

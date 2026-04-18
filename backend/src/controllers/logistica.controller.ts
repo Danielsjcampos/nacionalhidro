@@ -44,6 +44,19 @@ export const createEscala = async (req: AuthRequest, res: Response) => {
 
     // BUG FIX #12: Check vehicle conflict on same date
     if (veiculoId) {
+      // ── Gap Analysis 2.2: Trava hard — veículo em manutenção NÃO pode ser escalado ──
+      const veiculo = await prisma.veiculo.findUnique({ where: { id: veiculoId }, select: { status: true, placa: true } });
+      if (veiculo?.status === 'MANUTENCAO') {
+        const manutencaoAberta = await prisma.manutencao.findFirst({
+          where: { veiculoId, status: { in: ['PENDENTE', 'EM_ANDAMENTO'] } },
+          select: { descricao: true }
+        });
+        return res.status(409).json({
+          error: `Veículo ${veiculo.placa} está em MANUTENÇÃO e não pode ser escalado. ${manutencaoAberta?.descricao ? `Motivo: ${manutencaoAberta.descricao}` : 'Aguarde liberação da equipe de manutenção.'}`,
+          bloqueio: 'MANUTENCAO'
+        });
+      }
+
       const vehicleConflict = await (prisma.escala as any).findFirst({
         where: {
           data: dataEscala,
@@ -591,5 +604,126 @@ export const quadroVeiculos = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Quadro veículos error:', error);
     res.status(500).json({ error: 'Falha ao buscar quadro de veículos' });
+  }
+};
+
+// ── Gap Analysis 2.4: Registrar "Não Compareceu" com sinalização ao RH ──
+
+export const registrarNaoCompareceu = async (req: AuthRequest, res: Response) => {
+  try {
+    const escalaId = req.params.id as string;
+    const { funcionarioId, funcionarioNome, substitutoId } = req.body;
+
+    if (!funcionarioId || !funcionarioNome) {
+      return res.status(400).json({ error: 'funcionarioId e funcionarioNome são obrigatórios.' });
+    }
+
+    const escala = await prisma.escala.findUnique({ where: { id: escalaId } });
+    if (!escala) return res.status(404).json({ error: 'Escala não encontrada' });
+
+    // Add to naoCompareceu array
+    const naoCompareceuList = Array.isArray(escala.naoCompareceu) ? [...(escala.naoCompareceu as any[])] : [];
+    naoCompareceuList.push({
+      funcionarioId,
+      nome: funcionarioNome,
+      registradoEm: new Date().toISOString(),
+      sinalizadoRH: true,
+    });
+
+    // Add substitute to funcionarios if provided
+    let funcionarios = Array.isArray(escala.funcionarios) ? [...(escala.funcionarios as any[])] : [];
+    if (substitutoId) {
+      const substituto = await prisma.funcionario.findUnique({
+        where: { id: substitutoId },
+        select: { id: true, nome: true, cargo: true }
+      });
+      if (substituto && !funcionarios.some((f: any) => f.id === substitutoId)) {
+        funcionarios.push({ id: substituto.id, nome: substituto.nome, cargo: substituto.cargo, substituto: true });
+      }
+    }
+
+    await prisma.escala.update({
+      where: { id: escalaId },
+      data: {
+        naoCompareceu: naoCompareceuList,
+        funcionarios: funcionarios.length > 0 ? funcionarios : undefined,
+      }
+    });
+
+    // Signal to RH: Create an afastamento record for unjustified absence
+    try {
+      await (prisma as any).afastamento.create({
+        data: {
+          funcionarioId,
+          tipo: 'FALTA_INJUSTIFICADA',
+          dataInicio: escala.data,
+          dataFim: escala.data,
+          motivo: `Não compareceu na escala ${escala.codigoOS || escalaId} em ${escala.data.toLocaleDateString('pt-BR')}`,
+        }
+      });
+    } catch (rhErr) {
+      console.error('[2.4] Erro ao sinalizar RH:', rhErr);
+    }
+
+    await registrarLog({
+      entidade: 'ESCALA',
+      entidadeId: escalaId,
+      acao: 'NAO_COMPARECEU',
+      descricao: `${funcionarioNome} não compareceu. ${substitutoId ? 'Substituto adicionado.' : 'Sem substituto.'}`,
+      usuarioId: req.user?.userId,
+      usuarioNome: req.user?.userId,
+    });
+
+    res.json({ success: true, naoCompareceu: naoCompareceuList });
+  } catch (error: any) {
+    console.error('Registrar não compareceu error:', error);
+    res.status(500).json({ error: 'Falha ao registrar não comparecimento', details: error.message });
+  }
+};
+
+// ── Gap Analysis 2.6: Reverter Cancelamento de Escala ──
+
+export const reverterCancelamentoEscala = async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { justificativa } = req.body;
+
+    if (!justificativa || justificativa.trim().length < 3) {
+      return res.status(400).json({ error: 'Justificativa para reversão é obrigatória (mínimo 3 caracteres).' });
+    }
+
+    const escala = await prisma.escala.findUnique({ where: { id } });
+    if (!escala) return res.status(404).json({ error: 'Escala não encontrada' });
+
+    if (escala.status !== 'CANCELADA' && escala.status !== 'CANCELADO') {
+      return res.status(400).json({ error: 'Somente escalas canceladas podem ser revertidas.' });
+    }
+
+    const updated = await prisma.escala.update({
+      where: { id },
+      data: {
+        status: 'AGENDADO',
+        observacoes: escala.observacoes
+          ? `${escala.observacoes} | REVERTIDO: ${justificativa}`
+          : `REVERTIDO: ${justificativa}`,
+      },
+      include: { cliente: true, veiculo: true }
+    });
+
+    await registrarLog({
+      entidade: 'ESCALA',
+      entidadeId: id,
+      acao: 'REVERTER_CANCELAMENTO',
+      descricao: `Escala revertida de CANCELADA para AGENDADO. Justificativa: ${justificativa}`,
+      valorAnterior: 'CANCELADA',
+      valorNovo: 'AGENDADO',
+      usuarioId: req.user?.userId,
+      usuarioNome: req.user?.userId,
+    });
+
+    res.json(updated);
+  } catch (error: any) {
+    console.error('Reverter cancelamento escala error:', error);
+    res.status(500).json({ error: 'Falha ao reverter cancelamento', details: error.message });
   }
 };

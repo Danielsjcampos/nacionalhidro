@@ -6,5 +6,6 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/', getDrePorCnpj);
+router.get('/alocacao-custos', getAlocacaoCustosTrabalho);
 
 export default router;

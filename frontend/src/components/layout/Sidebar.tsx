@@ -95,6 +95,8 @@ const menuGroups: MenuGroup[] = [
       { label: 'Gestão Avançada (Legado)', path: '/rh' },
       { label: 'Triagem IA', path: '/triagem-ia' },
       { label: 'Controle ASO', path: '/aso-controle' },
+      { label: 'Ocorrências & Advertências', path: '/ocorrencias' },
+      { label: 'Processos Trabalhistas', path: '/processos-trabalhistas' },
       { label: 'Ponto Eletrônico', path: '/ponto' },
       { label: 'Relatórios RH', path: '/relatorios-rh' },
       { label: 'WhatsApp RH', path: '/whatsapp' },
@@ -120,6 +122,7 @@ const menuGroups: MenuGroup[] = [
     icon: Settings, label: 'Sistema',
     children: [
       { label: 'Painel Geral', path: '/administracao' },
+      { label: 'Central de Relatórios', path: '/relatorios-central' },
       { label: 'Fornecedores', path: '/fornecedores' },
       { label: 'Equipe & Permissões', path: '/usuarios' },
       { label: 'Configurações', path: '/configuracoes' },

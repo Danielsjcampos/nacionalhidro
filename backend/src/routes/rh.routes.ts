@@ -17,6 +17,7 @@ router.get('/resumo', getResumoRH);
 router.get('/attendance/today', getAttendanceToday);
 router.get('/disponibilidade', getDisponibilidade);
 router.get('/:id', getFuncionario);
+router.get('/:funcionarioId/compliance-check', checkCompliance);
 router.post('/', createFuncionario);
 router.put('/:id', updateFuncionario);
 

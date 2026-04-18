@@ -92,6 +92,9 @@ model Cliente {
   categoriasExigidas  Json?
   prazoIntegracao     Int?                @default(365)
   contatos            Json?
+  // ── Gap Analysis: 4.4 — Desconto de almoço variável por cliente ──
+  descontaAlmoco      Boolean             @default(false)
+  tempoAlmocoMin      Int?                @default(60)
   agendamentos        Agendamento[]
   matriz              Cliente?            @relation("ClienteHierarquia", fields: [matrizId], references: [id])
   filiais             Cliente[]           @relation("ClienteHierarquia")
@@ -289,6 +292,11 @@ model ItemCobranca {
   percentualAdicional Decimal?     @db.Decimal(5, 2)
   valorTotal          Decimal      @db.Decimal(10, 2)
   centroCustoId       String?
+  // ── Gap Analysis 4.1/4.2: Tipo de cobrança por linha ──
+  tipoCobranca        String?      // HORA, DIARIA, FRETE, EXECUCAO, HORA_ADICIONAL
+  areaServico         String?      // Área/setor dentro do cliente
+  horaInicio          String?
+  horaFim             String?
   createdAt           DateTime     @default(now())
   os                  OrdemServico @relation(fields: [osId], references: [id])
   centroCusto         CentroCusto? @relation(fields: [centroCustoId], references: [id])
@@ -488,6 +496,8 @@ model Funcionario {
   integracoes                    IntegracaoCliente[]
   treinamentos                   TreinamentoRealizado[]
   documentosAnexos               Documento[]
+  ocorrencias                    OcorrenciaDisciplinar[]
+  processos                      ProcessoTrabalhista[]
 }
 
 model EPI {
@@ -564,6 +574,37 @@ model IntegracaoCliente {
   arquivoUrl     String?
   cliente        Cliente     @relation(fields: [clienteId], references: [id])
   funcionario    Funcionario @relation(fields: [funcionarioId], references: [id])
+}
+
+model OcorrenciaDisciplinar {
+  id            String      @id @default(uuid())
+  funcionarioId String
+  tipo          String      // ADVERTENCIA, SUSPENSAO, FEEDBACK, FALTA, MULTA
+  data          DateTime
+  descricao     String
+  observacoes   String?
+  valorDesconto Decimal?    @db.Decimal(10, 2)
+  status        String      @default("PENDENTE") // PENDENTE, ASSINADO, LANCADO, CANCELADO
+  testemunhas   String?
+  arquivoUrl    String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  funcionario   Funcionario @relation(fields: [funcionarioId], references: [id])
+}
+
+
+model ProcessoTrabalhista {
+  id              String      @id @default(uuid())
+  funcionarioId   String
+  numeroProcesso  String
+  status          String      @default("ATIVO") // ATIVO, ENCERRADO, ACORDO
+  valorEnvolvido  Decimal?    @db.Decimal(12, 2)
+  advogado        String?
+  descricao       String?
+  dataAbertura    DateTime    @default(now())
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  funcionario     Funcionario @relation(fields: [funcionarioId], references: [id])
 }
 
 model Manutencao {
@@ -731,6 +772,10 @@ model Escala {
   solicitanteNome     String?
   solicitanteTelefone String?
   turnos              String?   @default("DIURNO")
+  // ── Gap Analysis: 2.4 — Não Compareceu ──
+  naoCompareceu       Json?     // [{ funcionarioId, nome, registradoEm, sinalizadoRH }]
+  // ── Gap Analysis: Cancelamento com motivo ──
+  motivoCancelamento  String?
   cliente             Cliente?  @relation(fields: [clienteId], references: [id])
   veiculo             Veiculo?  @relation(fields: [veiculoId], references: [id])
 }
@@ -791,6 +836,9 @@ model Configuracao {
   updatedAt             DateTime  @updatedAt
   favicon               String?
   logo                  String?
+  banco                 String?
+  agencia               String?
+  conta                 String?
 }
 
 model Lead {
@@ -851,8 +899,30 @@ model Vaga {
   prazo           DateTime?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+  solicitacaoId   String?     @unique
+  solicitacao     VagaSolicitacao? @relation(fields: [solicitacaoId], references: [id])
   candidatos      Candidato[]
 }
+
+model VagaSolicitacao {
+  id              String   @id @default(uuid())
+  cargo           String
+  departamento    String
+  motivo          String?
+  solicitanteNome String
+  solicitanteId   String?
+  status          String   @default("PENDENTE") // PENDENTE, APROVADA, REPROVADA, CANCELADA
+  prioridade      String   @default("MEDIA")
+  salarioBase     Decimal? @db.Decimal(10, 2)
+  beneficios      String?
+  requisitos      String?
+  quantidade      Int      @default(1)
+  observacoes     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  vaga            Vaga?
+}
+
 
 model Candidato {
   id                       String    @id @default(uuid())

@@ -59,7 +59,7 @@ export const enviarCobrancaEmail = async (medicao: any, diasAtraso: number) => {
             });
         });
 
-        // Registra sucesso
+        // Registra sucesso em CobrancaEmail
         await prisma.cobrancaEmail.create({
             data: {
                 medicaoId: medicao.id,
@@ -69,6 +69,29 @@ export const enviarCobrancaEmail = async (medicao: any, diasAtraso: number) => {
                 statusEnvio: 'ENVIADO'
             }
         });
+
+        // --- LOG UNIFICADO: Histórico de Cobrança ---
+        try {
+            const contaReceber = await (prisma as any).contaReceber.findFirst({
+                where: { medicaoId: medicao.id }
+            });
+            
+            if (contaReceber) {
+                await (prisma as any).historicoCobranca.create({
+                    data: {
+                        contaReceberId: contaReceber.id,
+                        tipo: 'EMAIL',
+                        canal: 'EMAIL',
+                        mensagem: `Lembrete de aprovação de medição enviado automaticamente (${diasAtraso} dias pendente).`,
+                        destinatario,
+                        enviadoPor: 'Sistema (Cron)',
+                        sucesso: true
+                    }
+                });
+            }
+        } catch (logErr) {
+            console.error('[Email] Falha ao registrar HistoricoCobranca:', logErr);
+        }
 
         console.log(`[E-mail Enviado] Cobrança da medição ${medicao.codigo} enviada para ${destinatario}`);
 
@@ -86,5 +109,92 @@ export const enviarCobrancaEmail = async (medicao: any, diasAtraso: number) => {
                 erro: error.message
             }
         });
+    }
+};
+
+/**
+ * Envia e-mail de lembrete de cobrança para títulos já vencidos (ContaReceber)
+ */
+export const enviarLembreteVencimentoEmail = async (conta: any, diasAtraso: number) => {
+    try {
+        const destinatario = conta.cliente?.email;
+        if (!destinatario) throw new Error('Cliente sem e-mail registrado');
+
+        const assunto = `Nacional Hidro — Lembrete de Pagamento Pendente (Vencido há ${diasAtraso} dias)`;
+        
+        const corpoHtml = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+                <h2 style="color: #dc2626;">Olá, ${conta.cliente?.nome || 'Cliente'}!</h2>
+                <p>Este é um lembrete automático sobre o título <strong>${conta.descricao}</strong> que conta como pendente em nosso sistema.</p>
+                
+                <div style="background-color: #fef2f2; padding: 15px; border-left: 4px solid #ef4444; margin: 20px 0;">
+                    <p style="margin: 0;"><strong>Vencimento Original:</strong> ${conta.dataVencimento ? new Date(conta.dataVencimento).toLocaleDateString('pt-BR') : '—'}</p>
+                    <p style="margin: 5px 0 0 0;"><strong>Valor em Aberto:</strong> R$ ${Number(conta.saldoDevedor || conta.valorOriginal).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    <p style="margin: 5px 0 0 0;"><strong>Atraso:</strong> ${diasAtraso} dias</p>
+                </div>
+                
+                <p>Caso o pagamento já tenha sido efetuado ontem ou hoje, por favor desconsidere este aviso. Caso contrário, pedimos a gentileza de regularizar a situação ou entrar em contato para combinarmos o pagamento.</p>
+                
+                ${conta.linkPagamento ? `
+                <p style="text-align: center; margin: 30px 0;">
+                    <a href="${conta.linkPagamento}" style="background-color: #2563eb; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">Efetuar Pagamento / Ver Boleto</a>
+                 </p>` : ''}
+
+                <p>Atenciosamente,</p>
+                <p><strong>Departamento de Cobrança</strong><br/>Nacional Hidro</p>
+            </div>
+        `;
+
+        await limiter.schedule(async () => {
+            const transporter = getTransporter();
+            await transporter.sendMail({
+                from: `"Cobrança Nacional Hidro" <${process.env.SMTP_USER || 'contato@nacionalhidro.com.br'}>`,
+                to: destinatario,
+                cc: 'financeiro@nacionalhidro.com.br',
+                subject: assunto,
+                html: corpoHtml
+            });
+        });
+
+        // Log no Histórico de Cobrança
+        await (prisma as any).historicoCobranca.create({
+            data: {
+                contaReceberId: conta.id,
+                tipo: 'EMAIL',
+                canal: 'EMAIL',
+                mensagem: `Lembrete de vencimento enviado automaticamente (${diasAtraso} dias de atraso).`,
+                destinatario,
+                enviadoPor: 'Sistema (Cron Vencidos)',
+                sucesso: true
+            }
+        });
+
+        // Atualizar contadores na conta
+        await (prisma as any).contaReceber.update({
+            where: { id: conta.id },
+            data: {
+                ultimaCobranca: new Date(),
+                totalCobrancas: { increment: 1 },
+            }
+        });
+
+        console.log(`[E-mail Cobrança] Lembrete de vencimento enviado para ${destinatario} (Conta: ${conta.id})`);
+
+    } catch (error: any) {
+        console.error(`[E-mail Cobrança Falhou] Erro ao enviar lembrete de vencimento (Conta: ${conta.id}):`, error);
+        
+        try {
+            await (prisma as any).historicoCobranca.create({
+                data: {
+                    contaReceberId: conta.id,
+                    tipo: 'EMAIL',
+                    canal: 'EMAIL',
+                    mensagem: `FALHA ao enviar lembrete automático: ${error.message}`,
+                    enviadoPor: 'Sistema (Cron Vencidos)',
+                    sucesso: false,
+                    erro: error.message
+                }
+            });
+        } catch (_) {}
     }
 };

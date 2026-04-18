@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import api from '../services/api';
 import {
     Loader2, Plus, X, User, FileCheck, Stethoscope,
-    Building2, FileSignature, CheckCircle2, XCircle, Search, Mail, MessageCircle, Copy, ExternalLink
+    Building2, FileSignature, CheckCircle2, XCircle, Search, Mail, MessageCircle, Copy, ExternalLink,
+    FileText, Printer
 } from 'lucide-react';
 
 const ETAPAS = [
@@ -98,15 +99,38 @@ export default function AdmissaoPage() {
     const handleMoverEtapaDireto = async (adm: any, novaEtapa: string) => {
         if (adm.etapa === novaEtapa) return;
         
-        if (novaEtapa === 'CANCELADO') {
-            setShowCancelModal(adm.id);
-            return;
-        }
-
         try {
             await api.patch(`/admissoes/${adm.id}/mover`, { etapa: novaEtapa });
             fetchAll();
-        } catch (err) { console.error(err); }
+            showToast('Etapa atualizada com sucesso', 'success');
+        } catch (err) {
+            console.error('Move error:', err);
+            showToast('Erro ao mover etapa', 'error');
+        }
+    };
+
+    const handleGeneratePDF = async (id: string, type: 'ficha' | 'aso') => {
+        try {
+            showToast(`Gerando ${type === 'ficha' ? 'Ficha' : 'Guia ASO'}...`, 'info');
+            const endpoint = type === 'ficha' ? 'pdf-ficha' : 'pdf-aso';
+            const res = await api.post(`/admissoes/${id}/${endpoint}`);
+            
+            // Abrir o PDF em nova aba se retornar a URL
+            if (res.data.url) {
+                const fullUrl = import.meta.env.VITE_API_URL 
+                    ? `${import.meta.env.VITE_API_URL.replace('/api', '')}${res.data.url}` 
+                    : `http://localhost:3000${res.data.url}`;
+                window.open(fullUrl, '_blank');
+            }
+            
+            // Refresh detail to show new doc in list
+            const updated = await api.get(`/admissoes/${id}`);
+            setShowDetail(updated.data);
+            showToast('PDF gerado com sucesso', 'success');
+        } catch (err) {
+            console.error('PDF Generation error:', err);
+            showToast('Erro ao gerar PDF', 'error');
+        }
     };
 
     const handleOpenDrawer = (adm: any) => {
@@ -433,9 +457,24 @@ export default function AdmissaoPage() {
                                     <p className="text-sm font-bold text-blue-600 uppercase tracking-widest">{showDetail.cargo || 'CARGO N/A'} • {showDetail.departamento || 'DEPTO N/A'}</p>
                                 </div>
                             </div>
-                            <button onClick={() => setShowDetail(null)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-                                <X className="w-6 h-6 text-slate-400" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    onClick={() => handleGeneratePDF(showDetail.id, 'aso')}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-bold transition-all"
+                                >
+                                    <Stethoscope className="w-4 h-4" /> Gerar Guia ASO
+                                </button>
+                                <button 
+                                    onClick={() => handleGeneratePDF(showDetail.id, 'ficha')}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-bold transition-all"
+                                >
+                                    <FileText className="w-4 h-4" /> Gerar Ficha Registro
+                                </button>
+                                <div className="w-px h-6 bg-slate-200 mx-1"></div>
+                                <button onClick={() => setShowDetail(null)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                                    <X className="w-6 h-6 text-slate-400" />
+                                </button>
+                            </div>
                         </div>
                         <div className="flex-1 overflow-y-auto bg-slate-50 p-6 space-y-6 custom-scrollbar">
 

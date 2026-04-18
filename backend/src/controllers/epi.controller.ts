@@ -64,6 +64,22 @@ export const listEPIsEntregues = async (req: AuthRequest, res: Response) => {
 
 export const createEPIEntregue = async (req: AuthRequest, res: Response) => {
     try {
+        const { funcionarioId } = req.body;
+
+        // Compliance Lock: check ASO
+        const latestAso = await prisma.aSOControle.findFirst({
+            where: { funcionarioId },
+            orderBy: { dataVencimento: 'desc' }
+        });
+
+        const now = new Date();
+        if (!latestAso) {
+            return res.status(403).json({ error: 'BLOQUEIO DE COMPLIANCE: Funcionário sem registro de ASO.' });
+        }
+        if (latestAso.dataVencimento && new Date(latestAso.dataVencimento) < now) {
+            return res.status(403).json({ error: `BLOQUEIO DE COMPLIANCE: ASO Vencido em ${new Date(latestAso.dataVencimento).toLocaleDateString('pt-BR')}` });
+        }
+
         const data = { ...req.body, dataEntrega: new Date(req.body.dataEntrega) };
         const epi = await prisma.ePIEntregue.create({ data });
         res.status(201).json(epi);

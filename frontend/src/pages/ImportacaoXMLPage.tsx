@@ -102,8 +102,8 @@ export default function ImportacaoXMLPage() {
         <div className="h-full flex flex-col space-y-4 overflow-hidden">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Importação XML NF-e</h1>
-                    <p className="text-sm text-slate-500">Upload de notas fiscais eletrônicas de fornecedores</p>
+                    <h1 className="text-2xl font-bold text-slate-800">Importação de XML</h1>
+                    <p className="text-sm text-slate-500">Upload de Documentos Fiscais (NF-e, CT-e) de fornecedores</p>
                 </div>
             </div>
 
@@ -130,7 +130,7 @@ export default function ImportacaoXMLPage() {
                                     ) : (
                                         <>
                                             <Upload className="w-12 h-12 text-slate-300 mb-3" />
-                                            <p className="text-sm font-bold text-slate-600">Clique para selecionar o XML da NF-e</p>
+                                            <p className="text-sm font-bold text-slate-600">Clique para selecionar o XML (NF-e ou CT-e)</p>
                                             <p className="text-xs text-slate-400 mt-1">ou arraste o arquivo aqui</p>
                                         </>
                                     )}
@@ -184,7 +184,7 @@ export default function ImportacaoXMLPage() {
                                     <div className="bg-white rounded-xl border border-slate-200 p-4">
                                         <div className="flex items-center gap-2 mb-3">
                                             <FileText className="w-5 h-5 text-blue-500" />
-                                            <h2 className="text-sm font-black text-slate-700 uppercase">Dados da NF-e</h2>
+                                            <h2 className="text-sm font-black text-slate-700 uppercase">Dados do Documento ({nfe.tipo})</h2>
                                         </div>
                                         <div className="grid grid-cols-2 gap-2 text-xs">
                                             <div><span className="text-slate-400 block text-[10px]">Número</span><span className="font-bold text-slate-700">{nfe.numero}</span></div>

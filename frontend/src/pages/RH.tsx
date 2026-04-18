@@ -180,6 +180,12 @@ export default function RH() {
             <UserPlus className="w-4 h-4" /> Pipeline de Admissão
           </button>
           <button
+            onClick={() => navigate('/vaga-solicitacoes')}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-md hover:shadow-lg active:scale-95"
+          >
+            <Plus className="w-4 h-4" /> Solicitação de Vaga
+          </button>
+          <button
             onClick={() => navigate('/recrutamento')}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-md hover:shadow-lg active:scale-95"
           >

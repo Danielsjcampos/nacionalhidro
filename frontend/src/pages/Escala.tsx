@@ -3,7 +3,8 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import api from '../services/api';
 import {
     Loader2, ChevronLeft, ChevronRight, Calendar, Plus,
-    X, Save, Truck, Eye, AlertTriangle, Wrench, Clock, Sparkles, Copy, Ban, Users, Printer
+    X, Save, Truck, Eye, AlertTriangle, Wrench, Clock, Sparkles, Copy, Ban, Users, Printer,
+    RotateCcw, UserX
 } from 'lucide-react';
 import ModalCancelarEscala from '../components/ModalCancelarEscala';
 import ModalQuadroFuncionarios from '../components/ModalQuadroFuncionarios';
@@ -50,6 +51,7 @@ interface Escala {
     qtdBicos?: number;
     turnos?: string;
     qtdPessoas?: number;
+    naoCompareceu?: any[];
 }
 
 interface ManutencaoAtiva {
@@ -1360,6 +1362,38 @@ export default function Histograma() {
                                         >
                                             <Copy className="w-3.5 h-3.5" /> Duplicar
                                         </button>
+                                        {/* Gap Analysis 2.4: Não Compareceu */}
+                                        <button
+                                            onClick={async () => {
+                                                const funcionariosList = Array.isArray(modalEscala.funcionarios) ? modalEscala.funcionarios : [];
+                                                if (funcionariosList.length === 0) {
+                                                    showToast('Nenhum funcionário escalado para registrar não comparecimento.');
+                                                    return;
+                                                }
+                                                const funcNome = window.prompt(`Informe o NOME do funcionário que não compareceu:\n\n${funcionariosList.map((f: any) => typeof f === 'object' ? f.nome || f : f).join('\n')}`);
+                                                if (!funcNome) return;
+                                                const funcObj = funcionariosList.find((f: any) => {
+                                                    const nome = typeof f === 'object' ? f.nome || '' : f;
+                                                    return nome.toLowerCase().includes(funcNome.toLowerCase());
+                                                });
+                                                const funcId = typeof funcObj === 'object' ? funcObj.id : undefined;
+                                                try {
+                                                    await api.patch(`/logistica/escalas/${modalEscala.id}/nao-compareceu`, {
+                                                        funcionarioId: funcId || funcNome,
+                                                        funcionarioNome: typeof funcObj === 'object' ? funcObj.nome : funcNome,
+                                                    });
+                                                    showToast(`Falta registrada e sinalizada ao RH para ${funcNome}.`, 'success');
+                                                    fetchData();
+                                                    setModalOpen(false);
+                                                } catch (err: any) {
+                                                    showToast(err.response?.data?.error || 'Erro ao registrar não comparecimento.');
+                                                }
+                                            }}
+                                            className="px-4 py-2.5 text-[10px] font-bold uppercase text-amber-700 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-all flex items-center gap-1.5 tracking-wide"
+                                            title="Registrar não comparecimento de funcionário"
+                                        >
+                                            <UserX className="w-3.5 h-3.5" /> Faltou
+                                        </button>
                                         <button
                                             onClick={() => {
                                                 setCancelEscalaId(modalEscala.id || null);
@@ -1371,6 +1405,30 @@ export default function Histograma() {
                                             <Ban className="w-3.5 h-3.5" /> Cancelar
                                         </button>
                                     </>
+                                )}
+                                {/* Gap Analysis 2.6: Reverter Cancelamento */}
+                                {modalMode === 'view' && modalEscala.id && (modalEscala.status === 'CANCELADO' || modalEscala.status === 'CANCELADA') && (
+                                    <button
+                                        onClick={async () => {
+                                            const justificativa = window.prompt('Justificativa para reverter o cancelamento:');
+                                            if (!justificativa || justificativa.trim().length < 3) {
+                                                showToast('Justificativa é obrigatória (mínimo 3 caracteres).');
+                                                return;
+                                            }
+                                            try {
+                                                await api.patch(`/logistica/escalas/${modalEscala.id}/reverter-cancelamento`, { justificativa });
+                                                showToast('Cancelamento revertido com sucesso!', 'success');
+                                                fetchData();
+                                                setModalOpen(false);
+                                            } catch (err: any) {
+                                                showToast(err.response?.data?.error || 'Erro ao reverter cancelamento.');
+                                            }
+                                        }}
+                                        className="px-4 py-2.5 text-[10px] font-bold uppercase text-teal-700 bg-teal-50 border border-teal-200 rounded-xl hover:bg-teal-100 transition-all flex items-center gap-1.5 tracking-wide"
+                                        title="Reverter cancelamento"
+                                    >
+                                        <RotateCcw className="w-3.5 h-3.5" /> Reverter
+                                    </button>
                                 )}
                             </div>
                             <div className="flex gap-3">

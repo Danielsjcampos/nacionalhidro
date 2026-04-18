@@ -5,7 +5,8 @@ import {
   sendToMaintenance, receberPosicaoGPS, listarPosicoesFrota,
   verificarFuncionario,
   duplicarEscala, cancelarEscala, validarOS,
-  quadroFuncionarios, quadroVeiculos
+  quadroFuncionarios, quadroVeiculos,
+  registrarNaoCompareceu, reverterCancelamentoEscala
 } from '../controllers/logistica.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
@@ -30,6 +31,8 @@ router.get('/escalas', listEscalas);
 router.post('/escalas', createEscala);
 router.post('/escalas/:id/duplicar', duplicarEscala);
 router.patch('/escalas/:id/cancelar', cancelarEscala);
+router.patch('/escalas/:id/nao-compareceu', registrarNaoCompareceu);
+router.patch('/escalas/:id/reverter-cancelamento', reverterCancelamentoEscala);
 router.patch('/escalas/:id', updateEscala);
 router.delete('/escalas/:id', deleteEscala);
 

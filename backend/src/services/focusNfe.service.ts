@@ -79,18 +79,29 @@ export const focusNfeService = {
                     valor_inss: Number(faturamento.valorINSS || 0),
                     valor_ir: Number(faturamento.valorIR || 0),
                     valor_csll: Number(faturamento.valorCSLL || 0),
-                    discriminacao: `${faturamento.observacoes || 'Serviços Prestados'}.\nVENCIMENTO: ${faturamento.dataVencimento ? faturamento.dataVencimento.toLocaleDateString('pt-BR') : ''}`
+                    discriminacao: `${faturamento.observacoes || 'Serviços Prestados'}.\nVENCIMENTO: ${faturamento.dataVencimento ? new Date(faturamento.dataVencimento).toLocaleDateString('pt-BR') : ''}`
                 }
             };
 
+            // Natureza de Operação e ISS Retido (Sync com Legado)
+            payload.natureza_operacao = faturamento.cliente.codigoMunicipio === empresa.codigoMunicipio ? '1' : '2';
+            payload.servico.iss_retido = 1; // Sempre 1 (Sim) no nível do serviço para o layout Focus
+            payload.iss_retido = faturamento.cliente.codigoMunicipio === empresa.codigoMunicipio ? 1 : 2;
+
             const response = await api.post(`/nfse?ref=${ref}`, payload);
+
+            // Geração de link XML conforme legado (substituindo extensão e caminhos)
+            // NFSe: .replace('.pdf', '-nfse.xml').replace('DANFSEs/NFSe', 'XMLsNFSe/')
+            const urlPdf = response.data.url || "";
+            const urlXml = urlPdf.replace('.pdf', '-nfse.xml').replace('DANFSEs/NFSe', 'XMLsNFSe/');
 
             await (prisma as any).faturamento.update({
                 where: { id: faturamentoId },
                 data: {
                     focusRef: ref,
                     focusStatus: 'PROCESSANDO',
-                    dadosFaturamento: payload
+                    dadosFaturamento: payload,
+                    urlArquivoXml: urlXml
                 }
             });
 
@@ -155,34 +166,136 @@ export const focusNfeService = {
                 tomador: {
                     cnpj: faturamento.cliente.cnpj.replace(/\D/g, ''),
                     nome: faturamento.cliente.razaoSocial || faturamento.cliente.nome,
-                    inscricao_estadual: faturamento.cliente.inscricaoEstadual || "ISENTO",
+                    inscricao_estadual: (faturamento.cliente.inscricaoEstadual || "ISENTO").replace(/\D/g, '') || "ISENTO",
+                    logradouro: faturamento.cliente.rua || faturamento.cliente.endereco || "",
+                    numero: faturamento.cliente.numero || "S/N",
+                    bairro: faturamento.cliente.bairro || "",
+                    codigo_municipio: faturamento.cliente.codigoMunicipio,
+                    uf: faturamento.cliente.estado || faturamento.cliente.uf || "SP",
+                    cep: faturamento.cliente.cep?.replace(/\D/g, '')
+                },
+                remetente: {
+                    cnpj: faturamento.cliente.cnpj.replace(/\D/g, ''),
+                    nome: faturamento.cliente.razaoSocial || faturamento.cliente.nome,
+                    inscricao_estadual: (faturamento.cliente.inscricaoEstadual || "ISENTO").replace(/\D/g, '') || "ISENTO",
+                    logradouro: faturamento.cliente.rua || faturamento.cliente.endereco || "",
+                    numero: faturamento.cliente.numero || "S/N",
+                    bairro: faturamento.cliente.bairro || "",
+                    codigo_municipio: faturamento.cliente.codigoMunicipio,
+                    uf: faturamento.cliente.estado || faturamento.cliente.uf || "SP",
+                    cep: faturamento.cliente.cep?.replace(/\D/g, '')
+                },
+                informacoes_adicionais: `${faturamento.observacoes || 'Transporte de Cargas'}. DADOS DE PAGAMENTO Banco: ${empresa.banco || ''} Ag: ${empresa.agencia || ''} C/C: ${empresa.conta || ''}`
+            };
+
+            // No CTE da Nacional Hidro, o tomador geralmente é o Remetente e o Destinatário
+            payload.destinatario = { ...payload.remetente };
+
+            const response = await api.post(`/cte?ref=${ref}`, payload);
+
+            // Geração de link XML conforme legado (substituindo extensão e caminhos)
+            // CTE: .replace('DACTEs/', 'XMLs/CTe').replace('.pdf', '-cte.xml')
+            const urlPdf = response.data.url || response.data.caminho_dacte || "";
+            const urlXml = urlPdf.replace('DACTEs/', 'XMLs/CTe').replace('.pdf', '-cte.xml');
+
+            return { success: true, ref, data: response.data };
+        } catch (error: any) {
+            console.error('Erro Focus CTE:', error?.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    /**
+     * Emite uma NF-e (Produtos) na API da Focus NFe.
+     */
+    emitirNFe: async (faturamentoId: string) => {
+        try {
+            const faturamento = await (prisma as any).faturamento.findUnique({
+                where: { id: faturamentoId },
+                include: { cliente: true }
+            });
+
+            if (!faturamento) throw new Error('Faturamento não encontrado.');
+
+            const empresa = await (prisma as any).empresaCNPJ.findUnique({
+                where: { cnpj: faturamento.cnpjFaturamento }
+            });
+
+            if (!empresa?.focusToken) {
+                throw new Error(`Token Focus NFe não encontrado para a empresa ${faturamento.cnpjFaturamento}`);
+            }
+
+            const api = getApiClient(empresa.focusToken);
+            const ref = faturamento.focusRef || `fat_nfe_${faturamentoId}_${Date.now()}`;
+
+            // Mapeamento NFe (Repurposed for Remessa de Locação/Equipamento)
+            const payload: any = {
+                data_emissao: faturamento.dataEmissao.toISOString(),
+                natureza_operacao: "REMESSA DE LOCACAO OU PRESTACAO DE SERVICO",
+                tipo_documento: "1", // Saída
+                finalidade_emissao: "1", // Normal
+                presenca_comprador: "1", // Operação presencial
+                icms_valor_total: 0,
+                valor_total: Number(faturamento.valorBruto),
+                valor_produtos: Number(faturamento.valorBruto),
+                emitente: {
+                    cnpj: empresa.cnpj.replace(/\D/g, ''),
+                    inscricao_estadual: empresa.inscricaoEstadual?.replace(/\D/g, '') || '',
+                    nome: empresa.nome,
+                    logradouro: empresa.logradouro,
+                    numero: empresa.numero,
+                    bairro: empresa.bairro,
+                    codigo_municipio: empresa.codigoMunicipio,
+                    uf: empresa.uf,
+                    cep: empresa.cep?.replace(/\D/g, '')
+                },
+                destinatario: {
+                    cnpj: faturamento.cliente.cnpj.replace(/\D/g, ''),
+                    razao_social: faturamento.cliente.razaoSocial || faturamento.cliente.nome,
+                    inscricao_estadual: (faturamento.cliente.inscricaoEstadual || "ISENTO").replace(/\D/g, '') || "ISENTO",
                     logradouro: faturamento.cliente.rua,
                     numero: faturamento.cliente.numero,
                     bairro: faturamento.cliente.bairro,
                     codigo_municipio: faturamento.cliente.codigoMunicipio,
                     uf: faturamento.cliente.estado,
                     cep: faturamento.cliente.cep?.replace(/\D/g, '')
-                }
+                },
+                items: [
+                    {
+                        numero_item: "1",
+                        codigo_produto: "001",
+                        descricao: faturamento.observacoes || "EQUIPAMENTO EM REGIME DE LOCACAO / REMESSA",
+                        cfop: faturamento.cliente.estado === empresa.uf ? "5949" : "6949",
+                        unidade_comercial: "UN",
+                        quantidade_comercial: "1.00",
+                        valor_unitario_comercial: Number(faturamento.valorBruto).toFixed(2),
+                        valor_bruto: Number(faturamento.valorBruto).toFixed(2),
+                        icms_situacao_tributaria: "400", // Simples Nacional - Não tributada
+                        icms_origem: "0",
+                        pis_situacao_tributaria: "08", // Operação sem incidência
+                        cofins_situacao_tributaria: "08" // Operação sem incidência
+                    }
+                ]
             };
 
-            // No CTE da Nacional Hidro, geralmente o tomador é o Remetente/Destinatário também
-            payload.remetente = { ...payload.tomador };
-            payload.destinatario = { ...payload.tomador };
+            const response = await api.post(`/nfe?ref=${ref}`, payload);
 
-            const response = await api.post(`/cte?ref=${ref}`, payload);
+            const urlPdf = response.data.url || "";
+            const urlXml = urlPdf.replace('DANFEs/', 'XMLs/NFe').replace('.pdf', '-nfe.xml');
 
             await (prisma as any).faturamento.update({
                 where: { id: faturamentoId },
                 data: {
                     focusRef: ref,
                     focusStatus: 'PROCESSANDO',
-                    dadosFaturamento: payload
+                    dadosFaturamento: payload,
+                    urlArquivoXml: urlXml
                 }
             });
 
             return { success: true, ref, data: response.data };
         } catch (error: any) {
-            console.error('Erro Focus CTE:', error?.response?.data || error.message);
+            console.error('Erro Focus NFe:', error?.response?.data || error.message);
             throw error;
         }
     },
@@ -199,13 +312,61 @@ export const focusNfeService = {
         if (!empresa?.focusToken) return null;
 
         const api = getApiClient(empresa.focusToken);
-        const endpoint = fat.tipo === 'CTE' ? `/cte/${fat.focusRef}` : `/nfse/${fat.focusRef}`;
+        
+        let prefix = 'nfse';
+        if (fat.tipo === 'CTE') prefix = 'cte';
+        if (fat.tipo === 'NFE') prefix = 'nfe';
+
+        const endpoint = `/${prefix}/${fat.focusRef}`;
         
         const response = await api.get(endpoint);
+        
+        // Atualiza status e nota se autorizado
+        if (response.data.status === 'autorizado') {
+            const urlPdf = response.data.url || response.data.caminho_dacte || "";
+            let urlXml = "";
+            if (fat.tipo === 'NFSE') urlXml = urlPdf.replace('.pdf', '-nfse.xml').replace('DANFSEs/NFSe', 'XMLsNFSe/');
+            if (fat.tipo === 'CTE') urlXml = urlPdf.replace('DACTEs/', 'XMLs/CTe').replace('.pdf', '-cte.xml');
+            if (fat.tipo === 'NFE') urlXml = urlPdf.replace('DANFEs/', 'XMLs/NFe').replace('.pdf', '-nfe.xml');
+
+            await (prisma as any).faturamento.update({
+                where: { id: faturamentoId },
+                data: {
+                    numero: String(response.data.numero),
+                    focusStatus: 'AUTORIZADO',
+                    status: 'EMITIDA',
+                    urlArquivoNota: urlPdf,
+                    urlArquivoXml: urlXml,
+                    dadosWebHook: response.data
+                }
+            });
+        } else if (response.data.status === 'erro_autorizacao') {
+             await (prisma as any).faturamento.update({
+                where: { id: faturamentoId },
+                data: {
+                    focusStatus: 'FALHA',
+                    observacoes: ((fat.observacoes || '') + `; Erro Focus: ${response.data.erros?.[0]?.mensagem || 'Desconhecido'}`).substring(0, 1000)
+                }
+            });
+        }
+
         return response.data;
     },
 
-    cancelar: async (faturamentoId: string, justificativa: string) => {
+        if (response.data.status === 'cancelado' || response.data.status === 'sucesso') {
+             await (prisma as any).faturamento.update({
+                where: { id: faturamentoId },
+                data: {
+                    status: 'CANCELADA',
+                    focusStatus: 'CANCELADO'
+                }
+            });
+        }
+
+        return response.data;
+    },
+
+    corrigir: async (faturamentoId: string, texto: string) => {
         const fat = await (prisma as any).faturamento.findUnique({
             where: { id: faturamentoId }
         });
@@ -217,9 +378,13 @@ export const focusNfeService = {
         if (!empresa?.focusToken) throw new Error('Token Focus não encontrado.');
 
         const api = getApiClient(empresa.focusToken);
-        const endpoint = fat.tipo === 'CTE' ? `/cte/${fat.focusRef}` : `/nfse/${fat.focusRef}`;
+        
+        let prefix = 'nfe'; // CC-e is more common for NFe/CTe
+        if (fat.tipo === 'CTE') prefix = 'cte';
 
-        const response = await api.delete(endpoint, { data: { justificativa } });
+        const endpoint = `/${prefix}/${fat.focusRef}/carta_correcao`;
+
+        const response = await api.post(endpoint, { correcao: texto });
         return response.data;
     }
 };

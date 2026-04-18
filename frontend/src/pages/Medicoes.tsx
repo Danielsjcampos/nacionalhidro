@@ -82,11 +82,21 @@ const Td = ({ children, className = '' }: { children: React.ReactNode; className
 );
 
 // ─── STATUS BADGE ───────────────────────────────────────────────
-const StatusBullet = ({ status, dataCobranca }: { status: string; dataCobranca?: any }) => {
+const StatusBadge = ({ status, dataCobranca }: { status: string; dataCobranca?: any }) => {
     const isAtrasado = dataCobranca && daysSince(dataCobranca) > DIAS_VENCIMENTO && 
         !['APROVADA', 'FINALIZADA', 'CANCELADA'].includes(status);
-    const color = isAtrasado ? 'bg-red-500' : (STATUS_COLOR[status] || 'bg-slate-300');
-    return <div className={`w-2.5 h-2.5 rounded-full mx-auto ${color}`}></div>;
+    
+    const label = STATUS_LABEL[status] || status;
+    const baseColor = STATUS_COLOR[status] || 'bg-slate-400';
+    
+    return (
+        <div className="flex flex-col items-center gap-1">
+            <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black text-white uppercase shadow-sm ${isAtrasado ? 'bg-red-500 animate-pulse' : baseColor}`}>
+                {isAtrasado ? 'ATRASADO' : label}
+            </span>
+            {isAtrasado && <span className="text-[7px] font-black text-red-500 uppercase">Verificar!</span>}
+        </div>
+    );
 };
 
 export default function Medicoes() {
@@ -121,7 +131,11 @@ export default function Medicoes() {
         quantidade: '1', 
         valorUnitario: '', 
         percentualAdicional: '',
-        centroCustoId: ''
+        centroCustoId: '',
+        tipoCobranca: 'HORA', // OU 'SERVICO_FECHADO', 'TONELADA', 'VIAGEM', 'M3'
+        areaServico: '',
+        horaInicio: '',
+        horaFim: ''
     });
     const [showAutoCalc, setShowAutoCalc] = useState(false);
     const [autoCalcForm, setAutoCalcForm] = useState({ 
@@ -204,7 +218,10 @@ export default function Medicoes() {
         if (!selectedOS) return;
         try {
             await api.post(`/precificacao/${selectedOS.id}/itens`, itemForm);
-            setItemForm({ descricao: '', quantidade: '1', valorUnitario: '', percentualAdicional: '', centroCustoId: '' });
+            setItemForm({ 
+                descricao: '', quantidade: '1', valorUnitario: '', percentualAdicional: '', 
+                centroCustoId: '', tipoCobranca: 'HORA', areaServico: '', horaInicio: '', horaFim: '' 
+            });
             setShowItemForm(false);
             openPricing(selectedOS);
             fetchData();
@@ -303,6 +320,26 @@ export default function Medicoes() {
         } catch (err: any) { showToast(err.response?.data?.error || 'Erro'); }
     };
 
+    const handleRecalcularMedicao = async (id: string) => {
+        if (!confirm('Deseja recalcular automaticamente todos os itens das OS desta medição seguindo as regras de proposta atual?')) return;
+        setSubmitting(true);
+        try {
+            await api.post(`/medicoes/${id}/recalcular`, {
+                valorDiaria: autoCalcForm.valorDiaria ? parseFloat(autoCalcForm.valorDiaria) : null,
+                valorHora: autoCalcForm.valorHora ? parseFloat(autoCalcForm.valorHora) : null,
+                toleranciaHoras: autoCalcForm.toleranciaHoras ? parseFloat(autoCalcForm.toleranciaHoras) : null,
+                aplicarMinimoHE: autoCalcForm.aplicarMinimoHE
+            });
+            showToast('Medição recalculada com sucesso!');
+            openMedicao({ id });
+            fetchData();
+        } catch (err: any) {
+            showToast(err.response?.data?.error || 'Erro ao recalcular medição', 'error');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     const handleEnviarDocumentacao = async (id: string) => {
         if (!confirm('Deseja enviar a documentação final (Medição + Nota Fiscal) para o cliente agora?')) return;
         setSubmitting(true);
@@ -380,11 +417,19 @@ export default function Medicoes() {
         else if (activeTab === 'cancelados') items = medicoesList.filter(m => m.status === 'CANCELADA');
 
         // Apply status filter
-        if (statusFilter && activeTab === 'medicao') {
-            if (statusFilter === 'ATRASADO') {
-                items = items.filter(m => m.dataCobranca && daysSince(m.dataCobranca) > DIAS_VENCIMENTO);
-            } else {
-                items = items.filter(m => m.status === statusFilter);
+        if (statusFilter) {
+            if (activeTab === 'medicao') {
+                if (statusFilter === 'ATRASADO') {
+                    items = items.filter(m => m.dataCobranca && daysSince(m.dataCobranca) > DIAS_VENCIMENTO);
+                } else {
+                    items = items.filter(m => m.status === statusFilter);
+                }
+            } else if (activeTab === 'finalizadas') {
+                if (statusFilter === 'NO_PRAZO') {
+                    items = items.filter(m => diffDays(m.dataCobranca, m.aprovadaEm) <= DIAS_VENCIMENTO);
+                } else if (statusFilter === 'COM_ATRASO') {
+                    items = items.filter(m => diffDays(m.dataCobranca, m.aprovadaEm) > DIAS_VENCIMENTO);
+                }
             }
         }
 
@@ -435,21 +480,21 @@ export default function Medicoes() {
                     <div className="absolute left-10 right-10 h-0.5 bg-white/20 top-1/2 -translate-y-1/2"></div>
                     
                     {[
-                        { id: 'precificacao', label: 'Status da Precificação', color: 'bg-orange-500', count: stats.precificacao },
-                        { id: 'medicao',      label: 'Status da Medição',      color: 'bg-yellow-400', count: stats.medicao },
-                        { id: 'finalizadas',  label: 'Medições Finalizadas',   color: 'bg-green-500',  count: stats.finalizadas },
-                        { id: 'cancelados',   label: 'Cancelados',             color: 'bg-red-600',    count: stats.cancelados },
+                        { id: 'precificacao', label: 'Precificação (OS Pendentes)', color: 'bg-orange-500', count: stats.precificacao },
+                        { id: 'medicao',      label: 'Medição (Em Aberto/Fila)', color: 'bg-yellow-400', count: stats.medicao },
+                        { id: 'finalizadas',  label: 'Histórico (Finalizadas)',  color: 'bg-green-500',  count: stats.finalizadas },
+                        { id: 'cancelados',   label: 'Canceladas',             color: 'bg-red-600',    count: stats.cancelados },
                     ].map(step => (
                         <button 
                             key={step.id} 
                             onClick={() => { setActiveTab(step.id as ActiveTab); setStatusFilter(''); }}
                             className="flex flex-col items-center gap-3 relative group"
                         >
-                            <div className="flex items-center gap-1.5 z-10">
-                                <div className={`w-4 h-4 rounded-full ${step.color} border-4 border-[#1e3a5f] shadow-lg transition-transform group-hover:scale-125 ${activeTab === step.id ? 'ring-4 ring-white/20' : ''}`}></div>
-                                <span className="text-[9px] font-black bg-white/10 px-1.5 py-0.5 rounded-full">{step.count}</span>
+                            <div className="flex items-center gap-1.5 z-10 transition-transform group-hover:scale-110">
+                                <div className={`w-5 h-5 rounded-full ${step.color} border-4 border-[#1e3a5f] shadow-lg ${activeTab === step.id ? 'ring-4 ring-white/30' : ''}`}></div>
+                                <span className="text-[10px] font-black bg-white/10 px-2 py-0.5 rounded-full">{step.count}</span>
                             </div>
-                            <span className={`text-[10px] font-bold uppercase transition-colors ${activeTab === step.id ? 'text-white border-b-2 border-white' : 'text-white/60 hover:text-white'}`}>
+                            <span className={`text-[10px] font-black uppercase tracking-wider transition-all ${activeTab === step.id ? 'text-white border-b-2 border-white pb-1' : 'text-white/40 hover:text-white'}`}>
                                 {step.label}
                             </span>
                         </button>
@@ -524,12 +569,8 @@ export default function Medicoes() {
                                         <Th>Nº OS</Th>
                                         <Th className="text-center">DIAS EM ABERTO</Th>
                                         <Th>EMPRESA</Th>
-                                        <Th className="text-center">CÓD. CLIENTE</Th>
                                         <Th>CLIENTE</Th>
-                                        <Th>CONTATO</Th>
-                                        <Th>DATA OS</Th>
-                                        <Th>DATA BAIXA OS</Th>
-                                        <Th>PERÍODO MEDIÇÃO</Th>
+                                        <Th>DATA BAIXA</Th>
                                         <Th className="text-right">VALOR PRECIF.</Th>
                                     </>)}
 
@@ -538,29 +579,17 @@ export default function Medicoes() {
                                         <Th>Nº MEDIÇÃO</Th>
                                         <Th className="text-center">REVISÃO</Th>
                                         <Th>DATA CRIAÇÃO</Th>
-                                        <Th>EMPRESA</Th>
                                         <Th>CLIENTE</Th>
-                                        <Th>SOLICITANTE</Th>
                                         <Th className="text-right">VALOR TOTAL</Th>
-                                        <Th>VENDEDOR RESP</Th>
-                                        <Th className="text-center">STATUS CLIENTE</Th>
-                                        <Th>COBRANÇA ENVIADA</Th>
-                                        <Th className="text-center">LEAD TIME (DIAS)</Th>
+                                        <Th className="text-center">DIAS COBRANÇA</Th>
                                     </>)}
 
                                     {/* ─── ABA 3: FINALIZADAS ─── */}
                                     {activeTab === 'finalizadas' && (<>
                                         <Th>Nº MEDIÇÃO</Th>
-                                        <Th className="text-center">REVISÃO</Th>
                                         <Th>DATA CRIAÇÃO</Th>
-                                        <Th>EMPRESA</Th>
-                                        <Th className="text-center">CÓD. CLIENTE</Th>
                                         <Th>CLIENTE</Th>
-                                        <Th>CONTATO</Th>
                                         <Th className="text-right">VALOR TOTAL</Th>
-                                        <Th>VENDEDOR RESP</Th>
-                                        <Th>APROVAÇÃO INTERNA</Th>
-                                        <Th>COBRANÇA ENVIADA</Th>
                                         <Th>APROVAÇÃO CLIENTE</Th>
                                         <Th className="text-center">DIAS ATÉ APROV.</Th>
                                     </>)}
@@ -568,19 +597,11 @@ export default function Medicoes() {
                                     {/* ─── ABA 4: CANCELADAS ─── */}
                                     {activeTab === 'cancelados' && (<>
                                         <Th>Nº MEDIÇÃO</Th>
-                                        <Th className="text-center">REVISÃO</Th>
                                         <Th>DATA CRIAÇÃO</Th>
-                                        <Th>EMPRESA</Th>
-                                        <Th className="text-center">CÓD. CLIENTE</Th>
                                         <Th>CLIENTE</Th>
-                                        <Th>CONTATO</Th>
                                         <Th className="text-right">VALOR TOTAL</Th>
-                                        <Th>VENDEDOR RESP</Th>
-                                        <Th>APROVAÇÃO INTERNA</Th>
-                                        <Th>COBRANÇA ENVIADA</Th>
                                         <Th>DATA CANCELAMENTO</Th>
-                                        <Th>MOTIVO CANCELAMENTO</Th>
-                                        <Th className="text-center">DIAS ATÉ CANC.</Th>
+                                        <Th>MOTIVO</Th>
                                     </>)}
                                 </tr>
                             </thead>
@@ -591,91 +612,62 @@ export default function Medicoes() {
                                     <tr 
                                         key={item.id} 
                                         onClick={() => activeTab === 'precificacao' ? openPricing(item) : openMedicao(item)}
-                                        className={`border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors ${
+                                        className={`border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors group ${
                                             (selectedOS?.id === item.id || selectedMedicao?.id === item.id) ? 'bg-blue-50/50' : ''
                                         }`}
                                     >
                                         {/* ─── ACTIONS COLUMN ─── */}
                                         <Td className="sticky left-0 bg-white z-10 border-r border-slate-100">
-                                            <div className="flex gap-1.5 text-slate-500">
+                                            <div className="flex gap-2 text-slate-400 group-hover:text-slate-600 transition-colors">
                                                 {activeTab === 'precificacao' && (
-                                                    <button title="Precificar" className="hover:text-blue-600 transition-colors"><ChevronRight className="w-4 h-4" /></button>
+                                                    <button title="Precificar" className="hover:text-orange-600 transition-colors"><Calculator className="w-3.5 h-3.5" /></button>
                                                 )}
                                                 {activeTab === 'medicao' && (<>
-                                                    {item.status !== 'APROVADA_PARCIAL' && (
-                                                        <button title="Cancelar" className="hover:text-red-500 transition-colors" onClick={e => { e.stopPropagation(); handleMedicaoAction(item.id, 'CANCELADA'); }}>
-                                                            <Ban className="w-3.5 h-3.5" />
-                                                        </button>
-                                                    )}
                                                     <button title="Visualizar PDF" className="hover:text-slate-900 transition-colors" onClick={e => { e.stopPropagation(); downloadPdf(item); }}>
-                                                        <Eye className="w-3.5 h-3.5" />
+                                                        <Eye className="w-4 h-4" />
                                                     </button>
                                                     {(item.status === 'EM_ABERTO' || item.status === 'EM_CONFERENCIA') && (
                                                         <button title="Editar" className="hover:text-blue-600 transition-colors" onClick={e => { e.stopPropagation(); openMedicao(item); }}>
-                                                            <Pencil className="w-3.5 h-3.5" />
-                                                        </button>
-                                                    )}
-                                                    {item.status === 'AGUARDANDO_APROVACAO' && (<>
-                                                        <button title="Reprovar" className="hover:text-red-500 transition-colors" onClick={e => { e.stopPropagation(); handleMedicaoAction(item.id, 'REPROVADA'); }}>
-                                                            <ThumbsDown className="w-3.5 h-3.5" />
-                                                        </button>
-                                                        <button title="Aprovar" className="hover:text-emerald-600 transition-colors" onClick={e => { e.stopPropagation(); handleMedicaoAction(item.id, 'APROVADA'); }}>
-                                                            <ThumbsUp className="w-3.5 h-3.5" />
-                                                        </button>
-                                                    </>)}
-                                                    {item.status === 'EM_CONFERENCIA' && (
-                                                        <button title="Enviar p/ Cliente" className="hover:text-blue-600 transition-colors" onClick={e => { e.stopPropagation(); handleMedicaoAction(item.id, 'ENVIAR_CLIENTE'); }}>
-                                                            <Send className="w-3.5 h-3.5" />
+                                                            <Pencil className="w-4 h-4" />
                                                         </button>
                                                     )}
                                                 </>)}
                                                 {activeTab === 'finalizadas' && (<>
-                                                    <button title="Voltar p/ correção" className="hover:text-orange-600 transition-colors" onClick={e => { e.stopPropagation(); handleCorrigir(item); }}>
-                                                        <ArrowLeftCircle className="w-3.5 h-3.5" />
-                                                    </button>
                                                     <button title="Visualizar PDF" className="hover:text-slate-900 transition-colors" onClick={e => { e.stopPropagation(); downloadPdf(item); }}>
-                                                        <Eye className="w-3.5 h-3.5" />
+                                                        <Eye className="w-4 h-4" />
                                                     </button>
                                                     <button title="Histórico" className="hover:text-blue-600 transition-colors" onClick={e => { e.stopPropagation(); openMedicao(item); }}>
-                                                        <History className="w-3.5 h-3.5" />
-                                                    </button>
-                                                    <button title="Enviar Documentação" className="hover:text-emerald-600 transition-colors" onClick={e => { e.stopPropagation(); handleEnviarDocumentacao(item.id); }}>
-                                                        <Mail className="w-3.5 h-3.5" />
+                                                        <History className="w-4 h-4" />
                                                     </button>
                                                 </>)}
-                                                {activeTab === 'cancelados' && (
-                                                    <button title="Visualizar" className="hover:text-blue-600 transition-colors" onClick={e => { e.stopPropagation(); openMedicao(item); }}>
-                                                        <Eye className="w-3.5 h-3.5" />
-                                                    </button>
-                                                )}
                                             </div>
                                         </Td>
 
                                         {/* ─── STATUS COLUMN ─── */}
                                         <Td className="text-center">
                                             {activeTab === 'precificacao' ? (
-                                                <div className="w-2.5 h-2.5 rounded-full bg-orange-500 mx-auto"></div>
+                                                <span className="bg-orange-100 text-orange-600 text-[9px] px-2 py-0.5 rounded-full font-black uppercase">PENDENTE</span>
                                             ) : activeTab === 'finalizadas' ? (
-                                                <div className={`w-2.5 h-2.5 rounded-full mx-auto ${
+                                                <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase ${
                                                     diffDays(item.dataCobranca, item.aprovadaEm) <= DIAS_VENCIMENTO 
-                                                        ? 'bg-emerald-500' : 'bg-yellow-400'
-                                                }`}></div>
+                                                        ? 'bg-emerald-100 text-emerald-600' : 'bg-yellow-100 text-yellow-600'
+                                                }`}>{diffDays(item.dataCobranca, item.aprovadaEm) <= DIAS_VENCIMENTO ? 'NO PRAZO' : 'ATRASADO'}</span>
                                             ) : (
-                                                <StatusBullet status={item.status} dataCobranca={item.dataCobranca} />
+                                                <StatusBadge status={item.status} dataCobranca={item.dataCobranca} />
                                             )}
                                         </Td>
 
-                                        {/* ─── DATA COLUMNS PER TAB ─── */}
+                                        {/* ─── DATA COLUMNS ─── */}
                                         {activeTab === 'precificacao' && (<>
                                             <Td className="font-black text-slate-700">{item.codigo}</Td>
-                                            <Td className="text-center font-bold text-slate-500">{daysSince(item.dataBaixa || item.createdAt)}</Td>
+                                            <Td className="text-center font-bold text-slate-500">
+                                                <span className={daysSince(item.dataBaixa || item.createdAt) > 2 ? 'text-red-500' : ''}>
+                                                    {daysSince(item.dataBaixa || item.createdAt)} dias
+                                                </span>
+                                            </Td>
                                             <Td className="text-slate-500 font-bold truncate max-w-[120px] uppercase">{item.empresa || 'NACIONAL HIDRO'}</Td>
-                                            <Td className="text-center font-bold text-slate-500">{item.cliente?.codigo || '-'}</Td>
-                                            <Td className="font-black text-slate-700 truncate max-w-[150px] uppercase">{item.cliente?.nome}</Td>
-                                            <Td className="text-slate-500 truncate max-w-[120px] uppercase">{item.contato || '-'}</Td>
-                                            <Td className="text-slate-500">{fmtDate(item.createdAt)}</Td>
+                                            <Td className="font-black text-slate-700 truncate max-w-[200px] uppercase">{item.cliente?.nome}</Td>
                                             <Td className="text-slate-500">{fmtDate(item.dataBaixa)}</Td>
-                                            <Td className="text-slate-500">{item.periodo || '-'}</Td>
                                             <Td className="text-right font-black text-emerald-600">{fmt(item.valorPrecificado)}</Td>
                                         </>)}
 
@@ -683,17 +675,15 @@ export default function Medicoes() {
                                             <Td className="font-black text-slate-700">{item.codigo}</Td>
                                             <Td className="text-center font-bold text-slate-400">{item.revisao || 0}</Td>
                                             <Td className="text-slate-500">{fmtDate(item.createdAt)}</Td>
-                                            <Td className="text-slate-500 font-bold truncate max-w-[120px] uppercase">{item.empresa || 'NACIONAL HIDRO'}</Td>
-                                            <Td className="font-black text-slate-700 truncate max-w-[150px] uppercase">{item.cliente?.nome}</Td>
-                                            <Td className="text-slate-500 truncate max-w-[120px] uppercase">{item.solicitante || '-'}</Td>
+                                            <Td className="font-black text-slate-700 truncate max-w-[200px] uppercase">
+                                                {item.cliente?.nome}
+                                                {item.cte && <span className="ml-2 bg-blue-100 text-blue-700 text-[8px] px-1.5 py-0.5 rounded-full font-black">CTE</span>}
+                                            </Td>
                                             <Td className="text-right font-black text-emerald-600">{fmt(item.valorTotal)}</Td>
-                                            <Td className="text-slate-500 truncate max-w-[120px]">{item.vendedor?.name || '-'}</Td>
-                                            <Td className="text-center font-bold text-slate-500">{item.statusCliente || '-'}</Td>
-                                            <Td className="text-slate-500">{fmtDate(item.dataCobranca)}</Td>
                                             <Td className="text-center font-bold">
                                                 {item.dataCobranca ? (
                                                     <span className={`${Number(daysSince(item.dataCobranca)) > DIAS_VENCIMENTO ? 'text-red-600' : 'text-slate-500'}`}>
-                                                        {daysSince(item.dataCobranca)}
+                                                        {daysSince(item.dataCobranca)}d
                                                     </span>
                                                 ) : '-'}
                                             </Td>
@@ -701,35 +691,20 @@ export default function Medicoes() {
 
                                         {activeTab === 'finalizadas' && (<>
                                             <Td className="font-black text-slate-700">{item.codigo}</Td>
-                                            <Td className="text-center font-bold text-slate-400">{item.revisao || 0}</Td>
                                             <Td className="text-slate-500">{fmtDate(item.createdAt)}</Td>
-                                            <Td className="text-slate-500 font-bold truncate max-w-[120px] uppercase">{item.empresa || 'NACIONAL HIDRO'}</Td>
-                                            <Td className="text-center font-bold text-slate-500">{item.cliente?.codigo || '-'}</Td>
-                                            <Td className="font-black text-slate-700 truncate max-w-[150px] uppercase">{item.cliente?.nome}</Td>
-                                            <Td className="text-slate-500 truncate max-w-[120px] uppercase">{item.solicitante || '-'}</Td>
+                                            <Td className="font-black text-slate-700 truncate max-w-[200px] uppercase">{item.cliente?.nome}</Td>
                                             <Td className="text-right font-black text-emerald-600">{fmt(item.valorTotal)}</Td>
-                                            <Td className="text-slate-500 truncate max-w-[120px]">{item.vendedor?.name || '-'}</Td>
-                                            <Td className="text-slate-500">{fmtDate(item.dataAprovacaoInterna)}</Td>
-                                            <Td className="text-slate-500">{fmtDate(item.dataCobranca)}</Td>
                                             <Td className="text-slate-500">{fmtDate(item.aprovadaEm)}</Td>
-                                            <Td className="text-center font-bold text-slate-500">{diffDays(item.dataCobranca, item.aprovadaEm)}</Td>
+                                            <Td className="text-center font-bold text-slate-500">{diffDays(item.dataCobranca, item.aprovadaEm)}d</Td>
                                         </>)}
 
                                         {activeTab === 'cancelados' && (<>
                                             <Td className="font-black text-slate-700">{item.codigo}</Td>
-                                            <Td className="text-center font-bold text-slate-400">{item.revisao || 0}</Td>
                                             <Td className="text-slate-500">{fmtDate(item.createdAt)}</Td>
-                                            <Td className="text-slate-500 font-bold truncate max-w-[120px] uppercase">{item.empresa || 'NACIONAL HIDRO'}</Td>
-                                            <Td className="text-center font-bold text-slate-500">{item.cliente?.codigo || '-'}</Td>
-                                            <Td className="font-black text-slate-700 truncate max-w-[150px] uppercase">{item.cliente?.nome}</Td>
-                                            <Td className="text-slate-500 truncate max-w-[120px] uppercase">{item.solicitante || '-'}</Td>
-                                            <Td className="text-right font-black text-emerald-600">{fmt(item.valorTotal)}</Td>
-                                            <Td className="text-slate-500 truncate max-w-[120px]">{item.vendedor?.name || '-'}</Td>
-                                            <Td className="text-slate-500">{fmtDate(item.dataAprovacaoInterna)}</Td>
-                                            <Td className="text-slate-500">{fmtDate(item.dataCobranca)}</Td>
+                                            <Td className="font-black text-slate-700 uppercase">{item.cliente?.nome}</Td>
+                                            <Td className="text-right font-black text-slate-400">{fmt(item.valorTotal)}</Td>
                                             <Td className="text-slate-500">{fmtDate(item.dataCancelamento)}</Td>
-                                            <Td className="text-slate-500 truncate max-w-[180px]">{item.justificativaCancelamento || '-'}</Td>
-                                            <Td className="text-center font-bold text-slate-500">{diffDays(item.dataCobranca, item.dataCancelamento)}</Td>
+                                            <Td className="text-slate-500 truncate max-w-[200px] italic">{item.justificativaCancelamento || '-'}</Td>
                                         </>)}
                                     </tr>
                                 ))}
@@ -743,202 +718,145 @@ export default function Medicoes() {
                     </div>
                 </div>
 
-                {/* ── MODAL: PRECIFICAÇÃO DETALHADA ── */}
+                {/* ── SIDE PANEL: PRECIFICAÇÃO DETALHADA ── */}
                 {selectedOS && (
-                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-                        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col border border-white/20">
-                            <div className="bg-[#1e3a5f] p-5 text-white flex items-center justify-between">
-                                <div className="flex flex-col">
-                                    <h2 className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
-                                        <Calculator className="w-5 h-5 text-orange-400" />
-                                        Precificar OS: {selectedOS.codigo}
-                                    </h2>
-                                    <p className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">{selectedOS.cliente?.nome}</p>
+                    <div className="w-1/2 bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden flex flex-col animate-in slide-in-from-right duration-300">
+                        <div className="bg-[#1e3a5f] p-4 text-white flex items-center justify-between">
+                            <div className="flex flex-col">
+                                <h2 className="text-sm font-black uppercase tracking-tight flex items-center gap-2">
+                                    <Calculator className="w-4 h-4 text-orange-400" />
+                                    Precificar OS: {selectedOS.codigo}
+                                </h2>
+                                <p className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">{selectedOS.cliente?.nome}</p>
+                            </div>
+                            <button onClick={() => setSelectedOS(null)} className="hover:bg-white/10 p-1.5 rounded-lg"><X className="w-4 h-4" /></button>
+                        </div>
+
+                        <div className="p-4 overflow-y-auto flex-1 bg-slate-50/50 custom-scrollbar space-y-6">
+                            
+                            {/* CALCULATOR SECTION */}
+                            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                    <Clock className="w-3.5 h-3.5 text-blue-500" /> Registro de Horas
+                                </h3>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase">Entrada</label>
+                                        <div className="flex gap-1.5">
+                                            <input type="date" value={autoCalcForm.entradaData} onChange={e => setAutoCalcForm({...autoCalcForm, entradaData: e.target.value})} className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-bold" />
+                                            <input type="time" value={autoCalcForm.entradaHora} onChange={e => setAutoCalcForm({...autoCalcForm, entradaHora: e.target.value})} className="w-20 bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-bold" />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase">Saída</label>
+                                        <div className="flex gap-1.5">
+                                            <input type="date" value={autoCalcForm.saidaData} onChange={e => setAutoCalcForm({...autoCalcForm, saidaData: e.target.value})} className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-bold" />
+                                            <input type="time" value={autoCalcForm.saidaHora} onChange={e => setAutoCalcForm({...autoCalcForm, saidaHora: e.target.value})} className="w-20 bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-bold" />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase">Almoço</label>
+                                        <input type="time" value={autoCalcForm.almoco} onChange={e => setAutoCalcForm({...autoCalcForm, almoco: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-bold" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase">Franquia</label>
+                                        <input type="time" value={autoCalcForm.franquia} onChange={e => setAutoCalcForm({...autoCalcForm, franquia: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-bold" />
+                                    </div>
+                                    <div className="col-span-2 space-y-1 pt-2">
+                                        <div className="flex items-center gap-2">
+                                            <input 
+                                                type="checkbox" 
+                                                id="minHe"
+                                                className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                                checked={autoCalcForm.aplicarMinimoHE}
+                                                onChange={e => setAutoCalcForm({ ...autoCalcForm, aplicarMinimoHE: e.target.checked })}
+                                            />
+                                            <label htmlFor="minHe" className="text-[9px] font-black text-slate-500 uppercase cursor-pointer">
+                                                Mínimo de 2h de Hora Extra (Regra Legado)
+                                            </label>
+                                        </div>
+                                    </div>
                                 </div>
-                                <button onClick={() => setSelectedOS(null)} className="hover:bg-white/10 p-2 rounded-full"><X className="w-5 h-5" /></button>
+
+                                <button 
+                                    onClick={handleAutoCalcular}
+                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white h-10 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <Zap className="w-3.5 h-3.5" /> Calcular Automático
+                                </button>
                             </div>
 
-                            <div className="p-8 overflow-y-auto flex-1 bg-slate-50/50 custom-scrollbar grid grid-cols-12 gap-8">
-                                
-                                {/* LEFT COLUMN: CALCULATOR */}
-                                <div className="col-span-12 lg:col-span-7 space-y-6">
-                                    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-                                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                            <Clock className="w-4 h-4 text-blue-500" /> Registro de Horas
-                                        </h3>
+                            {/* ITEMS SECTION */}
+                            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                        <List className="w-3.5 h-3.5 text-emerald-500" /> Itens de Cobrança
+                                    </h3>
+                                    <button onClick={() => setShowItemForm(!showItemForm)} className="text-[9px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full hover:bg-blue-100 transition-all flex items-center gap-1.5"><Plus className="w-3 h-3" /> {showItemForm ? 'FECHAR' : 'NOVO'}</button>
+                                </div>
 
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-1.5">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase">Entrada</label>
-                                                <div className="flex gap-2">
-                                                    <input type="date" value={autoCalcForm.entradaData} onChange={e => setAutoCalcForm({...autoCalcForm, entradaData: e.target.value})} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold" />
-                                                    <input type="time" value={autoCalcForm.entradaHora} onChange={e => setAutoCalcForm({...autoCalcForm, entradaHora: e.target.value})} className="w-24 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold" />
-                                                </div>
+                                {showItemForm && (
+                                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-3 animate-in slide-in-from-top-2 duration-200">
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="col-span-2 space-y-1">
+                                                <label className="text-[8px] font-black text-slate-400 uppercase">Descrição</label>
+                                                <input value={itemForm.descricao} onChange={e => setItemForm({...itemForm, descricao: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-bold" />
                                             </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase">Saída</label>
-                                                <div className="flex gap-2">
-                                                    <input type="date" value={autoCalcForm.saidaData} onChange={e => setAutoCalcForm({...autoCalcForm, saidaData: e.target.value})} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold" />
-                                                    <input type="time" value={autoCalcForm.saidaHora} onChange={e => setAutoCalcForm({...autoCalcForm, saidaHora: e.target.value})} className="w-24 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold" />
-                                                </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[8px] font-black text-slate-400 uppercase">Quantidade</label>
+                                                <input type="number" step="0.01" value={itemForm.quantidade} onChange={e => setItemForm({...itemForm, quantidade: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-bold" />
                                             </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase">Almoço / Intervalo</label>
-                                                <input type="time" value={autoCalcForm.almoco} onChange={e => setAutoCalcForm({...autoCalcForm, almoco: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold" />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase">Franquia Contratual</label>
-                                                <input type="time" value={autoCalcForm.franquia} onChange={e => setAutoCalcForm({...autoCalcForm, franquia: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold" />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase">Vlr. Diária (Manual)</label>
-                                                <input type="number" value={autoCalcForm.valorDiaria} onChange={e => setAutoCalcForm({...autoCalcForm, valorDiaria: e.target.value})} placeholder="Opcional" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold" />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase">Vlr. Hora Normal (Manual)</label>
-                                                <input type="number" value={autoCalcForm.valorHora} onChange={e => setAutoCalcForm({...autoCalcForm, valorHora: e.target.value})} placeholder="Opcional" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold" />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase">Vlr. Hora Extra (Manual)</label>
-                                                <input type="number" value={autoCalcForm.valorHoraExtra} onChange={e => setAutoCalcForm({...autoCalcForm, valorHoraExtra: e.target.value})} placeholder="Opcional" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold" />
-                                            </div>
-                                            <div className="space-y-1.5 flex items-center gap-2 pt-4 col-span-2">
-                                                <input 
-                                                    type="checkbox" 
-                                                    id="minHe"
-                                                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                                                    checked={autoCalcForm.aplicarMinimoHE}
-                                                    onChange={e => setAutoCalcForm({ ...autoCalcForm, aplicarMinimoHE: e.target.checked })}
-                                                />
-                                                <label htmlFor="minHe" className="text-[10px] font-black text-slate-500 uppercase cursor-pointer">
-                                                    Mínimo de 2h de Hora Extra (Regra Legado)
-                                                </label>
+                                            <div className="space-y-1">
+                                                <label className="text-[8px] font-black text-slate-400 uppercase">Valor</label>
+                                                <input type="number" step="0.01" value={itemForm.valorUnitario} onChange={e => setItemForm({...itemForm, valorUnitario: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-bold" />
                                             </div>
                                         </div>
-
-                                        <div className="pt-4 border-t border-slate-100 flex gap-4">
-                                            <button 
-                                                onClick={handleAutoCalcular}
-                                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-2xl text-[10px] font-black uppercase shadow-xl shadow-blue-500/20 transition-all flex items-center justify-center gap-2"
-                                            >
-                                                <Zap className="w-4 h-4" /> Calcular Automático
-                                            </button>
-                                        </div>
+                                        <button onClick={handleAddItem} className="bg-slate-800 text-white w-full h-9 rounded-lg text-[10px] font-black uppercase">Adicionar Item</button>
                                     </div>
+                                )}
 
-                                    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                                        <div className="flex items-center justify-between">
-                                            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                                <List className="w-4 h-4 text-emerald-500" /> Itens de Cobrança
-                                            </h3>
-                                            <button onClick={() => setShowItemForm(true)} className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-all flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> NOVO ITEM</button>
-                                        </div>
-
-                                        {showItemForm && (
-                                            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-4 animate-in slide-in-from-top-4 duration-200">
-                                                <div className="grid grid-cols-6 gap-3">
-                                                    <div className="col-span-2 space-y-1">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase">Descrição</label>
-                                                        <input value={itemForm.descricao} onChange={e => setItemForm({...itemForm, descricao: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-bold" title="Descrição do item" />
-                                                    </div>
-                                                    <div className="col-span-2 space-y-1">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase">Centro de Custo</label>
-                                                        <select 
-                                                            value={itemForm.centroCustoId} 
-                                                            onChange={e => setItemForm({...itemForm, centroCustoId: e.target.value})} 
-                                                            className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-bold"
-                                                        >
-                                                            <option value="">DEPARTAMENTO PADRÃO</option>
-                                                            {centrosCusto.map(cc => (
-                                                                <option key={cc.id} value={cc.id}>{cc.nome}</option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase">Valor</label>
-                                                        <input type="number" value={itemForm.valorUnitario} onChange={e => setItemForm({...itemForm, valorUnitario: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-bold" title="Valor unitário" />
-                                                    </div>
-                                                    <div className="flex items-end pb-0.5">
-                                                        <button onClick={handleAddItem} className="bg-slate-800 text-white w-full py-2 rounded-lg text-[9px] font-black uppercase">Add</button>
-                                                    </div>
+                                <div className="space-y-2">
+                                    {selectedOS.itensCobranca?.map((it: any) => (
+                                        <div key={it.id} className="flex items-center justify-between p-3 bg-slate-50/50 border border-slate-100 rounded-xl group hover:border-blue-200 transition-all">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center text-blue-600 border border-slate-200 font-black text-[10px]">{it.quantidade}x</div>
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-slate-700 text-xs uppercase leading-tight">{it.descricao}</span>
+                                                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{fmt(it.valorUnitario)}</span>
                                                 </div>
                                             </div>
-                                        )}
-
-                                        <div className="space-y-2">
-                                            {selectedOS.itensCobranca?.map((it: any) => (
-                                                <div key={it.id} className="flex items-center justify-between p-4 bg-slate-50/50 border border-slate-100 rounded-2xl group hover:border-blue-200 transition-all">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-blue-600 border border-slate-200 font-black text-[10px]">{it.quantidade}x</div>
-                                                        <div className="flex flex-col">
-                                                            <span className="font-bold text-slate-700 text-sm uppercase leading-tight">{it.descricao}</span>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{fmt(it.valorUnitario)} / UN</span>
-                                                                {it.centroCusto && (
-                                                                    <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200 font-black uppercase tracking-tight">CC: {it.centroCusto.nome}</span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-4">
-                                                        <span className="font-black text-emerald-600">{fmt(it.valorTotal)}</span>
-                                                        <button className="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-4 h-4" /></button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            {!selectedOS.itensCobranca?.length && (
-                                                <div className="text-center py-10 border-2 border-dashed border-slate-100 rounded-3xl text-slate-300 text-xs font-bold italic">Nenhum item de cobrança lançado</div>
-                                            )}
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-black text-emerald-600 text-xs">{fmt(it.valorTotal)}</span>
+                                                <button className="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+                                            </div>
                                         </div>
+                                    ))}
+                                    {!selectedOS.itensCobranca?.length && (
+                                        <div className="text-center py-6 border-2 border-dashed border-slate-100 rounded-2xl text-slate-300 text-[10px] font-bold italic">Nenhum item lançado</div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* SUMMARY & SUBMIT */}
+                            <div className="bg-[#1e3a5f] p-6 rounded-3xl text-white space-y-6 shadow-xl shadow-blue-900/20">
+                                <div className="flex items-center justify-between">
+                                    <div className="space-y-0.5">
+                                        <p className="text-[9px] font-black text-white/40 uppercase tracking-widest">Valor Total Precificado</p>
+                                        <h3 className="text-2xl font-black">{fmt(selectedOS.valorPrecificado)}</h3>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-[9px] font-black text-white/40 uppercase tracking-widest">Horas</p>
+                                        <p className="text-sm font-black">{selectedOS.horasTotais || '0.00'}h (+{selectedOS.horasExtras || '0.00'} HE)</p>
                                     </div>
                                 </div>
 
-                                {/* RIGHT COLUMN: SUMMARY */}
-                                <div className="col-span-12 lg:col-span-5 space-y-6">
-                                    <div className="bg-[#1e3a5f] p-8 rounded-[40px] text-white space-y-8 shadow-2xl shadow-blue-900/30">
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">Resumo de Faturamento</p>
-                                            <h3 className="text-3xl font-black">{fmt(selectedOS.valorPrecificado)}</h3>
-                                        </div>
-
-                                        <div className="space-y-4">
-                                            <div className="flex items-center justify-between pb-3 border-b border-white/10">
-                                                <span className="text-[10px] font-black text-white/40 uppercase">Horas Totais</span>
-                                                <span className="text-sm font-black">{selectedOS.horasTotais || '0.00'}h</span>
-                                            </div>
-                                            <div className="flex items-center justify-between pb-3 border-b border-white/10">
-                                                <span className="text-[10px] font-black text-white/40 uppercase">Horas Extras</span>
-                                                <span className="text-sm font-black text-yellow-400">{selectedOS.horasExtras || '0.00'}h</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-[10px] font-black text-white/40 uppercase">Status</span>
-                                                <span className="text-[10px] font-black bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full uppercase">PRONTO</span>
-                                            </div>
-                                        </div>
-
-                                        <div className="pt-4">
-                                            <button 
-                                                onClick={handlePrecificar}
-                                                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white h-16 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl shadow-emerald-500/30 transition-all transform active:scale-95"
-                                            >
-                                                Finalizar & Baixar OS
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* INFO BLOCK */}
-                                    <div className="bg-orange-50 p-6 rounded-3xl border border-orange-100 flex gap-4">
-                                        <div className="w-10 h-10 bg-orange-200 rounded-full flex items-center justify-center flex-shrink-0 text-orange-700">
-                                            <AlertTriangle className="w-5 h-5" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <h4 className="text-[10px] font-black text-orange-800 uppercase">Regras de Cobrança</h4>
-                                            <p className="text-[10px] text-orange-700 leading-relaxed font-bold">
-                                                O cálculo automático considera a franquia contratada e aplica valores de Hora Extra conforme os termos da proposta comercial vinculada.
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
+                                <button 
+                                    onClick={handlePrecificar}
+                                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-white h-12 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-emerald-500/30 transition-all"
+                                >
+                                    Finalizar & Baixar OS
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1048,13 +966,50 @@ export default function Medicoes() {
                             )}
 
                             {/* OS Vinculadas */}
-                            <div className="space-y-2">
-                                <h4 className="text-[10px] font-black text-slate-400 uppercase">Ordens de Serviço Vinculadas</h4>
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-[10px] font-black text-slate-400 uppercase">Ordens de Serviço Vinculadas</h4>
+                                    {selectedMedicao.status === 'EM_ABERTO' && (
+                                        <button 
+                                            onClick={() => handleRecalcularMedicao(selectedMedicao.id)}
+                                            className="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-full hover:bg-blue-100 flex items-center gap-1 transition-all"
+                                        >
+                                            <RefreshCw className="w-3 h-3" /> RECALCULAR TUDO
+                                        </button>
+                                    )}
+                                </div>
                                 {selectedMedicao.ordensServico?.map((os: any) => (
-                                    <div key={os.id} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-lg shadow-sm">
-                                        <div className="flex flex-col"><span className="font-bold text-slate-700 uppercase text-xs">{os.codigo}</span><span className="text-[10px] text-slate-400 uppercase">{os.tipoCobranca}</span></div>
-                                        <span className="font-black text-blue-700">{fmt(os.valorPrecificado)}</span>
-                                    </div>
+                                    <details key={os.id} className="group bg-white border border-slate-100 rounded-xl shadow-sm overflow-hidden">
+                                        <summary className="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-50 transition-colors list-none">
+                                            <div className="flex items-center gap-3">
+                                                <ChevronRight className="w-3.5 h-3.5 text-slate-400 transition-transform group-open:rotate-90" />
+                                                <div className="flex flex-col">
+                                                    <span className="font-black text-slate-700 uppercase text-xs">{os.codigo}</span>
+                                                    <span className="text-[9px] text-slate-400 uppercase font-bold">{fmtDate(os.createdAt)}</span>
+                                                </div>
+                                            </div>
+                                            <span className="font-black text-blue-700 text-xs">{fmt(os.valorPrecificado)}</span>
+                                        </summary>
+                                        <div className="p-3 bg-slate-50/50 border-t border-slate-50 space-y-2">
+                                            {os.itensCobranca?.map((it: any) => (
+                                                <div key={it.id} className="flex justify-between items-center text-[10px]">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-bold text-slate-600 uppercase">{it.descricao}</span>
+                                                        <span className="text-slate-400">{it.quantidade}x {fmt(it.valorUnitario)}</span>
+                                                    </div>
+                                                    <span className="font-black text-slate-500">{fmt(it.valorTotal)}</span>
+                                                </div>
+                                            ))}
+                                            <div className="pt-2 flex justify-end">
+                                                <button 
+                                                    onClick={() => { setSelectedOS(os); setSelectedMedicao(null); }}
+                                                    className="text-[9px] font-black text-blue-600 uppercase hover:underline"
+                                                >
+                                                    Editar Itens da OS
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </details>
                                 ))}
                             </div>
 

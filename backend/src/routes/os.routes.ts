@@ -2,7 +2,8 @@ import { Router } from 'express';
 import {
     listOS, getOS, createOS, updateOS, deleteOS, printOS, downloadPdfOS, printLoteOSPdf,
     listItensCobranca, createItemCobranca, updateItemCobranca, deleteItemCobranca,
-    duplicateOS, createOSLote, baixarOSLote
+    duplicateOS, createOSLote, baixarOSLote,
+    finalizarOS, reverterCancelamentoOS
 } from '../controllers/os.controller';
 import { listMateriaisOS, addMaterialOS, removeMaterialOS } from '../controllers/materialOS.controller';
 import { authenticate } from '../middleware/auth.middleware';
@@ -23,6 +24,11 @@ router.delete('/:id', deleteOS);
 
 // ── Duplicar OS ──────────────────────────────────────────────────
 router.post('/:id/duplicar', duplicateOS);
+router.post('/:id/sync-rdo', sincronizarRDOComItensCobranca);
+
+// ── Gap Analysis 2.6: Finalizar + Reverter Cancelamento ──────────
+router.patch('/:id/finalizar', finalizarOS);
+router.patch('/:id/reverter-cancelamento', reverterCancelamentoOS);
 
 // ── Lote (criar e baixar) ────────────────────────────────────────
 router.post('/lote', createOSLote);

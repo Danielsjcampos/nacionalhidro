@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import {
     listMedicoes, getMedicao, createMedicao,
-    updateMedicaoStatus, listOSDisponiveis, fecharPorRDO, enviarAoCliente,
-    getMedicaoEmailHistory, updateMedicao, gerarPdfMedicaoBaixar, enviarDocumentacaoFinal
+    getMedicaoEmailHistory, updateMedicao, gerarPdfMedicaoBaixar, enviarDocumentacaoFinal,
+    recalcularMedicao
 } from '../controllers/medicao.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
@@ -19,6 +19,6 @@ router.put('/:id', updateMedicao);
 router.patch('/:id/status', updateMedicaoStatus);
 router.post('/:id/enviar', enviarAoCliente);
 router.post('/:id/enviar-documentacao', enviarDocumentacaoFinal);
-router.post('/:id/pdf', gerarPdfMedicaoBaixar);
+router.post('/:id/recalcular', recalcularMedicao);
 
 export default router;

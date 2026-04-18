@@ -13,10 +13,20 @@ const calcularEncargos = (valorOriginal: number, dataVencimento: Date) => {
     const vencimento = new Date(dataVencimento);
     if (hoje <= vencimento) return { juros: 0, multa: 0, correcao: 0, diasAtraso: 0 };
 
-    const diasAtraso = Math.floor((hoje.getTime() - vencimento.getTime()) / (1000 * 60 * 60 * 24));
-    const multa = valorOriginal * 0.02; // 2% multa fixa
-    const juros = valorOriginal * 0.00033 * diasAtraso; // ~1% ao mês (0.033%/dia)
-    const correcao = valorOriginal * 0.0003 * diasAtraso; // Correção monetária simples
+    const diffTime = hoje.getTime() - vencimento.getTime();
+    const diasAtraso = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    // Regra Legada Nacional Hidro: Carência de 2 dias corridos.
+    // Se estiver no prazo de carência, juros e multa são zerados.
+    const CARENCIA_DIAS = 2;
+    if (diasAtraso <= CARENCIA_DIAS) {
+        return { juros: 0, multa: 0, correcao: 0, diasAtraso };
+    }
+
+    const multa = valorOriginal * 0.02; // 2% multa fixa após carência
+    const juros = valorOriginal * 0.00033 * diasAtraso; // ~1% ao mês (0.033%/dia) desde o vencimento
+    const correcao = valorOriginal * 0.0003 * diasAtraso; // Correção monetária simples (legado)
+    
     return {
         juros: Math.round(juros * 100) / 100,
         multa: Math.round(multa * 100) / 100,

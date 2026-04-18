@@ -55,6 +55,8 @@ import treinamentoRoutes from './routes/treinamento.routes';
 import uploadRoutes from './routes/upload.routes';
 import cargoRoutes from './routes/cargo.routes';
 import pedidoCompraRoutes from './routes/pedidoCompra.routes';
+import ocorrenciaRoutes from './routes/ocorrencia.routes';
+import processoRoutes from './routes/processo.routes';
 
 const app = express();
 const httpServer = createServer(app);
@@ -163,6 +165,8 @@ app.use('/webhook', webhookRoutes);  // Alias sem 'S' — usado pelo Google Ads
 app.use('/upload', uploadRoutes);
 app.use('/cargos', cargoRoutes);
 app.use('/pedidos-compra', pedidoCompraRoutes);
+app.use('/ocorrencias', ocorrenciaRoutes);
+app.use('/processos', processoRoutes);
 import checklistRoutes from './routes/checklist.routes';
 app.use('/checklist', checklistRoutes);
 import agendamentoRoutes from './routes/agendamento.routes';
@@ -248,12 +252,14 @@ setInterval(async () => {
 
 import { startCobrancaAutomaticaJob } from './jobs/cobrancaAutomatica.job';
 import { startCobrancaMensagensJob } from './jobs/cobrancaMensagens.job';
+import { startCobrancaOverdueJob } from './jobs/cobrancaOverdue.job';
 import { startAlertasRHJob } from './jobs/alertasRH.job';
 import { startDREMensalJob } from './jobs/dreMensal.job';
 
 // Iniciar os Crons de Cobrança (Medição e WhatsApp Preventivo)
 startCobrancaAutomaticaJob();
 startCobrancaMensagensJob();
+startCobrancaOverdueJob();
 startAlertasRHJob();
 startDREMensalJob();
 
