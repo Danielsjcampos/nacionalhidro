@@ -15,7 +15,6 @@ const fmt = (v: any) =>
 const fmtDate = (d: any) => d ? new Date(d).toLocaleDateString('pt-BR') : '-';
 
 const diffDays = (from: any, to: any) => {
-    const { showToast } = useToast();
     if (!from || !to) return '-';
     const diff = Math.floor((new Date(to).getTime() - new Date(from).getTime()) / (1000 * 3600 * 24));
     return diff;
@@ -100,6 +99,8 @@ const StatusBadge = ({ status, dataCobranca }: { status: string; dataCobranca?: 
 };
 
 export default function Medicoes() {
+    const { showToast } = useToast();
+
     // ─── SETTINGS ───
     const [activeTab, setActiveTab] = useState<ActiveTab>('precificacao');
     const [loading, setLoading] = useState(true);
@@ -164,6 +165,19 @@ export default function Medicoes() {
     const [porcentagemRL, setPorcentagemRL] = useState<number>(90);
     const [propostaId, setPropostaId] = useState('');
     const [centrosCusto, setCentrosCusto] = useState<any[]>([]);
+
+    // ─── MODAL CREATE STATE (variáveis p/ wizard de criação) ───
+    const [clientes, setClientes] = useState<any[]>([]);
+    const [vendedores, setVendedores] = useState<any[]>([]);
+    const [osProntas, setOsProntas] = useState<any[]>([]);
+    const [selectedClienteId, setSelectedClienteId] = useState('');
+    const [selectedOsIds, setSelectedOsIds] = useState<string[]>([]);
+    const [periodo, setPeriodo] = useState('');
+    const [solicitante, setSolicitante] = useState('');
+    const [vendedorId, setVendedorId] = useState('');
+    const [tipoDocumento, setTipoDocumento] = useState('RL');
+    const [subitens, setSubitens] = useState<any[]>([]);
+    const [cnpjFaturamento, setCnpjFaturamento] = useState('');
 
     // ─── FETCH LOGIC ───
     const fetchData = useCallback(async () => {
@@ -1107,6 +1121,17 @@ export default function Medicoes() {
                                                 placeholder="Ex: Março/2025" 
                                                 className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm font-bold shadow-sm" 
                                             />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vendedor Responsável</label>
+                                            <select 
+                                                value={vendedorId} 
+                                                onChange={e => setVendedorId(e.target.value)}
+                                                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-500/10"
+                                            >
+                                                <option value="">Selecione o vendedor...</option>
+                                                {vendedores.map(v => <option key={v.id} value={v.id}>{v.name || v.email}</option>)}
+                                            </select>
                                         </div>
                                         <div className="col-span-2 space-y-1.5">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Enviar Cópia Para (E-mails separados por vírgula)</label>
