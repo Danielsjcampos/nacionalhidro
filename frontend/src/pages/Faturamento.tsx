@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react';
 import api from '../services/api';
 import {
     Plus, Loader2, X, DollarSign, Send, CheckCircle2,
-    AlertTriangle, Clock, TrendingUp, Receipt, Filter, Download, RotateCw, FileText, Shield
+    AlertTriangle, Clock, TrendingUp, Receipt, Filter, Download, RotateCw, FileText, Shield, Pencil
 } from 'lucide-react';
+import ModalEdicaoFaturamento from '../components/ModalEdicaoFaturamento';
 
 const TIPOS: Record<string, { label: string; color: string }> = {
     RL: { label: 'RL (Locação 90%)', color: 'bg-blue-100 text-blue-700' },
@@ -44,6 +45,7 @@ export default function Faturamento() {
     const [actionModal, setActionModal] = useState<{ type: 'cce' | 'cancelar' | null, id: string, text: string }>({ type: null, id: '', text: '' });
     const [tetoFiscal, setTetoFiscal] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<'Status_do_Faturamento' | 'Cancelados'>('Status_do_Faturamento');
+    const [editFaturamento, setEditFaturamento] = useState<any>(null);
 
     const [form, setForm] = useState({
         clienteId: '', tipo: 'RL', numero: '', pedidoCompras: '',
@@ -189,6 +191,31 @@ export default function Faturamento() {
 
     const fmt = (v: number) => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     const formatDate = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
+
+    const handleEditSave = async (data: any) => {
+        try {
+            const { id, ...payload } = data;
+            await api.patch(`/faturamento/${id}`, payload);
+            showToast('Faturamento salvo com sucesso!');
+            setEditFaturamento(null);
+            fetchAll();
+        } catch (err: any) {
+            showToast(err.response?.data?.error || 'Erro ao salvar', 'error');
+        }
+    };
+
+    const handleEditEmitir = async (data: any) => {
+        try {
+            const { id, ...payload } = data;
+            await api.patch(`/faturamento/${id}`, payload);
+            await api.post(`/faturamento/${id}/emitir`);
+            showToast('Fatura salva e comando de emissão enviado!');
+            setEditFaturamento(null);
+            fetchAll();
+        } catch (err: any) {
+            showToast(err.response?.data?.error || err.response?.data?.details || 'Erro ao emitir', 'error');
+        }
+    };
 
     if (loading) return <div className="h-full flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>;
 
@@ -394,6 +421,7 @@ export default function Faturamento() {
                                         </td>
                                         <td className="p-3">
                                             <div className="flex gap-2 items-center">
+                                                <button onClick={() => setEditFaturamento(f)} className="text-indigo-500 hover:text-indigo-700" title="Editar / Emitir"><Pencil className="w-4 h-4" /></button>
                                                 {f.status === 'EMITIDA' && (
                                                     <button onClick={() => handleStatusChange(f.id, 'ENVIADA')} className="text-blue-500 hover:text-blue-700" title="Marcar como Enviada"><Send className="w-4 h-4" /></button>
                                                 )}
@@ -597,6 +625,16 @@ export default function Faturamento() {
                         </button>
                     </div>
                 </div>
+            )}
+
+            {/* Modal de Edição de Faturamento (5 abas CTE / 2 abas NF) */}
+            {editFaturamento && (
+                <ModalEdicaoFaturamento
+                    faturamento={editFaturamento}
+                    onClose={() => setEditFaturamento(null)}
+                    onSave={handleEditSave}
+                    onEmitir={handleEditEmitir}
+                />
             )}
         </div>
     );
