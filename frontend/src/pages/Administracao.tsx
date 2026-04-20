@@ -109,7 +109,7 @@ const AcessoriosTab = () => {
   const [loading, setLoading] = useState(true);
   const { register, handleSubmit, reset } = useForm();
 
-  const fetchItems = async () => {
+  const fetchAcessorios = async () => {
     try {
       const res = await api.get('/acessorios');
       setItems(res.data);
@@ -117,16 +117,16 @@ const AcessoriosTab = () => {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchItems(); }, []);
+  useEffect(() => { fetchAcessorios(); }, []);
 
-  const onSubmit = async (data: any) => {
-    try { await api.post('/acessorios', data); reset(); fetchItems(); }
+  const onAcessorioSubmit = async (data: any) => {
+    try { await api.post('/acessorios', data); reset(); fetchAcessorios(); }
     catch (e) { showToast('Erro ao salvar acessório.'); }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDeleteAcessorio = async (id: string) => {
     if (!window.confirm('Deseja realmente excluir este acessório?')) return;
-    try { await api.delete(`/acessorios/${id}`); fetchItems(); }
+    try { await api.delete(`/acessorios/${id}`); fetchAcessorios(); }
     catch (e) { showToast('Erro ao excluir acessório.'); }
   };
 
@@ -134,7 +134,7 @@ const AcessoriosTab = () => {
 
   return (
     <div className="space-y-6">
-      <form onSubmit={handleSubmit(onSubmit)} className="flex items-end gap-4 p-6 bg-slate-50 rounded-xl border border-slate-200">
+      <form onSubmit={handleSubmit(onAcessorioSubmit)} className="flex items-end gap-4 p-6 bg-slate-50 rounded-xl border border-slate-200">
         <div className="flex-1">
           <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Nome do Acessório</label>
           <input
@@ -161,7 +161,7 @@ const AcessoriosTab = () => {
               <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-4 font-semibold text-slate-700">{item.nome}</td>
                 <td className="px-6 py-4 text-right">
-                  <button onClick={() => handleDelete(item.id)} className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-all"><Trash2 className="w-5 h-5" /></button>
+                  <button onClick={() => handleDeleteAcessorio(item.id)} className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-all"><Trash2 className="w-5 h-5" /></button>
                 </td>
               </tr>
             ))}
@@ -183,22 +183,22 @@ const ResponsabilidadesTab = () => {
   const [loading, setLoading] = useState(true);
   const { register, handleSubmit, reset } = useForm();
 
-  const fetchItems = async () => {
+  const fetchResponsabilidades = async () => {
     try { const res = await api.get('/responsabilidades'); setItems(res.data); }
     catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchItems(); }, []);
+  useEffect(() => { fetchResponsabilidades(); }, []);
 
-  const onSubmit = async (data: any) => {
-    try { await api.post('/responsabilidades', data); reset(); fetchItems(); }
+  const onResponsabilidadeSubmit = async (data: any) => {
+    try { await api.post('/responsabilidades', data); reset(); fetchResponsabilidades(); }
     catch (e) { showToast('Erro ao salvar responsabilidade.'); }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDeleteResponsabilidade = async (id: string) => {
     if (!window.confirm('Deseja realmente excluir esta responsabilidade?')) return;
-    try { await api.delete(`/responsabilidades/${id}`); fetchItems(); }
+    try { await api.delete(`/responsabilidades/${id}`); fetchResponsabilidades(); }
     catch (e) { showToast('Erro ao excluir responsabilidade.'); }
   };
 
@@ -206,7 +206,7 @@ const ResponsabilidadesTab = () => {
 
   return (
     <div className="space-y-6">
-      <form onSubmit={handleSubmit(onSubmit)} className="p-6 bg-slate-50 rounded-xl border border-slate-200">
+      <form onSubmit={handleSubmit(onResponsabilidadeSubmit)} className="p-6 bg-slate-50 rounded-xl border border-slate-200">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
           <div className="col-span-2">
             <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Descrição da Responsabilidade</label>
@@ -250,7 +250,7 @@ const ResponsabilidadesTab = () => {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <button onClick={() => handleDelete(item.id)} className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-all"><Trash2 className="w-5 h-5" /></button>
+                  <button onClick={() => handleDeleteResponsabilidade(item.id)} className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-all"><Trash2 className="w-5 h-5" /></button>
                 </td>
               </tr>
             ))}
@@ -274,7 +274,7 @@ const CargosTab = () => {
     defaultValues: { nome: '', unicoEquipamento: false }
   });
 
-  const fetchItems = async () => {
+  const fetchCargos = async () => {
     try {
       const res = await api.get('/cargos');
       setItems(res.data);
@@ -282,16 +282,16 @@ const CargosTab = () => {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchItems(); }, []);
+  useEffect(() => { fetchCargos(); }, []);
 
-  const onSubmit = async (data: any) => {
+  const onCargoSubmit = async (data: any) => {
     try { 
       await api.post('/cargos', { 
         ...data, 
         unicoEquipamento: !!data.unicoEquipamento 
       }); 
       reset(); 
-      fetchItems(); 
+      fetchCargos(); 
     }
     catch (e) { showToast('Erro ao salvar cargo.'); }
   };
@@ -301,15 +301,15 @@ const CargosTab = () => {
       await api.patch(`/cargos/${item.id}`, { 
         unicoEquipamento: !item.unicoEquipamento 
       });
-      fetchItems();
+      fetchCargos();
     } catch (e) {
       showToast('Erro ao atualizar cargo.');
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDeleteCargo = async (id: string) => {
     if (!window.confirm('Deseja realmente excluir este cargo?')) return;
-    try { await api.delete(`/cargos/${id}`); fetchItems(); }
+    try { await api.delete(`/cargos/${id}`); fetchCargos(); }
     catch (e) { showToast('Erro ao excluir cargo.'); }
   };
 
@@ -317,7 +317,7 @@ const CargosTab = () => {
 
   return (
     <div className="space-y-6">
-      <form onSubmit={handleSubmit(onSubmit)} className="p-6 bg-slate-50 rounded-xl border border-slate-200">
+      <form onSubmit={handleSubmit(onCargoSubmit)} className="p-6 bg-slate-50 rounded-xl border border-slate-200">
         <div className="flex items-end gap-6">
           <div className="flex-1">
             <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Nome do Cargo</label>
@@ -373,7 +373,7 @@ const CargosTab = () => {
                   </button>
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <button onClick={() => handleDelete(item.id)} className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-all"><Trash2 className="w-5 h-5" /></button>
+                  <button onClick={() => handleDeleteCargo(item.id)} className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-all"><Trash2 className="w-5 h-5" /></button>
                 </td>
               </tr>
             ))}
