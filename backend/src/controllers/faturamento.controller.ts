@@ -192,14 +192,16 @@ export const createFaturamento = async (req: AuthRequest, res: Response) => {
         } = req.body;
 
         let taxes: any = {};
+        const valBrutoNum = Number(valorBruto || 0);
         if (rest.cnpjFaturamento) {
             const empresa = await (prisma as any).empresaCNPJ.findUnique({ where: { cnpj: rest.cnpjFaturamento } });
             if (empresa) {
+                const configGeneral = await (prisma as any).configuracao.findFirst();
                 taxes = TaxService.calculateTaxes(
                     valBrutoNum,
                     empresa.regimeTributario || 1, // 1 = Simples Nacional
-                    Number(empresa.aliquotaIss || 2),
-                    Number(percentualINSS || empresa.percentualInssPadrao || 0)
+                    Number(configGeneral?.aliquotaIss || 2),
+                    Number(percentualINSS || 0)
                 );
             }
         }

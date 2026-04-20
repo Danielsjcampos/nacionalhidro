@@ -446,13 +446,14 @@ export const updateMedicaoStatus = async (req: AuthRequest, res: Response) => {
             // ─── GERAÇÃO DE FATURAMENTOS ──────────────────────
             const cnpjMedicao = currentMedicao.cnpjFaturamento || empresa.cnpj; // Fallback para config se não houver na medição
             const empresaFiscal = await prisma.empresaCNPJ.findUnique({ where: { cnpj: cnpjMedicao } });
+            const configGeneral = await (prisma as any).configuracao.findFirst();
 
             if (currentMedicao.cte) {
                 // Cálculo de impostos para CTE (Geralmente 100% serviço, mas sem retenções se for Simples)
                 const taxesCTE = TaxService.calculateTaxes(
                     valorTotalFinal,
                     empresaFiscal?.regimeTributario || 1,
-                    Number(empresaFiscal?.aliquotaIss || 0),
+                    Number(configGeneral?.aliquotaIss || 0),
                     0 // CTE raramente retém INSS neste fluxo
                 );
 
@@ -499,7 +500,7 @@ export const updateMedicaoStatus = async (req: AuthRequest, res: Response) => {
                     const taxesNFSe = TaxService.calculateTaxes(
                         valorNFSeCalc,
                         empresaFiscal?.regimeTributario || 1,
-                        Number(empresaFiscal?.aliquotaIss || 2),
+                        Number(configGeneral?.aliquotaIss || 2),
                         3.5 // INSS padrão 3.5%
                     );
 
