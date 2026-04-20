@@ -119,7 +119,7 @@ export default function OS() {
     contato: '',
     acompanhante: '',
     servicos: [{ equipamento: '', descricao: '' }],
-    escala: [],
+    escala: [], // Keep backward compatible, although we'll use a new structure for the linear table. Wait, we should migrate escala array.
     veiculosEscala: [] as { veiculoId: string; manutencao: boolean }[],
     observacoes: '',
     observacoesEscala: '',
@@ -132,6 +132,14 @@ export default function OS() {
     turnos: 'DIURNO',
     qtdPessoas: 3,
   });
+
+  const equipamentosFiltrados = useMemo(() => {
+    if (!form.propostaId) return [];
+    const prop = propostas.find(p => p.id === form.propostaId);
+    if (!prop || !Array.isArray(prop.itens)) return [];
+    const equips = prop.itens.map((i: any) => i.equipamento).filter(Boolean);
+    return Array.from(new Set(equips)) as string[];
+  }, [form.propostaId, propostas]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -168,6 +176,41 @@ export default function OS() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const STATUS_OPERACIONAL = [
+    { value: 'NORMAL', label: 'Normal' },
+    { value: 'FERIAS', label: 'Férias' },
+    { value: 'ATESTADO', label: 'Atestado' },
+    { value: 'LICENCA', label: 'Licença' },
+    { value: 'INSS', label: 'INSS' },
+    { value: 'FOLGA', label: 'Folga' },
+  ];
+
+  const updateFuncionarioField = (index: number, field: string, value: any) => {
+    setForm((prev: any) => {
+      const funcs = [...(prev.escala || [])];
+      if (funcs[index]) {
+        const item = typeof funcs[index] === 'object' ? { ...funcs[index] } : { nome: funcs[index], statusOperacional: 'NORMAL', ausente: false };
+        (item as any)[field] = value;
+        funcs[index] = item;
+      }
+      return { ...prev, escala: funcs };
+    });
+  };
+
+  const removeFuncionario = (index: number) => {
+    setForm((prev: any) => {
+      const funcs = [...(prev.escala || [])];
+      return { ...prev, escala: funcs.filter((_: any, i: number) => i !== index) };
+    });
+  };
+
+  const addFuncionarioRow = () => {
+    setForm((prev: any) => {
+      const funcs = [...(prev.escala || [])];
+      return { ...prev, escala: [...funcs, { nome: '', statusOperacional: 'NORMAL', ausente: false }] };
+    });
   };
 
   const handleUpdateStatus = async (id: string, newStatus: string, justification?: string) => {
@@ -921,64 +964,6 @@ export default function OS() {
                   </FormField>
                 </div>
 
-                {/* Row 2.5: Bicos / Turnos / Equipe */}
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                  <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest mb-3">
-                    {selectedOS ? '👷 Equipe Executora' : '🔧 Dimensionamento de Equipe'}
-                  </p>
-                  <div className="grid grid-cols-3 gap-3">
-                    <FormField label="Qtd. Bicos">
-                      <div className="flex gap-2">
-                        {[1, 2].map(n => (
-                          <button
-                            key={n}
-                            type="button"
-                            onClick={() => {
-                              const turnoMult = form.turnos === '24H' ? 2 : 1;
-                              const pessoas = n === 1 ? (1 + 2) * turnoMult : (1 + 4) * turnoMult;
-                              setForm((f: any) => ({ ...f, qtdBicos: n, qtdPessoas: pessoas }));
-                            }}
-                            className={`flex-1 py-2 rounded-lg text-xs font-black border-2 transition-all ${form.qtdBicos === n
-                              ? 'bg-blue-900 border-blue-900 text-white shadow-md'
-                              : 'bg-white border-slate-200 text-slate-400 hover:border-blue-400'
-                              }`}
-                          >
-                            {n} Bico{n > 1 ? 's' : ''}
-                          </button>
-                        ))}
-                      </div>
-                    </FormField>
-                    <FormField label="Turnos">
-                      <div className="flex gap-1">
-                        {['DIURNO', 'NOTURNO', '24H'].map(turno => (
-                          <button
-                            key={turno}
-                            type="button"
-                            onClick={() => {
-                              const bicos = form.qtdBicos || 1;
-                              const turnoMult = turno === '24H' ? 2 : 1;
-                              const pessoas = bicos === 1 ? (1 + 2) * turnoMult : (1 + 4) * turnoMult;
-                              setForm((f: any) => ({ ...f, turnos: turno, qtdPessoas: pessoas }));
-                            }}
-                            className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase border-2 transition-all ${form.turnos === turno
-                              ? 'bg-blue-900 border-blue-900 text-white shadow-md'
-                              : 'bg-white border-slate-200 text-slate-400 hover:border-blue-400'
-                              }`}
-                          >
-                            {turno}
-                          </button>
-                        ))}
-                      </div>
-                    </FormField>
-                    <FormField label="Equipe Necessária">
-                      <div className="flex items-center justify-center bg-white border border-blue-200 rounded-lg py-2">
-                        <span className="text-lg font-black text-blue-900">{form.qtdPessoas || 3}</span>
-                        <span className="text-[10px] font-bold text-slate-400 ml-1">pessoas</span>
-                      </div>
-                    </FormField>
-                  </div>
-                </div>
-
                 {/* Row 3: Cliente | Contato | Acompanhante */}
                 <div className="grid grid-cols-3 gap-3">
                   <FormField label="Cliente">
@@ -1047,7 +1032,8 @@ export default function OS() {
                                   className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400 appearance-none"
                                 >
                                   <option value="">Selecione...</option>
-                                  {EQUIPAMENTOS.map(eq => <option key={eq} value={eq}>{eq}</option>)}
+                                  {equipamentosFiltrados.map(eq => <option key={eq} value={eq}>{eq}</option>)}
+                                  {equipamentosFiltrados.length === 0 && <option value="" disabled>Nenhuma proposta vinculada (ou zerada)</option>}
                                 </select>
                                 <ChevronDown className="absolute right-2 top-2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                               </div>
@@ -1082,66 +1068,77 @@ export default function OS() {
                       <div className="space-y-4">
                         {/* ── Funcionários (Equipe) ── */}
                         <div className="flex items-center justify-between mb-2">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                          <label className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest flex items-center gap-1">
                             <ChevronRight className="w-3 h-3 text-blue-500" /> Funcionários
-                          </p>
-                          <p className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">
-                            {form.escala?.length || 0} selecionado(s)
-                          </p>
+                          </label>
+                          <button type="button" onClick={addFuncionarioRow} className="text-[9px] font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 hover:bg-blue-100 transition-all uppercase tracking-wider">
+                            + Adicionar
+                          </button>
                         </div>
 
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-[300px] overflow-y-auto pr-2">
-                          {(disponibilidades || []).map(f => {
-                            const isSelected = form.escala?.includes(f.id);
-                            const isBlocked = f.disponibilidade === 'INDISPONIVEL';
-
-                            return (
-                              <div
-                                key={f.id}
-                                className={`border rounded-lg p-3 transition-colors relative flex flex-col gap-2 
-                                  ${isBlocked ? 'border-slate-300 bg-slate-50/50 opacity-75 cursor-not-allowed' :
-                                    isSelected ? 'border-blue-500 bg-blue-50/50 cursor-pointer' : 'border-slate-200 hover:border-blue-300 cursor-pointer'
-                                  }`}
-                                onClick={() => {
-                                  if (isBlocked) {
-                                    showToast(`Colaborador indisponível: ${f.motivo}`);
-                                    return;
-                                  }
-                                  setForm((prev: any) => {
-                                    let newEscala = prev.escala || [];
-                                    if (newEscala.includes(f.id)) newEscala = newEscala.filter((id: string) => id !== f.id);
-                                    else newEscala = [...newEscala, f.id];
-                                    return { ...prev, escala: newEscala };
-                                  });
-                                }}
-                              >
-                                {isBlocked && (
-                                  <div className="absolute -top-2 -right-2 bg-slate-800 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded shadow-sm z-10 flex items-center gap-1">
-                                    <AlertCircle className="w-3 h-3" /> Bloqueado
-                                  </div>
-                                )}
-                                <div className="flex items-start justify-between">
-                                  <div>
-                                    <p className={`text-xs font-bold ${isBlocked ? 'text-slate-500' : 'text-slate-800'}`}>{f.nome}</p>
-                                    <p className="text-[10px] text-slate-500">{f.cargo || 'Sem cargo'}</p>
-                                  </div>
-                                  <div className={`w-4 h-4 rounded border flex items-center justify-center ${isSelected ? 'bg-blue-500 border-blue-500' : isBlocked ? 'border-slate-200 bg-slate-50' : 'border-slate-300 bg-white'}`}>
-                                    {isSelected && <CheckCircle2 className="w-3 h-3 text-white" />}
-                                  </div>
-                                </div>
-
-                                <div className={`mt-auto text-[10px] font-bold px-2 py-1 rounded w-fit ${isBlocked ? 'bg-slate-200 text-slate-700' : f.cor || 'bg-emerald-100 text-emerald-700'}`}>
-                                  {isBlocked ? f.motivo : f.disponibilidade === 'DISPONIVEL' ? 'Disponível' : f.motivo}
-                                </div>
-                              </div>
-                            );
-                          })}
-                          {(disponibilidades || []).length === 0 && (
-                            <div className="col-span-full py-8 text-center text-slate-400 text-xs italic">
-                              Nenhum funcionário encontrado ou carregando...
-                            </div>
-                          )}
-                        </div>
+                        {Array.isArray(form.escala) && form.escala.length > 0 ? (
+                          <table className="w-full text-xs border border-slate-200 rounded-xl overflow-hidden">
+                            <thead className="bg-slate-100">
+                              <tr>
+                                <th className="px-3 py-2 text-left text-[9px] font-black text-slate-500 uppercase w-[40%]">Funcionário</th>
+                                <th className="px-3 py-2 text-left text-[9px] font-black text-slate-500 uppercase w-[30%]">Status Operacional</th>
+                                <th className="px-3 py-2 text-center text-[9px] font-black text-slate-500 uppercase w-[15%]">Não Compareceu</th>
+                                <th className="px-3 py-2 text-center text-[9px] font-black text-slate-500 uppercase w-[15%]">Ação</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {form.escala.map((f: any, idx: number) => {
+                                const nome = typeof f === 'object' ? f.nome : f;
+                                const status = typeof f === 'object' ? (f.statusOperacional || 'NORMAL') : 'NORMAL';
+                                const ausente = typeof f === 'object' ? !!f.ausente : false;
+                                return (
+                                  <tr key={idx} className={`hover:bg-blue-50/30 ${ausente ? 'bg-red-50/50' : ''}`}>
+                                    <td className="px-3 py-2">
+                                      <select
+                                        className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold outline-none focus:border-blue-500 appearance-none"
+                                        value={nome}
+                                        onChange={(e) => updateFuncionarioField(idx, 'nome', e.target.value)}
+                                      >
+                                        <option value="">Selecione...</option>
+                                        {(disponibilidades || []).map(ta => (
+                                          <option key={ta.id} value={ta.nome}>{ta.nome} — {ta.cargo || 'Funcionário'}</option>
+                                        ))}
+                                      </select>
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <select
+                                        className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold outline-none focus:border-blue-500 appearance-none"
+                                        value={status}
+                                        onChange={(e) => updateFuncionarioField(idx, 'statusOperacional', e.target.value)}
+                                      >
+                                        {STATUS_OPERACIONAL.map(s => (
+                                          <option key={s.value} value={s.value}>{s.label}</option>
+                                        ))}
+                                      </select>
+                                    </td>
+                                    <td className="px-3 py-2 text-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={ausente}
+                                        onChange={(e) => updateFuncionarioField(idx, 'ausente', e.target.checked)}
+                                        className="w-4 h-4 accent-red-600 cursor-pointer"
+                                      />
+                                    </td>
+                                    <td className="px-3 py-2 text-center">
+                                      <button type="button" onClick={() => removeFuncionario(idx)} className="text-red-500 hover:bg-red-50 p-1 rounded transition-colors">
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <div className="col-span-full py-8 text-center text-slate-400 text-xs italic border border-dashed border-slate-200 rounded-xl bg-slate-50">
+                            Nenhum funcionário adicionado. Clique em "+ Adicionar".
+                          </div>
+                        )}
 
                         {/* ── Veículos (Escala) — Gap #1 Legacy Parity ── */}
                         <div className="pt-4 border-t border-slate-200">
