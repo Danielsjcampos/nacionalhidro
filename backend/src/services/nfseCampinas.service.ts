@@ -63,8 +63,18 @@ export class NfseCampinasService {
                                 </Rps>
                                 <Servico>
                                     <Valores>
-                                        <ValorServicos>${fatura.valorBruto}</ValorServicos>
-                                        <ValorIss>${fatura.valorISS || 0}</ValorIss>
+                                        <ValorServicos>${Number(fatura.valorBruto || 0).toFixed(2)}</ValorServicos>
+                                        <ValorDeducoes>0.00</ValorDeducoes>
+                                        <ValorPis>${Number(fatura.valorPIS || 0).toFixed(2)}</ValorPis>
+                                        <ValorCofins>${Number(fatura.valorCOFINS || 0).toFixed(2)}</ValorCofins>
+                                        <ValorInss>${Number(fatura.valorINSS || 0).toFixed(2)}</ValorInss>
+                                        <ValorIr>${Number(fatura.valorIR || 0).toFixed(2)}</ValorIr>
+                                        <ValorCsll>${Number(fatura.valorCSLL || 0).toFixed(2)}</ValorCsll>
+                                        <OutrasRetencoes>0.00</OutrasRetencoes>
+                                        <ValorIss>${Number(fatura.valorISS || 0).toFixed(2)}</ValorIss>
+                                        <Aliquota>${Number(empresa.aliquotaIss || 2.00).toFixed(2)}</Aliquota>
+                                        <DescontoIncondicionado>0.00</DescontoIncondicionado>
+                                        <DescontoCondicionado>0.00</DescontoCondicionado>
                                     </Valores>
                                     <IssRetido>2</IssRetido>
                                     <ItemListaServico>${empresa.listaServicos || '14.01'}</ItemListaServico>
@@ -142,13 +152,23 @@ export class NfseCampinasService {
         const protocoloNode = doc.getElementsByTagName('Protocolo')[0];
         const nfseNode = doc.getElementsByTagName('Numero')[0];
         const codVerificacaoNode = doc.getElementsByTagName('CodigoVerificacao')[0];
+        const codigoNode = doc.getElementsByTagName('Codigo')[0];
+        const correcaoNode = doc.getElementsByTagName('Correcao')[0];
         
+        let erroText = msgNode?.textContent || null;
+        if (codigoNode?.textContent) {
+            erroText = `[${codigoNode.textContent}] ${erroText}`;
+        }
+        if (correcaoNode?.textContent) {
+            erroText += ` (Correção: ${correcaoNode.textContent})`;
+        }
+
         return {
             protocolo: protocoloNode?.textContent || null,
             nfse: nfseNode?.textContent || null,
             codVerificacao: codVerificacaoNode?.textContent || null,
             lote: numeroLoteNode?.textContent || null,
-            erro: msgNode?.textContent || null,
+            erro: erroText,
             rawResponse: soapBody
         }
     }

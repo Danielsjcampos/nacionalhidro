@@ -4,6 +4,8 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { gerarPdfReciboLocacao } from '../services/legacyPdf.service';
 import { sendEmail } from '../services/email.service';
 import { focusNfeService } from '../services/focusNfe.service';
+import { NfseCampinasService } from '../services/nfseCampinas.service';
+import { extractFromPfx } from '../utils/pfxExtractor';
 import axios from 'axios';
 
 // ─── HELPER: Auto-criar Conta a Receber para um Faturamento ─────
@@ -496,7 +498,35 @@ export const emitirManual = async (req: AuthRequest, res: Response) => {
 
         let result;
         if (fat.tipo === 'NFSE') {
-            result = await focusNfeService.emitirNFSe(id);
+            const empresa = await (prisma as any).empresaCNPJ.findUnique({ where: { cnpj: fat.cnpjFaturamento } });
+            if (!empresa) throw new Error('Empresa emissora não encontrada.');
+            if (!empresa.certificadoA1) throw new Error('Certificado A1 (PFX) não configurado para a empresa.');
+            
+            const certs = extractFromPfx(empresa.certificadoA1, empresa.senhaCertificado || '');
+            const campinasSvc = new NfseCampinasService(
+                (empresa.ambienteNFe as any) === 'PRODUCAO' ? 'PRODUCAO' : 'HOMOLOGACAO',
+                certs.privateKeyPem,
+                certs.certificatePem
+            );
+
+            const resSoap = await campinasSvc.emitirRps(fat, empresa, fat.cliente);
+            if (resSoap.erro && !resSoap.protocolo) {
+                await (prisma as any).faturamento.update({
+                    where: { id },
+                    data: { focusStatus: 'FALHA', observacoes: `Erro Campinas: ${resSoap.erro.substring(0, 500)}` }
+                });
+                throw new Error(`Falha na emissão Campinas: ${resSoap.erro}`);
+            }
+
+            await (prisma as any).faturamento.update({
+                where: { id },
+                data: {
+                    focusRef: resSoap.lote || resSoap.protocolo,
+                    focusStatus: 'PROCESSANDO',
+                    dadosWebHook: resSoap
+                }
+            });
+            result = { success: true, ...resSoap };
         } else if (fat.tipo === 'CTE') {
             result = await focusNfeService.emitirCTE(id);
         } else if (fat.tipo === 'NFE') {
@@ -515,7 +545,43 @@ export const emitirManual = async (req: AuthRequest, res: Response) => {
 export const consultarStatusManual = async (req: AuthRequest, res: Response) => {
     try {
         const id = req.params.id as string;
-        const result = await focusNfeService.consultarStatus(id);
+        const fat = await (prisma as any).faturamento.findUnique({ where: { id }, include: { cliente: true } });
+        if (!fat) return res.status(404).json({ error: 'Faturamento não encontrado' });
+
+        let result;
+        if (fat.tipo === 'NFSE') {
+            const empresa = await (prisma as any).empresaCNPJ.findUnique({ where: { cnpj: fat.cnpjFaturamento } });
+            if (!empresa || !empresa.certificadoA1) throw new Error('Certificado / Empresa não configurada.');
+            
+            const certs = extractFromPfx(empresa.certificadoA1, empresa.senhaCertificado || '');
+            const campinasSvc = new NfseCampinasService(
+                (empresa.ambienteNFe as any) === 'PRODUCAO' ? 'PRODUCAO' : 'HOMOLOGACAO',
+                certs.privateKeyPem, certs.certificatePem
+            );
+            
+            // Consultar Lote caso tenhamos o numero do lote no focusRef, ou rps
+            result = await campinasSvc.consultarLoteRps(empresa, fat.focusRef || '');
+            
+            if (result.nfse || result.codVerificacao) {
+                await (prisma as any).faturamento.update({
+                    where: { id },
+                    data: {
+                        numero: result.nfse,
+                        nfseCodVerificacao: result.codVerificacao,
+                        status: 'EMITIDA',
+                        focusStatus: 'AUTORIZADO',
+                        dadosWebHook: result
+                    }
+                });
+            } else if (result.erro) {
+                await (prisma as any).faturamento.update({
+                    where: { id },
+                    data: { focusStatus: 'FALHA', observacoes: `Erro Campinas: ${result.erro.substring(0, 500)}` }
+                });
+            }
+        } else {
+            result = await focusNfeService.consultarStatus(id);
+        }
         
         if (!result) return res.status(400).json({ error: 'Faturamento sem referência para consulta.' });
 
@@ -531,7 +597,33 @@ export const cancelarManual = async (req: AuthRequest, res: Response) => {
         const id = req.params.id as string;
         const { justificativa } = req.body;
         
-        const result = await focusNfeService.cancelar(id, justificativa || 'Cancelamento solicitado pelo cliente');
+        const fat = await (prisma as any).faturamento.findUnique({ where: { id } });
+        if (!fat) return res.status(404).json({ error: 'Faturamento não encontrado' });
+
+        let result;
+        if (fat.tipo === 'NFSE') {
+            const empresa = await (prisma as any).empresaCNPJ.findUnique({ where: { cnpj: fat.cnpjFaturamento } });
+            if (!empresa || !empresa.certificadoA1) throw new Error('Certificado / Empresa não configurada.');
+            if (!fat.numero) throw new Error('Faturamento não possui número de nota emitido para cancelar.');
+            
+            const certs = extractFromPfx(empresa.certificadoA1, empresa.senhaCertificado || '');
+            const campinasSvc = new NfseCampinasService(
+                (empresa.ambienteNFe as any) === 'PRODUCAO' ? 'PRODUCAO' : 'HOMOLOGACAO',
+                certs.privateKeyPem, certs.certificatePem
+            );
+            
+            result = await campinasSvc.cancelarNfse(empresa, fat.numero, '2'); // 2 = erro emissao (geral)
+            if (!result.erro) {
+                 await (prisma as any).faturamento.update({
+                    where: { id },
+                    data: { status: 'CANCELADA', focusStatus: 'CANCELADO' }
+                });
+            } else {
+                throw new Error(result.erro);
+            }
+        } else {
+            result = await focusNfeService.cancelar(id, justificativa || 'Cancelamento solicitado pelo cliente');
+        }
         
         res.json({ message: 'Solicitação de cancelamento enviada', result });
     } catch (error: any) {
