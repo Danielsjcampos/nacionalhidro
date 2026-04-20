@@ -93,7 +93,7 @@ export default function Propostas() {
   const [empresasOptions, setEmpresasOptions] = useState<any[]>([]);
   const [cargosData, setCargosData] = useState<any[]>([]);
   const [responsabilidadesOptions, setResponsabilidadesOptions] = useState<any[]>([]);
-  const [configuracoes, setConfiguracoes] = useState<any>(null);
+  const [configuracoes, setConfiguracoes] = useState<any[]>([]);
 
   const fetchData = async (page = currentPage) => {
     try {
@@ -531,12 +531,10 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
       const copyRes = await api.get(`/propostas/${prop.id}`);
       const copyData = copyRes.data;
 
-      // Reset selected proposal for new entry
-      setSelectedProposta({ novo: true });
-      
-      // Deep clone all relevant fields for a pre-filled new draft
-      setFormData({
+      // Prepare the cloned data as a draft
+      const copiedDraft = {
         ...copyData,
+        novo: true,
         id: undefined,
         codigo: `PROP-${new Date().getFullYear()}-000`, // Will be sequenced on backend
         dataProposta: new Date().toISOString().split('T')[0],
@@ -545,20 +543,21 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
         revisao: 0,
         
         // Ensure all arrays are deep cloned WITHOUT original IDs
-        itens: (p.itens || []).map((i: any) => ({ ...i, id: undefined, propostaId: undefined })),
-        acessorios: (p.acessorios || []).map((a: any) => ({ ...a, id: undefined, propostaId: undefined })),
-        responsabilidades: (p.responsabilidades || []).map((r: any) => ({ ...r, id: undefined, propostaId: undefined })),
-        equipe: (p.equipe || []).map((e: any) => ({ ...e, id: undefined, propostaId: undefined })),
+        itens: (copyData.itens || []).map((i: any) => ({ ...i, id: undefined, propostaId: undefined })),
+        acessorios: (copyData.acessorios || []).map((a: any) => ({ ...a, id: undefined, propostaId: undefined })),
+        responsabilidades: (copyData.responsabilidades || []).map((r: any) => ({ ...r, id: undefined, propostaId: undefined })),
+        equipe: (copyData.equipe || []).map((e: any) => ({ ...e, id: undefined, propostaId: undefined })),
         
         // Handle units mapping
-        unidadesData: (p.unidades || []).map((u: any) => ({
+        unidadesData: (copyData.unidades || []).map((u: any) => ({
           unidadeNome: u.unidadeNome || '', 
           unidadeCNPJ: u.unidadeCNPJ || '',
           unidadeEndereco: u.unidadeEndereco || '', 
           unidadeContato: u.unidadeContato || ''
         }))
-      });
+      };
       
+      setSelectedProposta(copiedDraft);
       setIsEditing(true);
       // Scroll to top of form
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1056,7 +1055,7 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
             setSelectedProposta(null); 
           }}
           onSave={handleSave}
-          initialData={selectedProposta?.novo ? null : selectedProposta}
+          initialData={selectedProposta}
           options={{
             clientes,
             vendedores: vendedoresOptions,
