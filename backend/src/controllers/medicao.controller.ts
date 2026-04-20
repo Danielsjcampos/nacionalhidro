@@ -8,6 +8,7 @@ import { gerarPdfMedicao } from '../services/legacyPdf.service';
 import { sendEmail } from '../services/email.service';
 import { focusNfeService } from '../services/focusNfe.service';
 import { PricingService } from '../services/pricing.service';
+import { TaxService } from '../services/taxData.service';
 import axios from 'axios';
 import mustache from 'mustache';
 
@@ -443,14 +444,32 @@ export const updateMedicaoStatus = async (req: AuthRequest, res: Response) => {
             const valorTotalFinal = Number(updateData.valorAprovado);
 
             // ─── GERAÇÃO DE FATURAMENTOS ──────────────────────
+            const cnpjMedicao = currentMedicao.cnpjFaturamento || empresa.cnpj; // Fallback para config se não houver na medição
+            const empresaFiscal = await prisma.empresaCNPJ.findUnique({ where: { cnpj: cnpjMedicao } });
+
             if (currentMedicao.cte) {
-                await prisma.faturamento.create({
+                // Cálculo de impostos para CTE (Geralmente 100% serviço, mas sem retenções se for Simples)
+                const taxesCTE = TaxService.calculateTaxes(
+                    valorTotalFinal,
+                    empresaFiscal?.regimeTributario || 1,
+                    Number(empresaFiscal?.aliquotaIss || 0),
+                    0 // CTE raramente retém INSS neste fluxo
+                );
+
+                await (prisma as any).faturamento.create({
                     data: {
                         medicaoId: currentMedicao.id,
                         clienteId: currentMedicao.clienteId,
                         tipo: 'CTE',
                         valorBruto: valorTotalFinal,
-                        valorLiquido: valorTotalFinal,
+                        valorLiquido: taxesCTE.valorLiquido,
+                        valorPIS: taxesCTE.valorPIS,
+                        valorCOFINS: taxesCTE.valorCOFINS,
+                        valorCSLL: taxesCTE.valorCSLL,
+                        valorIR: taxesCTE.valorIR,
+                        valorISS: taxesCTE.valorISS,
+                        valorINSS: taxesCTE.valorINSS,
+                        cnpjFaturamento: cnpjMedicao,
                         status: 'EM_ABERTO',
                         observacoes: `Medição ${currentMedicao.codigo} (100% CTE)`
                     }
@@ -463,26 +482,42 @@ export const updateMedicaoStatus = async (req: AuthRequest, res: Response) => {
                 const valorNFSeCalc    = valorTotalFinal - valorLocacaoCalc;
 
                 if (valorLocacaoCalc > 0) {
-                    await prisma.faturamento.create({
+                    await (prisma as any).faturamento.create({
                         data: {
                             medicaoId: currentMedicao.id,
                             clienteId: currentMedicao.clienteId,
                             tipo: 'RL',
                             valorBruto: valorLocacaoCalc,
                             valorLiquido: valorLocacaoCalc,
+                            cnpjFaturamento: cnpjMedicao,
                             status: 'EM_ABERTO',
                             observacoes: `Medição ${currentMedicao.codigo} — Rateio Locação ${pctRL}%`
                         }
                     });
                 }
                 if (valorNFSeCalc > 0) {
-                    await prisma.faturamento.create({
+                    const taxesNFSe = TaxService.calculateTaxes(
+                        valorNFSeCalc,
+                        empresaFiscal?.regimeTributario || 1,
+                        Number(empresaFiscal?.aliquotaIss || 2),
+                        3.5 // INSS padrão 3.5%
+                    );
+
+                    await (prisma as any).faturamento.create({
                         data: {
                             medicaoId: currentMedicao.id,
                             clienteId: currentMedicao.clienteId,
                             tipo: 'NFSE',
                             valorBruto: valorNFSeCalc,
-                            valorLiquido: valorNFSeCalc,
+                            valorLiquido: taxesNFSe.valorLiquido,
+                            valorPIS: taxesNFSe.valorPIS,
+                            valorCOFINS: taxesNFSe.valorCOFINS,
+                            valorCSLL: taxesNFSe.valorCSLL,
+                            valorIR: taxesNFSe.valorIR,
+                            valorISS: taxesNFSe.valorISS,
+                            valorINSS: taxesNFSe.valorINSS,
+                            percentualINSS: taxesNFSe.aliquotaINSS,
+                            cnpjFaturamento: cnpjMedicao,
                             status: 'EM_ABERTO',
                             observacoes: `Medição ${currentMedicao.codigo} — Rateio Serviço ${100 - pctRL}%`
                         }

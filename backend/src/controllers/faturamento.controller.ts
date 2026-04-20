@@ -4,6 +4,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { gerarPdfReciboLocacao } from '../services/legacyPdf.service';
 import { sendEmail } from '../services/email.service';
 import { focusNfeService } from '../services/focusNfe.service';
+import { TaxService } from '../services/taxData.service';
 import axios from 'axios';
 
 // ─── HELPER: Auto-criar Conta a Receber para um Faturamento ─────
@@ -190,12 +191,16 @@ export const createFaturamento = async (req: AuthRequest, res: Response) => {
             ...rest
         } = req.body;
 
-        const valBrutoNum = valorBruto ? Number(valorBruto) : 0;
-
-        if (rest.cnpjFaturamento && !req.query.overrideTeto) {
-            const check = await checkTetoFiscal(rest.cnpjFaturamento, valBrutoNum);
-            if (check.excedido) {
-                return res.status(403).json({ error: 'TETO_FISCAL_EXCEDIDO', message: check.mensagem });
+        let taxes: any = {};
+        if (rest.cnpjFaturamento) {
+            const empresa = await (prisma as any).empresaCNPJ.findUnique({ where: { cnpj: rest.cnpjFaturamento } });
+            if (empresa) {
+                taxes = TaxService.calculateTaxes(
+                    valBrutoNum,
+                    empresa.regimeTributario || 1, // 1 = Simples Nacional
+                    Number(empresa.aliquotaIss || 2),
+                    Number(percentualINSS || empresa.percentualInssPadrao || 0)
+                );
             }
         }
 
@@ -206,14 +211,14 @@ export const createFaturamento = async (req: AuthRequest, res: Response) => {
                 dataVencimento: dataVencimento ? new Date(dataVencimento) : undefined,
                 dataPagamento: dataPagamento ? new Date(dataPagamento) : undefined,
                 valorBruto: valorBruto ? Number(valorBruto) : 0,
-                percentualINSS: percentualINSS !== undefined ? Number(percentualINSS) : 3.5,
-                valorINSS: valorINSS ? Number(valorINSS) : 0,
-                valorISS: valorISS ? Number(valorISS) : 0,
-                valorIR: valorIR ? Number(valorIR) : 0,
-                valorCSLL: valorCSLL ? Number(valorCSLL) : 0,
-                valorPIS: valorPIS ? Number(valorPIS) : 0,
-                valorCOFINS: valorCOFINS ? Number(valorCOFINS) : 0,
-                valorLiquido: valorLiquido ? Number(valorLiquido) : Number(valorBruto || 0),
+                percentualINSS: taxes.aliquotaINSS !== undefined ? taxes.aliquotaINSS : (percentualINSS !== undefined ? Number(percentualINSS) : 3.5),
+                valorINSS: taxes.valorINSS !== undefined ? taxes.valorINSS : (valorINSS ? Number(valorINSS) : 0),
+                valorISS: taxes.valorISS !== undefined ? taxes.valorISS : (valorISS ? Number(valorISS) : 0),
+                valorIR: taxes.valorIR !== undefined ? taxes.valorIR : (valorIR ? Number(valorIR) : 0),
+                valorCSLL: taxes.valorCSLL !== undefined ? taxes.valorCSLL : (valorCSLL ? Number(valorCSLL) : 0),
+                valorPIS: taxes.valorPIS !== undefined ? taxes.valorPIS : (valorPIS ? Number(valorPIS) : 0),
+                valorCOFINS: taxes.valorCOFINS !== undefined ? taxes.valorCOFINS : (valorCOFINS ? Number(valorCOFINS) : 0),
+                valorLiquido: taxes.valorLiquido !== undefined ? taxes.valorLiquido : (valorLiquido ? Number(valorLiquido) : Number(valorBruto || 0)),
             },
             include: { cliente: { select: { id: true, nome: true } } }
         });
@@ -404,14 +409,33 @@ export const gerarFaturamentoRL = async (req: AuthRequest, res: Response) => {
             }
         });
 
+        // Buscar dados da empresa para cálculo de impostos da NFS-e
+        let taxesNFSe: any = {};
+        if (cnpjFaturamento) {
+            const empresa = await (prisma as any).empresaCNPJ.findUnique({ where: { cnpj: cnpjFaturamento } });
+            if (empresa) {
+                taxesNFSe = TaxService.calculateTaxes(
+                    valorNFSe,
+                    empresa.regimeTributario || 1,
+                    Number(empresa.aliquotaIss || 2),
+                    3.5 // INSS padrão para serviços
+                );
+            }
+        }
+
         const nfse = await (prisma as any).faturamento.create({
             data: {
                 ...baseData,
                 tipo: 'NFSE',
                 valorBruto: valorNFSe,
-                percentualINSS: 3.5,
-                valorINSS: valorNFSe * 0.035,
-                valorLiquido: valorNFSe * (1 - 0.035),
+                percentualINSS: taxesNFSe.aliquotaINSS || 3.5,
+                valorINSS: taxesNFSe.valorINSS || (valorNFSe * 0.035),
+                valorISS: taxesNFSe.valorISS || 0,
+                valorIR: taxesNFSe.valorIR || 0,
+                valorCSLL: taxesNFSe.valorCSLL || 0,
+                valorPIS: taxesNFSe.valorPIS || 0,
+                valorCOFINS: taxesNFSe.valorCOFINS || 0,
+                valorLiquido: taxesNFSe.valorLiquido || (valorNFSe * (1 - 0.035)),
             }
         });
 

@@ -27,7 +27,7 @@ export const decimalToTime = (decimalValue: number): string => {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 };
 
-export const generatePdfFromHtml = async (html: string): Promise<Buffer> => {
+export const generatePdfFromHtml = async (html: string, headerTemplate?: string): Promise<Buffer> => {
     let browser;
     try {
         browser = await puppeteer.launch({
@@ -48,11 +48,21 @@ export const generatePdfFromHtml = async (html: string): Promise<Buffer> => {
         const page = await browser.newPage();
         await page.setContent(html, { waitUntil: 'networkidle0' });
 
-        const pdfBuffer = await page.pdf({
+        const pdfOptions: any = {
             format: 'A4',
             printBackground: true,
             margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' }
-        });
+        };
+
+        if (headerTemplate) {
+            pdfOptions.displayHeaderFooter = true;
+            pdfOptions.headerTemplate = headerTemplate;
+            pdfOptions.footerTemplate = '<div></div>'; // hide default footer
+            // We need a top margin large enough to fit the header
+            pdfOptions.margin = { top: '40mm', right: '0mm', bottom: '15mm', left: '0mm' };
+        }
+
+        const pdfBuffer = await page.pdf(pdfOptions);
 
         return Buffer.from(pdfBuffer);
     } catch (error: any) {
@@ -366,7 +376,7 @@ export const gerarPdfProposta = async (proposta: any, cliente: any, itens: any[]
 
     const view = {
         Id: `${proposta.codigo}${proposta.revisao > 0 ? '/REV ' + proposta.revisao : ''}`,
-        Cidade: 'Campinas',
+        Cidade: empresa.cidade || 'Campinas',
         Data: moment(proposta.dataProposta || new Date()).utc().format("DD/MM/YYYY"),
         Cliente: c.razaoSocial || c.nome || 'Cliente',
         EnderecoCliente: [c.endereco, c.cidade, c.estado].filter(Boolean).join(', '),
@@ -397,8 +407,17 @@ export const gerarPdfProposta = async (proposta: any, cliente: any, itens: any[]
 
     const templateHtml = await getTemplateHtml('proposta.html');
     let rendered = mustache.render(templateHtml, view);
-    rendered = rendered.replace('<script id="template" type="x-tmpl-mustache">', '<div>').replace('</script><!--remove-->', '</div>');
-    return generatePdfFromHtml(rendered);
+    // Replace script tags with div so they render in Puppeteer
+    rendered = rendered.replace(/<script id="template" type="x-tmpl-mustache">/g, '<div>').replace(/<\/script><!--remove-->/g, '</div>');
+    
+    // Inject header template for Puppeteer
+    const headerHtml = `
+      <div style="width: 100%; display: flex; justify-content: center; align-items: center; padding-top: 10px;">
+        <img style="width: 100%; max-width: 90%; margin: 0 auto; display: block;" src="https://prodnhidro.blob.core.windows.net/storage/proposta.png"/>
+      </div>
+    `;
+
+    return generatePdfFromHtml(rendered, headerHtml);
 };
 
 // ==========================================

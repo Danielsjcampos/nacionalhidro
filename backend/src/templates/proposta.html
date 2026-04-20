@@ -39,7 +39,7 @@
 <body class="body">
 	<div id="target" style="width: 100%;">
     <script id="template" type="x-tmpl-mustache">
-      <div style="display: non-flexbox; width: 100%; margin-right: 5%">
+      <div style="display: block; width: 100%; margin-right: 5%">
         <div class="header">
           <img max-width:100% style="margin-bottom: 1%" src="https://prodnhidro.blob.core.windows.net/storage/proposta.png">
         </div>
@@ -47,7 +47,7 @@
           <div style="width: 40%">
             <p style="margin-left: 15%; margin-top: 2%"><b>Nº {{ Id }}</b></p>
           </div>
-          <div class="page" style="color: red; width: 60%; text-align: end">
+          <div class="page" style="width: 60%; text-align: end">
             <p style="font-size:18px">{{ Cidade }}, {{Data}}</p>
           </div>
         </div>
@@ -71,7 +71,7 @@
           {{#Equipamentos}}
           <div class="d-table mt-5 wrapper" style="width: 100%">
             <div class="d-table-cell pr-5" style="width: 40%">
-              <img src={{ Equipamento.UrlImagem }}
+              <img src="{{ Equipamento.UrlImagem }}"
                 alt="Nacional Hidro" style="width: 400px; height: 220px; object-fit: fill;">
             </div>
             <div class="d-table-cell" style="width: 60%; vertical-align: top">
@@ -114,11 +114,11 @@
         </div>
         <div class="page">
           <h6 class="titulo-nome myDiv">6. Valores Comerciais:</h6>
-          <pre style="margin-right: 15%;border: none; font-size:1rem; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji'">{{{DescricaoValores}}}</pre>
+          <pre style="margin-right: 15%; border: none; font-size:1rem; white-space: pre-wrap; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji'">{{{DescricaoValores}}}</pre>
         </div>
         <div class="page">
           <h6 class="titulo-nome">7. Garantia de Atendimento:</h6>
-          <pre style="margin-right: 15%;border: none; font-size:1rem; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji'">{{{DescricaoGarantia}}} </pre>
+          <pre style="margin-right: 15%; border: none; font-size:1rem; white-space: pre-wrap; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji'">{{{DescricaoGarantia}}} </pre>
         </div>
         <div class="page">
           <h6 class="titulo-nome">8. Condição de Pagamento:</h6>
@@ -134,7 +134,7 @@
           <p>Grato,</p>
         </div>
         <div style="margin-bottom:2%" class="page">
-          <img width="30%" src={{Assinatura}}>
+          <img width="30%" src="{{Assinatura}}">
         </div>
         <div class="page">
           <h6>{{ Empresa.Descricao }} - {{Empresa.CNPJ }}</h6>

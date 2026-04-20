@@ -50,6 +50,14 @@ class FiscalWebhookController {
                 }
             });
 
+            // Sincroniza número da nota no Contas a Receber
+            if (data.status === 'autorizado') {
+                await (prisma as any).contaReceber.updateMany({
+                    where: { faturamentoId: faturamento.id },
+                    data: { notaFiscal: String(data.numero) }
+                });
+            }
+
             return res.status(200).send('OK');
         } catch (error: any) {
             console.error('[FiscalWebhook] Erro no processamento do webhook NFS-e:', error.message);
@@ -113,6 +121,14 @@ class FiscalWebhookController {
                 }
             });
 
+            // Sincroniza número da nota no Contas a Receber
+            if (data.status === 'autorizado') {
+                await (prisma as any).contaReceber.updateMany({
+                    where: { faturamentoId: faturamento.id },
+                    data: { notaFiscal: String(data.numero) }
+                });
+            }
+
             return res.status(200).send('OK');
         } catch (error: any) {
             console.error('[FiscalWebhook] Erro no processamento do webhook CTE:', error.message);
@@ -167,6 +183,14 @@ class FiscalWebhookController {
                     observacoes: data.mensagem_sefaz ? `${faturamento.observacoes || ''}; Sefaz: ${data.mensagem_sefaz}` : faturamento.observacoes
                 }
             });
+
+            // Sincroniza número da nota no Contas a Receber
+            if (data.status === 'autorizado') {
+                await (prisma as any).contaReceber.updateMany({
+                    where: { faturamentoId: faturamento.id },
+                    data: { notaFiscal: String(data.numero) }
+                });
+            }
 
             return res.status(200).send('OK');
         } catch (error: any) {

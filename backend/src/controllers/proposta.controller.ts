@@ -804,12 +804,12 @@ export const gerarPDFPropostaWeb = async (req: AuthRequest, res: Response) => {
     const itemNames = (proposta.itens || []).map((i: any) => i.equipamento).filter(Boolean);
     const equipData = await prisma.equipamento.findMany({
       where: { nome: { in: itemNames } },
-      select: { nome: true, imagem: true }
+      select: { nome: true, imagem: true, descricao: true }
     });
 
     const itensComImagem = (proposta.itens || []).map((i: any) => {
       const eq = equipData.find(e => e.nome === i.equipamento);
-      return { ...i, imagem: eq?.imagem };
+      return { ...i, imagem: eq?.imagem, descricao: eq?.descricao };
     });
 
     const config = await prisma.configuracao.findUnique({ where: { id: 'default' } });

@@ -9,6 +9,7 @@ import {
   Copy, Ban
 } from 'lucide-react';
 import { numeroExtenso } from '../utils/numeroExtenso';
+import ModalCadastroProposta from '../components/ModalCadastroProposta';
 
 
 
@@ -42,19 +43,7 @@ export default function Propostas() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
-  // Auto-fill constants based on requirements
-  const DEFAULT_INTRODUCAO = "Submetemos a apreciação de V.Sas., nossa proposta, visando o atendimento de sua solicitação conforme condições técnicas e comercias abaixo descriminada, a saber:";
-  const DEFAULT_CONDICAO_PAGAMENTO = `Faturamento para 20 (VINTE) dias após execução dos serviços.
-
-Após execução, será enviado relatório de prestação de serviço e depois de aceite, emitido a Nota Fiscal Eletrônica e boleto bancário, será enviado ao email da Contratante Cadastrada.
-
-Nota: Prazo para verificação e aceite dos serviços de no Maximo 02 (dois) dias, caso não tenhamos o aceite a nota será emitida automaticamente.
-
-Dimensionamento em Nota Fiscal:
-
-O total dos serviços será emitido em nota de serviço.`;
-
-
+  // Contacts Sync State
 
   // Contacts Sync State
   const [showContactModal, setShowContactModal] = useState(false);
@@ -101,7 +90,10 @@ O total dos serviços será emitido em nota de serviço.`;
   const [funcionariosOptions, setFuncionariosOptions] = useState<any[]>([]);
   const [vendedoresOptions, setVendedoresOptions] = useState<any[]>([]);
   const [acessoriosOptions, setAcessoriosOptions] = useState<any[]>([]);
+  const [empresasOptions, setEmpresasOptions] = useState<any[]>([]);
   const [cargosData, setCargosData] = useState<any[]>([]);
+  const [responsabilidadesOptions, setResponsabilidadesOptions] = useState<any[]>([]);
+  const [configuracoes, setConfiguracoes] = useState<any>(null);
 
   const fetchData = async (page = currentPage) => {
     try {
@@ -156,11 +148,20 @@ O total dos serviços será emitido em nota de serviço.`;
         setCargosData(cargosRes.data || []);
       } catch (e) { console.error('Failed to fetch cargosData', e); }
 
-    } catch (err) {
-      console.error('Failed to execute fetch routines', err);
-    } finally {
-      setLoading(false);
-    }
+      try {
+        const empRes = await api.get(`/empresas`);
+        setEmpresasOptions(empRes.data || []);
+      } catch (e) { console.error('Failed to fetch empresas', e); }
+
+      try {
+        const respRes = await api.get(`/propostas/config/responsabilidades`);
+        setResponsabilidadesOptions(respRes.data || []);
+      } catch (e) { console.error('Failed to fetch responsabilidades', e); }
+
+      try {
+        const configRes = await api.get(`/configuracoes`);
+        setConfiguracoes(configRes.data || null);
+      } catch (e) { console.error('Failed to fetch configuracoes', e); }
   };
 
   useEffect(() => {
@@ -174,30 +175,6 @@ O total dos serviços será emitido em nota de serviço.`;
 
   const handleCreateNew = () => {
     setSelectedProposta({ novo: true });
-    setFormData({
-      codigo: `PROP-${new Date().getFullYear()}-000`,
-      tipo: 'INDIVIDUAL',
-      dataProposta: new Date().toISOString().split('T')[0],
-      dataValidade: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      status: 'RASCUNHO',
-      itens: [],
-      acessorios: [],
-      responsabilidades: [],
-      equipe: [],
-      valorTotal: 0,
-      unidadesData: [],
-      introducao: DEFAULT_INTRODUCAO,
-      condicoesPagamento: DEFAULT_CONDICAO_PAGAMENTO,
-      descricaoGarantia: '',
-      cTe: 'Não',
-      pagamentoAntecipado: 'Não',
-      pRL: '90',
-      tipoProposta: 'COMERCIAL',
-      escopoTecnico: '',
-      dimensionamentoEquipe: '',
-      qtdEquipamentos: '',
-      diasTrabalho: ''
-    });
     setIsEditing(true);
   };
 
@@ -462,17 +439,15 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (data: any) => {
     try {
-      const total = formData.itens.reduce((acc: number, item: any) => acc + (parseFloat(item.valorTotal) || 0), 0);
-      const dataToSave = { ...formData, valorTotal: total };
-
       if (selectedProposta.novo) {
-        await api.post('/propostas', dataToSave);
+        await api.post('/propostas', data);
       } else {
-        await api.patch(`/propostas/${selectedProposta.id}`, dataToSave);
+        await api.patch(`/propostas/${selectedProposta.id}`, data);
       }
       setIsEditing(false);
+      setSelectedProposta(null);
       fetchData();
     } catch (err: any) {
       console.error('Error saving proposal', err);
@@ -1053,711 +1028,29 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
                       return <span key={pageNum} className="px-1 text-slate-400">...</span>;
                     }
                     return null;
-                  })}
-
-                  <button 
-                    disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                    className="p-1.5 rounded-md border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ChevronDown className="w-4 h-4 -rotate-90" />
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+                           </div>
         </>
       ) : (
-        <div className="flex flex-col h-full bg-white border border-slate-300 rounded overflow-hidden">
-          {/* Form Header */}
-          <div className="bg-blue-50/50 border-b border-slate-200 p-2 flex items-center justify-between">
-            <h2 className="text-sm font-bold text-slate-700 ml-2">Cadastro proposta</h2>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsEditing(false)}
-                className="px-3 py-1.5 text-[10px] uppercase font-bold text-red-600 hover:bg-red-50 rounded transition-colors border border-transparent hover:border-red-100"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSave}
-                className="bg-[#5c7a99] hover:bg-[#4a637c] text-white px-4 py-1.5 rounded text-[10px] font-bold uppercase transition-colors"
-              >
-                Salvar Proposta
-              </button>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-
-            {/* ROW 1: Código, Revisão, Classificação, Datas, Vendedor, Empresa, Situação */}
-            <div className="grid grid-cols-12 gap-3">
-              <div className="col-span-1 space-y-1">
-                <label htmlFor="codigo" className="text-[9px] font-bold text-slate-600 uppercase">Código</label>
-                <input
-                  id="codigo"
-                  type="text" disabled value={formData.codigo || ''}
-                  className="w-full bg-slate-100 border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-500 font-medium outline-none"
-                />
-              </div>
-              {(formData.revisao > 0 || isEditing) && (
-                <div className="col-span-1 space-y-1">
-                  <label htmlFor="revisao" className="text-[9px] font-bold text-slate-600 uppercase">Revisão</label>
-                  <input
-                    id="revisao"
-                    type="number" disabled value={formData.revisao || 0}
-                    className="w-full bg-slate-100 border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-500 font-medium outline-none"
-                  />
-                </div>
-              )}
-              <div className="col-span-2 space-y-1">
-                <label htmlFor="tipoProposta" className="text-[9px] font-bold text-slate-600 uppercase">Classificação</label>
-                <select
-                  id="tipoProposta"
-                  value={formData.tipoProposta || 'COMERCIAL'}
-                  onChange={(e) => setFormData({ ...formData, tipoProposta: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400"
-                >
-                  <option value="COMERCIAL">COMERCIAL</option>
-                  <option value="TECNICA">TÉCNICA</option>
-                </select>
-              </div>
-              <div className="col-span-2 space-y-1">
-                <label htmlFor="dataProposta" className="text-[9px] font-bold text-slate-600 uppercase">Data da Proposta</label>
-                <input
-                  id="dataProposta"
-                  type="date" value={formData.dataProposta || ''}
-                  onChange={(e) => setFormData({ ...formData, dataProposta: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400"
-                />
-              </div>
-              <div className="col-span-2 space-y-1">
-                <label htmlFor="dataValidade" className="text-[9px] font-bold text-slate-600 uppercase">Data de Validade</label>
-                <input
-                  id="dataValidade"
-                  type="date" value={formData.dataValidade || ''}
-                  onChange={(e) => setFormData({ ...formData, dataValidade: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400"
-                />
-              </div>
-              <div className="col-span-2 space-y-1">
-                <label htmlFor="vendedor" className="text-[9px] font-bold text-slate-600 uppercase">Vendedor</label>
-                <select
-                  id="vendedor"
-                  value={formData.vendedor || ''}
-                  onChange={(e) => setFormData({ ...formData, vendedor: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400"
-                >
-                  <option value="">Selecione...</option>
-                  {vendedoresOptions.map((v: any) => <option key={v.id} value={v.name}>{v.name?.toUpperCase()}</option>)}
-                </select>
-              </div>
-              <div className="col-span-2 space-y-1">
-                <label htmlFor="empresa" className="text-[9px] font-bold text-slate-600 uppercase">Empresa</label>
-                <select
-                  id="empresa"
-                  value={formData.empresa || ''}
-                  onChange={(e) => setFormData({ ...formData, empresa: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400"
-                >
-                  <option value="">Selecione...</option>
-                  <option value="NACIONAL HIDROSANEAMENTO EIRELI EPP">NACIONAL HIDROSANEAMENTO EIRELI EPP</option>
-                  <option value="NACIONAL HIDRO">NACIONAL HIDRO</option>
-                </select>
-              </div>
-            </div>
-            <div className="grid grid-cols-12 gap-3 mt-1">
-              <div className="col-span-3 space-y-1">
-                <label htmlFor="status" className="text-[9px] font-bold text-slate-600 uppercase">Situação</label>
-                <select
-                  id="status"
-                  value={formData.status || 'RASCUNHO'}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full bg-white border border-red-300 rounded px-2 py-1.5 text-xs text-red-600 font-medium outline-none focus:border-red-400"
-                >
-                  <option value="RASCUNHO">Rascunho</option>
-                  <option value="ENVIADA">Enviada P/ Cliente</option>
-                  <option value="ACEITA">Aceita</option>
-                  <option value="RECUSADA">Recusada</option>
-                  <option value="CANCELADA">Cancelada</option>
-                </select>
-              </div>
-            </div>
-
-            {/* ROW 2: Cliente, Contato, Email, Não enviar p/ cliente */}
-            <div className="grid grid-cols-12 gap-3">
-              <div className="col-span-5 space-y-1">
-                <label htmlFor="clienteId" className="text-[9px] font-bold text-slate-600 uppercase">Cliente</label>
-                <select
-                  id="clienteId"
-                  value={formData.clienteId || ''}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    const cliente = clientes.find(c => c.id === id);
-                    setFormData({
-                      ...formData,
-                      clienteId: id,
-                      contato: cliente ? (formData.contato || cliente.telefone || '') : formData.contato,
-                      cc: cliente ? (formData.cc || cliente.email || '') : formData.cc
-                    });
-                  }}
-                  className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400"
-                >
-                  <option value="">Selecione o Cliente...</option>
-                  {clientes.map(c => <option key={c.id} value={c.id}>{c.nome} ({c.documento})</option>)}
-                </select>
-              </div>
-              <div className="col-span-3 space-y-1 relative">
-                <div className="flex justify-between items-center">
-                  <label htmlFor="contato" className="text-[9px] font-bold text-slate-600 uppercase">Contato (A/C)</label>
-                  {formData.clienteId && (
-                     <button type="button" onClick={() => setShowContactModal(!showContactModal)} className="text-[9px] font-bold text-blue-600 hover:text-blue-800 transition-colors">
-                       {showContactModal ? 'CANCELAR' : '+ VINCULAR NOVO'}
-                     </button>
-                  )}
-                </div>
-                {!showContactModal ? (
-                  <>
-                    <input
-                      id="contato"
-                      list="contatos-list"
-                      type="text" value={formData.contato || ''}
-                      onChange={(e) => setFormData({ ...formData, contato: e.target.value })}
-                      placeholder=""
-                      className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400"
-                    />
-                    <datalist id="contatos-list">
-                      {formData.clienteId && (
-                        (() => {
-                          const cl = clientes.find((c: any) => c.id === formData.clienteId);
-                          const arr = cl?.contatos ? (typeof cl.contatos === 'string' ? JSON.parse(cl.contatos) : cl.contatos) : [];
-                          return arr.map((ct: any) => <option key={ct.id} value={ct.nome} />);
-                        })()
-                      )}
-                    </datalist>
-                    {/* Auto-fill Helper */}
-                    {formData.contato && formData.clienteId && (() => {
-                      const cl = clientes.find((c: any) => c.id === formData.clienteId);
-                      const arr = cl?.contatos ? (typeof cl.contatos === 'string' ? JSON.parse(cl.contatos) : cl.contatos) : [];
-                      const ct = arr.find((x: any) => x.nome === formData.contato);
-                      if (ct && ct.email && !(formData.cc || '').includes(ct.email)) {
-                        return (
-                          <div className="absolute top-[85%] left-0 z-10 w-full p-2 bg-blue-50/95 backdrop-blur-sm border border-blue-200 rounded shadow-md text-[10px] animate-in fade-in">
-                            <p className="text-slate-600 mb-1">Puxar e-mail: <b>{ct.email}</b>?</p>
-                            <button type="button" onClick={() => setFormData({...formData, cc: formData.cc ? formData.cc + ';' + ct.email : ct.email})} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold px-2 py-1.5 rounded transition-colors duration-200">Preencher Automático</button>
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </>
-                ) : (
-                  <div className="absolute top-[85%] left-0 z-20 w-[280px] p-4 bg-white border border-blue-200 rounded-lg shadow-xl text-xs space-y-3 animate-in fade-in">
-                     <p className="font-bold text-blue-800 text-[10px] uppercase border-b border-blue-100 pb-1">Vincular Novo Contato</p>
-                     <div className="space-y-2">
-                       <div><label className="text-[9px] text-slate-500 uppercase font-medium">Nome *</label><input type="text" value={newContact.nome} onChange={e=>setNewContact({...newContact, nome: e.target.value})} className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1.5 focus:border-blue-400 outline-none" autoFocus /></div>
-                       <div><label className="text-[9px] text-slate-500 uppercase font-medium">E-mail</label><input type="email" value={newContact.email} onChange={e=>setNewContact({...newContact, email: e.target.value})} className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1.5 focus:border-blue-400 outline-none" /></div>
-                       <div><label className="text-[9px] text-slate-500 uppercase font-medium">Telefone</label><input type="text" value={newContact.telefone} onChange={e=>setNewContact({...newContact, telefone: e.target.value})} className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1.5 focus:border-blue-400 outline-none" /></div>
-                     </div>
-                     <button type="button" onClick={handleSaveContact} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded transition-colors mt-2 uppercase tracking-wide text-[10px]">Salvar na Base de Dados</button>
-                  </div>
-                )}
-              </div>
-              <div className="col-span-3 space-y-1">
-                <label className="text-[9px] font-bold text-slate-600 uppercase">E-mails do cliente (com ;)</label>
-                <input
-                  type="text" value={formData.cc || ''}
-                  onChange={(e) => setFormData({ ...formData, cc: e.target.value })}
-                  className="w-full bg-blue-50/30 border border-blue-200 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400"
-                />
-              </div>
-              <div className="col-span-1 flex items-end pb-1.5">
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <span className="text-[9px] font-bold text-slate-600 uppercase">Não enviar p/ cliente</span>
-                  <input
-                    type="checkbox"
-                    checked={formData.naoEnviarAoCliente || false}
-                    onChange={(e) => setFormData({ ...formData, naoEnviarAoCliente: e.target.checked })}
-                    className="rounded"
-                  />
-                </label>
-              </div>
-            </div>
-
-            {/* If Global, Unidades block */}
-            {formData.tipo === 'GLOBAL' && (
-              <div className="border border-indigo-200 rounded p-3 bg-indigo-50/30 mt-2">
-                <div className="flex justify-between items-center mb-2">
-                  <h4 className="text-[10px] font-bold text-indigo-700 uppercase">Unidades (Global)</h4>
-                  <button onClick={addUnidade} className="text-[9px] bg-indigo-600 text-white px-2 py-1 rounded"> + Adicionar Unidade</button>
-                </div>
-                {formData.unidadesData?.length === 0 ? (
-                  <div className="text-[10px] text-slate-500 italic">Nenhuma unidade adicionada.</div>
-                ) : (
-                  formData.unidadesData.map((u: any, idx: number) => (
-                    <div key={idx} className="flex gap-2 mb-2 items-center">
-                      <input type="text" placeholder="Nome Unidade" value={u.unidadeNome} onChange={e => updateUnidade(idx, 'unidadeNome', e.target.value)} className="flex-1 border border-slate-300 rounded px-2 py-1 text-[10px]" />
-                      <input type="text" placeholder="CNPJ" value={u.unidadeCNPJ} onChange={e => updateUnidade(idx, 'unidadeCNPJ', e.target.value)} className="flex-1 border border-slate-300 rounded px-2 py-1 text-[10px]" />
-                      <button onClick={() => removeUnidade(idx)} className="text-red-500 hover:bg-red-50 p-1 rounded"><X className="w-3 h-3" /></button>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {/* ROW 3: Intro & Objective / Técnicos */}
-            <div className="grid grid-cols-2 gap-3 mt-2">
-              <div className="space-y-1">
-                <label htmlFor="introducao" className="text-[9px] font-bold text-slate-600 uppercase">Introdução</label>
-                <textarea
-                  id="introducao"
-                  value={formData.introducao || ''}
-                  onChange={(e) => setFormData({ ...formData, introducao: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400 min-h-[50px] resize-none"
-                />
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="objetivo" className="text-[9px] font-bold text-slate-600 uppercase">Objetivo / Escopo</label>
-                <textarea
-                  id="objetivo"
-                  value={formData.objetivo || ''}
-                  onChange={(e) => setFormData({ ...formData, objetivo: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400 min-h-[50px] resize-none"
-                />
-              </div>
-            </div>
-
-
-            {formData.tipoProposta === 'TECNICA' && (
-              <div className="grid grid-cols-3 gap-3 mt-2 bg-slate-50 border border-slate-200 p-3 rounded">
-                <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-slate-600 uppercase">Dimensionamento da Equipe</label>
-                  <textarea
-                    value={formData.dimensionamentoEquipe || ''}
-                    onChange={(e) => setFormData({ ...formData, dimensionamentoEquipe: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400 min-h-[50px] resize-none"
-                    placeholder="Ex: 1 Encarregado, 2 Operadores..."
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-slate-600 uppercase">Qtd de Equipamentos</label>
-                  <textarea
-                    value={formData.qtdEquipamentos || ''}
-                    onChange={(e) => setFormData({ ...formData, qtdEquipamentos: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400 min-h-[50px] resize-none"
-                    placeholder="Ex: 1 Caminhão Vácuo, 1 Caminhão Jato..."
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-slate-600 uppercase">Dias de Trabalho</label>
-                  <textarea
-                    value={formData.diasTrabalho || ''}
-                    onChange={(e) => setFormData({ ...formData, diasTrabalho: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400 min-h-[50px] resize-none"
-                    placeholder="Ex: 5 Dias úteis..."
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* TABS IMPLEMENTATION */}
-            <div className="border border-slate-300 rounded mt-3 text-xs bg-slate-50/50 min-h-[250px] flex flex-col">
-              <div className="flex items-center gap-1 border-b border-slate-300 px-1 pt-1 bg-gradient-to-b from-white to-slate-200">
-                <button
-                  onClick={() => setActiveTab('EQUIPAMENTOS')}
-                  className={`px-5 py-1.5 font-bold rounded-t -mb-[1px] relative shadow-sm transition-colors ${activeTab === 'EQUIPAMENTOS' ? 'text-blue-800 bg-white border-x border-t border-slate-300 z-10' : 'text-slate-500 cursor-pointer border border-transparent hover:text-blue-600'}`}
-                >
-                  Equipamentos
-                </button>
-                <button
-                  onClick={() => setActiveTab('ACESSORIOS')}
-                  className={`px-5 py-1.5 font-bold rounded-t -mb-[1px] relative shadow-sm transition-colors ${activeTab === 'ACESSORIOS' ? 'text-blue-800 bg-white border-x border-t border-slate-300 z-10' : 'text-slate-500 cursor-pointer border border-transparent hover:text-blue-600'}`}
-                >
-                  Acessórios
-                </button>
-                <button
-                  onClick={() => setActiveTab('RESPONSABILIDADES')}
-                  className={`px-5 py-1.5 font-bold rounded-t -mb-[1px] relative shadow-sm transition-colors ${activeTab === 'RESPONSABILIDADES' ? 'text-blue-800 bg-white border-x border-t border-slate-300 z-10' : 'text-slate-500 cursor-pointer border border-transparent hover:text-blue-600'}`}
-                >
-                  Responsabilidades
-                </button>
-                <button
-                  onClick={() => setActiveTab('EQUIPES')}
-                  className={`px-5 py-1.5 font-bold rounded-t -mb-[1px] relative shadow-sm transition-colors ${activeTab === 'EQUIPES' ? 'text-blue-800 bg-white border-x border-t border-slate-300 z-10' : 'text-slate-500 cursor-pointer border border-transparent hover:text-blue-600'}`}
-                >
-                  Equipes
-                </button>
-              </div>
-
-              <div className="p-3 bg-white flex-1 relative">
-                {activeTab === 'EQUIPAMENTOS' && (
-                  <div className="overflow-x-auto animate-in fade-in duration-200">
-                    <table className="w-full text-left whitespace-nowrap table-fixed">
-                      <thead className="bg-[#f0f2f5] text-[9px] text-[#4a637c] uppercase font-bold">
-                        <tr>
-                          <th className="px-2 py-1.5 w-[25%] border border-slate-200 rounded-tl">Equipamento</th>
-                          <th className="px-2 py-1.5 w-16 border border-slate-200 text-center">Quantidade</th>
-                          <th className="px-2 py-1.5 border border-slate-200">Área</th>
-                          <th className="px-2 py-1.5 border border-slate-200">Tipo de Cobrança</th>
-                          {formData.tipoProposta !== 'TECNICA' && <th className="px-2 py-1.5 border border-slate-200">Valor Unit.</th>}
-                          <th className="px-2 py-1.5 border border-slate-200">Horas por Dia</th>
-                          {formData.tipoProposta !== 'TECNICA' && <th className="px-2 py-1.5 border border-slate-200 text-amber-700 bg-amber-50">Hora Extra (R$)</th>}
-                          <th className="px-2 py-1.5 border border-slate-200">Uso Previsto</th>
-                          {formData.tipoProposta !== 'TECNICA' && <th className="px-2 py-1.5 border border-slate-200">Mobilização</th>}
-                          {formData.tipoProposta !== 'TECNICA' && <th className="px-2 py-1.5 border border-slate-200 rounded-tr">Valor Total (R$)</th>}
-                          <th className="px-1 py-1 w-8"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {formData.itens.length === 0 ? (
-                          <tr><td colSpan={10} className="px-2 py-6 text-center text-[10px] text-slate-400 border border-slate-200">Nenhum equipamento listado.</td></tr>
-                        ) : formData.itens.map((item: any, idx: number) => (
-                          <tr key={idx} className="border-b text-xs border-slate-100 hover:bg-blue-50/30">
-                            <td className="px-1 py-1 border-x border-slate-200">
-                              <select value={item.equipamento} onChange={(e) => updateItem(idx, 'equipamento', e.target.value)} className="w-full px-1.5 py-1 bg-white border border-slate-300 rounded outline-none appearance-none text-[10px]">
-                                <option value="">Selecione...</option>
-                                {equipamentosOptions.map(eq => <option key={eq.id} value={eq.nome}>{eq.nome}</option>)}
-                              </select>
-                            </td>
-                            <td className="px-1 py-1 border-x border-slate-200 text-center">
-                              <input type="number" value={item.quantidade} onChange={(e) => updateItem(idx, 'quantidade', parseInt(e.target.value))} className="w-full text-center px-1.5 py-1 bg-white border border-slate-300 rounded outline-none text-[10px]" />
-                            </td>
-                            <td className="px-1 py-1 border-x border-slate-200">
-                              <input type="text" value={item.area || ''} onChange={(e) => updateItem(idx, 'area', e.target.value)} className="w-full px-1.5 py-1 bg-white border border-slate-300 rounded outline-none text-[10px]" />
-                            </td>
-                            <td className="px-1 py-1 border-x border-slate-200">
-                              <select value={item.tipoCobranca || ''} onChange={(e) => updateItem(idx, 'tipoCobranca', e.target.value)} className="w-full px-1.5 py-1 bg-white border border-slate-300 rounded outline-none text-[10px]">
-                                <option value="DIARIA">DIÁRIA</option>
-                                <option value="HORA">HORA</option>
-                                <option value="FRETE">FRETE</option>
-                                <option value="FECHADA">FECHADA</option>
-
-                              </select>
-                            </td>
-                            {formData.tipoProposta !== 'TECNICA' && (
-                              <td className="px-1 py-1 border-x border-slate-200">
-                                <input type="number" step="0.01" value={item.valorAcobrar} onChange={(e) => updateItem(idx, 'valorAcobrar', parseFloat(e.target.value))} className="w-full px-1.5 py-1 bg-white border border-slate-300 rounded outline-none text-[10px]" />
-                              </td>
-                            )}
-                            <td className="px-1 py-1 border-x border-slate-200">
-                              <input type="number" value={item.horasPorDia || ''} onChange={(e) => updateItem(idx, 'horasPorDia', parseInt(e.target.value))} className="w-full px-1.5 py-1 bg-white border border-slate-300 rounded outline-none text-[10px]" />
-                            </td>
-                            {formData.tipoProposta !== 'TECNICA' && (
-                              <td className="px-1 py-1 border-x border-slate-200 bg-amber-50/20">
-                                <input type="number" step="0.01" value={item.horaAdicional || ''} onChange={(e) => updateItem(idx, 'horaAdicional', parseFloat(e.target.value))} className="w-full px-1.5 py-1 bg-white border border-amber-300 rounded outline-none text-[10px]" />
-                              </td>
-                            )}
-                            <td className="px-1 py-1 border-x border-slate-200">
-                              <input type="text" value={item.usoPrevisto || ''} onChange={(e) => updateItem(idx, 'usoPrevisto', e.target.value)} className="w-full px-1.5 py-1 bg-white border border-slate-300 rounded outline-none text-[10px]" />
-                            </td>
-                            {formData.tipoProposta !== 'TECNICA' && (
-                              <td className="px-1 py-1 border-x border-slate-200">
-                                <input type="number" step="0.01" value={item.mobilizacao || ''} onChange={(e) => updateItem(idx, 'mobilizacao', parseFloat(e.target.value))} className="w-full px-1.5 py-1 bg-white border border-slate-300 rounded outline-none text-[10px]" />
-                              </td>
-                            )}
-                            {formData.tipoProposta !== 'TECNICA' && (
-                              <td className="px-2 py-1 border-x border-slate-200 text-slate-500 bg-slate-50 text-[10px]">
-                                {item.valorTotal?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </td>
-                            )}
-                            <td className="px-1 py-1 text-center">
-                              <button onClick={() => removeItem(idx)} className="text-red-600 hover:bg-red-50 p-0.5 rounded"><X className="w-3.5 h-3.5" /></button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    <button onClick={addItem} className="text-[#3b82f6] text-[10px] uppercase font-bold mt-2 hover:underline tracking-tight">+ Adicionar Equipamento</button>
-                  </div>
-                )}
-
-                {activeTab === 'ACESSORIOS' && (
-                  <div className="animate-in fade-in duration-200 space-y-3">
-                    <div className="grid grid-cols-12 gap-3 mb-2 font-bold text-[9px] text-slate-500 uppercase border-b border-slate-200 pb-1">
-                      <div className="col-span-6">Acessório</div>
-                      <div className="col-span-2 text-center">Quantidade</div>
-                      <div className="col-span-3">Valor (R$)</div>
-                      <div className="col-span-1 text-center">Ação</div>
-                    </div>
-                    {(!formData.acessorios || formData.acessorios.length === 0) ? (
-                      <div className="text-center py-6 text-[10px] text-slate-400 border border-slate-200 border-dashed rounded bg-slate-50">
-                        Nenhum acessório adicionado.
-                      </div>
-                    ) : (
-                      formData.acessorios.map((ac: any, idx: number) => (
-                        <div key={idx} className="grid grid-cols-12 gap-3 items-center group">
-                          <div className="col-span-6">
-                            <select
-                              value={ac.acessorio || ''}
-                              onChange={(e) => updateAcessorio(idx, 'acessorio', e.target.value)}
-                              className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-[10px] outline-none text-slate-700 focus:border-blue-400"
-                            >
-                              <option value="">Selecione...</option>
-                              {acessoriosOptions.map((a: any) => <option key={a.id} value={a.nome}>{a.nome}</option>)}
-                            </select>
-                          </div>
-                          <div className="col-span-2">
-                            <input
-                              type="number" min="1"
-                              value={ac.quantidade || 1}
-                              onChange={(e) => updateAcessorio(idx, 'quantidade', parseInt(e.target.value) || 1)}
-                              className="w-full text-center bg-white border border-slate-300 rounded px-2 py-1 text-[10px] outline-none focus:border-blue-400"
-                            />
-                          </div>
-                          <div className="col-span-3">
-                            <input
-                              type="number" step="0.01"
-                              value={ac.valor || ''}
-                              onChange={(e) => updateAcessorio(idx, 'valor', e.target.value)}
-                              className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-[10px] outline-none focus:border-blue-400"
-                              placeholder="0.00"
-                            />
-                          </div>
-                          <div className="col-span-1 flex justify-center">
-                            <button onClick={() => removeAcessorio(idx)} className="text-red-600 hover:bg-red-50 p-1 rounded"><X className="w-3.5 h-3.5" /></button>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                    <button onClick={addAcessorio} className="text-[#3b82f6] text-[10px] uppercase font-bold mt-2 hover:underline tracking-tight">+ Adicionar Acessório</button>
-                  </div>
-                )}
-
-                {activeTab === 'RESPONSABILIDADES' && (
-                  <div className="animate-in fade-in duration-200 space-y-3">
-                    <div className="grid grid-cols-12 gap-3 mb-2 font-bold text-[9px] text-slate-500 uppercase border-b border-slate-200 pb-1">
-                      <div className="col-span-3">Tipo</div>
-                      <div className="col-span-8">Descrição</div>
-                      <div className="col-span-1 text-center">Ação</div>
-                    </div>
-                    {formData.responsabilidades?.length === 0 ? (
-                      <div className="text-center py-6 text-[10px] text-slate-400 border border-slate-200 border-dashed rounded bg-slate-50">
-                        Nenhuma responsabilidade manual adicionada.
-                      </div>
-                    ) : (
-                      formData.responsabilidades?.map((resp: any, idx: number) => (
-                        <div key={idx} className="grid grid-cols-12 gap-3 items-start group">
-                          <div className="col-span-3">
-                            <select
-                              value={resp.tipo}
-                              onChange={(e) => updateResponsabilidade(idx, 'tipo', e.target.value)}
-                              className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-[10px] font-bold outline-none text-slate-700 focus:border-blue-400"
-                            >
-                              <option value="CONTRATADA">CONTRATADA (HIDRO)</option>
-                              <option value="CONTRATANTE">CONTRATANTE (CLIENTE)</option>
-                            </select>
-                          </div>
-                          <div className="col-span-8">
-                            <textarea
-                              value={resp.descricao}
-                              onChange={(e) => updateResponsabilidade(idx, 'descricao', e.target.value)}
-                              className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-[10px] outline-none text-slate-700 min-h-[40px] resize-none focus:border-blue-400"
-                              placeholder="Descreva a responsabilidade..."
-                            />
-                          </div>
-                          <div className="col-span-1 flex justify-center pt-1.5">
-                            <button
-                              onClick={() => removeResponsabilidade(idx)}
-                              className="text-red-600 hover:bg-red-50 p-1 rounded transition-colors"
-                              title="Remover"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                    <button onClick={addResponsabilidade} className="text-[#3b82f6] text-[10px] uppercase font-bold mt-2 hover:underline tracking-tight">+ Adicionar Responsabilidade</button>
-                  </div>
-                )}
-
-                {activeTab === 'EQUIPES' && (
-                  <div className="animate-in fade-in duration-200 space-y-3">
-                    <div className="grid grid-cols-12 gap-3 mb-2 font-bold text-[9px] text-slate-500 uppercase border-b border-slate-200 pb-1">
-                      <div className="col-span-3">Colaborador / RH</div>
-                      <div className="col-span-2">Função / Cargo</div>
-                      <div className="col-span-1 text-center">Todos Equip.</div>
-                      <div className="col-span-3">Equipamento</div>
-                      <div className="col-span-2 text-center">Qtde</div>
-                      <div className="col-span-1 text-center">Ação</div>
-                    </div>
-                    {formData.equipe?.length === 0 ? (
-                      <div className="text-center py-6 text-[10px] text-slate-400 border border-slate-200 border-dashed rounded bg-slate-50">
-                        Nenhuma equipe listada para esta proposta.
-                      </div>
-                    ) : (
-                      formData.equipe?.map((membro: any, idx: number) => (
-                        <div key={idx} className="grid grid-cols-12 gap-3 items-center group">
-                          <div className="col-span-3">
-                            <select
-                              value={membro.nome || ''}
-                              onChange={(e) => {
-                                const selected = funcionariosOptions.find(f => f.nome_completo === e.target.value);
-                                const newEquipe = [...(formData.equipe || [])];
-                                newEquipe[idx] = { ...newEquipe[idx], nome: e.target.value };
-                                if (selected && selected.cargo) {
-                                  newEquipe[idx].funcao = selected.cargo;
-                                  
-                                  // Auto-detect UnicoEquipamento based on Cargo model
-                                  const cargoModel = cargosData.find(c => c.nome.toLowerCase() === selected.cargo.toLowerCase());
-                                  if (cargoModel?.unicoEquipamento) {
-                                    newEquipe[idx].unicoEquipamento = true;
-                                    newEquipe[idx].equipamento = '';
-                                  }
-                                }
-                                setFormData({ ...formData, equipe: newEquipe });
-                              }}
-                              className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-[10px] outline-none text-slate-700 focus:border-blue-400"
-                            >
-                              <option value="">A Definir / Avulso</option>
-                              {funcionariosOptions.map((f: any) => (
-                                <option key={f.id} value={f.nome_completo}>{f.nome_completo}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="col-span-2">
-                            <input
-                              type="text"
-                              value={membro.funcao || ''}
-                              onChange={(e) => updateEquipe(idx, 'funcao', e.target.value)}
-                              className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-[10px] outline-none text-slate-700 focus:border-blue-400"
-                              placeholder="Ex: Motorista..."
-                            />
-                          </div>
-                          <div className="col-span-1 flex justify-center">
-                            <input
-                              type="checkbox"
-                              checked={!!membro.unicoEquipamento}
-                              onChange={(e) => {
-                                const newEquipe = [...(formData.equipe || [])];
-                                newEquipe[idx] = { ...newEquipe[idx], unicoEquipamento: e.target.checked, equipamento: e.target.checked ? '' : newEquipe[idx].equipamento };
-                                setFormData({ ...formData, equipe: newEquipe });
-                              }}
-                              className="w-4 h-4 accent-blue-600 cursor-pointer"
-                              title="Marque se este cargo se aplica a todos os equipamentos (ex: Motorista, Ajudante)"
-                            />
-                          </div>
-                          <div className="col-span-3">
-                            {membro.unicoEquipamento ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] text-slate-400 italic px-2 py-1.5">
-                                <Globe className="w-3 h-3" /> Todos os equipamentos
-                              </span>
-                            ) : (
-                              <select
-                                value={membro.equipamento || ''}
-                                onChange={(e) => updateEquipe(idx, 'equipamento', e.target.value)}
-                                className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-[10px] outline-none text-slate-700 focus:border-blue-400 appearance-none bg-transparent"
-                              >
-                                <option value="">Selecione...</option>
-                                {Array.from(new Set(formData.itens?.filter((i: any) => !!i.equipamento).map((i: any) => i.equipamento))).map((equipNome: any, i: number) => (
-                                  <option key={i} value={equipNome}>{equipNome}</option>
-                                ))}
-                              </select>
-                            )}
-                          </div>
-                          <div className="col-span-2">
-                            <input
-                              type="number"
-                              min="1"
-                              value={membro.quantidade}
-                              onChange={(e) => updateEquipe(idx, 'quantidade', parseInt(e.target.value) || 1)}
-                              className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-[10px] outline-none text-center text-slate-700 focus:border-blue-400"
-                            />
-                          </div>
-                          <div className="col-span-1 flex justify-center">
-                            <button
-                              onClick={() => removeEquipe(idx)}
-                              className="text-red-600 hover:bg-red-50 p-1 rounded transition-colors"
-                              title="Remover"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                    <button onClick={addEquipe} className="text-[#3b82f6] text-[10px] uppercase font-bold mt-2 hover:underline tracking-tight">+ Adicionar Membro da Equipe</button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Descrição Valores */}
-            <div className="space-y-1">
-              <label className="text-[9px] font-bold text-slate-600 uppercase">Descrição de Valores</label>
-              <textarea
-                value={formData.descricaoValores || ''}
-                onChange={(e) => setFormData({ ...formData, descricaoValores: e.target.value })}
-                className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400 min-h-[40px] resize-none"
-              />
-            </div>
-
-            {/* Garantia / Descrição do Serviço (Automático) - Red tinted block */}
-            <div className="space-y-1 bg-red-50/50 p-2 border border-red-100/50 rounded">
-              <label className="text-[9px] font-bold text-red-500 uppercase">Descrição do Serviço / Garantia Técnica</label>
-              <textarea
-                value={formData.descricaoGarantia || ''}
-                onChange={(e) => setFormData({ ...formData, descricaoGarantia: e.target.value })}
-                className="w-full bg-white border border-red-200 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-red-400 min-h-[100px] resize-none"
-              />
-            </div>
-
-            {/* Condições e Totaiss block (only for Comercial) */}
-            {formData.tipoProposta !== 'TECNICA' && (
-              <div className="grid grid-cols-12 gap-6 items-end mt-4">
-                <div className="col-span-8 space-y-1">
-                  <label className="text-[9px] font-bold text-slate-600 uppercase">Condições de Pagamento</label>
-                  <textarea
-                    value={formData.condicoesPagamento || ''}
-                    onChange={(e) => setFormData({ ...formData, condicoesPagamento: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400 min-h-[140px] resize-none"
-                  />
-                </div>
-                <div className="col-span-4 bg-slate-50 border border-slate-200 rounded p-4 h-full flex flex-col justify-between">
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center bg-white px-2 py-1.5 rounded border border-slate-200">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Porcentagem Reter (%)</label>
-                      <input type="number" step="0.01" value={formData.pRL || ''} onChange={(e) => setFormData({ ...formData, pRL: e.target.value })} className="w-16 text-right border-b border-slate-300 text-xs text-slate-700 outline-none focus:border-blue-400 font-bold" />
-                    </div>
-                    <div className="flex justify-between items-center bg-white px-2 py-1.5 rounded border border-slate-200">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">CTe Incluso</label>
-                      <select value={formData.cTe || 'Não'} onChange={(e) => setFormData({ ...formData, cTe: e.target.value })} className="border-b border-slate-300 text-xs text-slate-700 outline-none focus:border-blue-400 appearance-none bg-transparent">
-                        <option value="Não">Não</option><option value="Sim">Sim</option>
-                      </select>
-                    </div>
-                    <div className="flex justify-between items-center bg-white px-2 py-1.5 rounded border border-slate-200">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Pgto Antecipado</label>
-                      <select value={formData.pagamentoAntecipado || 'Não'} onChange={(e) => setFormData({ ...formData, pagamentoAntecipado: e.target.value })} className="border-b border-slate-300 text-xs text-slate-700 outline-none focus:border-blue-400 appearance-none bg-transparent">
-                        <option value="Não">Não</option><option value="Sim">Sim</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="mt-6 border-t border-slate-300 pt-3">
-                    <label className="text-[10px] font-black text-slate-700 uppercase block mb-1">Valor Total Proposta (R$)</label>
-                    <input
-                      type="text" readOnly
-                      value={formData.itens.reduce((acc: number, i: any) => acc + (parseFloat(i.valorTotal) || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      className="w-full bg-slate-200 border border-slate-300 rounded px-2 py-1.5 text-base font-black text-slate-800 outline-none text-right"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Validade */}
-            <div className="space-y-1 pb-6 mt-4">
-              <label className="text-[9px] font-bold text-slate-600 uppercase">Validade da Proposta</label>
-              <textarea
-                value={formData.dataValidade ? `Essa proposta possui validade até o dia: ${new Date(formData.dataValidade + 'T12:00:00').toLocaleDateString('pt-BR')}` : ''}
-                readOnly
-                className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-700 outline-none min-h-[40px] resize-none"
-              />
-            </div>
-
-          </div>
-        </div>
+        <ModalCadastroProposta
+          isOpen={isEditing && !!selectedProposta}
+          onClose={() => { 
+            setIsEditing(false); 
+            setSelectedProposta(null); 
+          }}
+          onSave={handleSave}
+          initialData={selectedProposta?.novo ? null : selectedProposta}
+          options={{
+            clientes,
+            vendedores: vendedoresOptions,
+            empresas: empresasOptions,
+            equipamentos: equipamentosOptions,
+            acessorios: acessoriosOptions,
+            responsabilidades: responsabilidadesOptions,
+            cargos: cargosData,
+            configuracoes: configuracoes
+          }}
+        />
       )}
-    </div>
 
       {/* MODAL DISPARO EQUIPE */}
       {isDispatchModalOpen && (

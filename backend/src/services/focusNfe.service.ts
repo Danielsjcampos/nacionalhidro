@@ -69,7 +69,7 @@ export const focusNfeService = {
                     }
                 },
                 servico: {
-                    aliquota: 2.0, // Default para Campinas no sistema
+                    aliquota: Number(empresa.aliquotaIss || 2.0),
                     iss_retido: faturamento.cliente.codigoMunicipio === empresa.codigoMunicipio ? 1 : 2,
                     item_lista_servico: '0710',
                     codigo_cnae: empresa.cnae || '8129000',
@@ -79,7 +79,8 @@ export const focusNfeService = {
                     valor_inss: Number(faturamento.valorINSS || 0),
                     valor_ir: Number(faturamento.valorIR || 0),
                     valor_csll: Number(faturamento.valorCSLL || 0),
-                    discriminacao: `${faturamento.observacoes || 'Serviços Prestados'}.\nVENCIMENTO: ${faturamento.dataVencimento ? new Date(faturamento.dataVencimento).toLocaleDateString('pt-BR') : ''}`
+                    valor_iss: Number(faturamento.valorISS || 0),
+                    discriminacao: `${faturamento.observacoes || 'Serviços Prestados'}.\nVENCIMENTO: ${faturamento.dataVencimento ? new Date(faturamento.dataVencimento).toLocaleDateString('pt-BR') : ''}.\nDADOS BANCÁRIOS: Banco: ${empresa.banco || ''} Ag: ${empresa.agencia || ''} C/C: ${empresa.conta || ''}`
                 }
             };
 
