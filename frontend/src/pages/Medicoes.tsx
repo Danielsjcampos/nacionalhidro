@@ -200,8 +200,8 @@ export default function Medicoes() {
     // ─── OS PRICING ACTIONS ───
     const openPricing = async (os: any) => {
         try {
-            const res = await api.get(`/precificacao/${os.id}`);
-            setSelectedOS(res.data);
+            const pricingRes = await api.get(`/precificacao/${os.id}`);
+            setSelectedOS(pricingRes.data);
             setSelectedMedicao(null);
             setCalculo(null);
         } catch {}
@@ -239,7 +239,7 @@ export default function Medicoes() {
     const handleAutoCalcular = async () => {
         if (!selectedOS) return;
         try {
-            const res = await api.post(`/precificacao/${selectedOS.id}/auto-calcular`, {
+            const autoCalcRes = await api.post(`/precificacao/${selectedOS.id}/auto-calcular`, {
                 valorDiaria: autoCalcForm.valorDiaria ? parseFloat(autoCalcForm.valorDiaria) : null,
                 valorHora: autoCalcForm.valorHora ? parseFloat(autoCalcForm.valorHora) : null,
                 toleranciaHoras: autoCalcForm.toleranciaHoras ? parseFloat(autoCalcForm.toleranciaHoras) : null,
@@ -250,8 +250,8 @@ export default function Medicoes() {
                 valorHoraExtra: autoCalcForm.valorHoraExtra ? parseFloat(autoCalcForm.valorHoraExtra) : null,
                 aplicarMinimoHE: autoCalcForm.aplicarMinimoHE
             });
-            setSelectedOS(res.data.os);
-            setCalculo(res.data.calculo);
+            setSelectedOS(autoCalcRes.data.os);
+            setCalculo(autoCalcRes.data.calculo);
             showToast('Cálculo realizado com sucesso!');
             setShowAutoCalc(false);
         } catch (err: any) { showToast(err.response?.data?.error || 'Erro no cálculo'); }
@@ -260,16 +260,16 @@ export default function Medicoes() {
     // ─── MEDICAO ACTIONS ───
     const openMedicao = async (m: any) => {
         try {
-            const res = await api.get(`/medicoes/${m.id}`);
-            setSelectedMedicao(res.data);
+            const medRes = await api.get(`/medicoes/${m.id}`);
+            setSelectedMedicao(medRes.data);
             setSelectedOS(null);
         } catch {}
     };
 
     const downloadPdf = async (m: any) => {
         try {
-            const res = await api.post(`/medicoes/${m.id}/pdf`, {}, { responseType: 'blob' });
-            const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+            const pdfRes = await api.post(`/medicoes/${m.id}/pdf`, {}, { responseType: 'blob' });
+            const url = URL.createObjectURL(new Blob([pdfRes.data], { type: 'application/pdf' }));
             const a = document.createElement('a'); a.href = url; a.download = `Medicao_${m.codigo}.pdf`; a.click();
             URL.revokeObjectURL(url);
         } catch { showToast('Erro ao gerar PDF'); }

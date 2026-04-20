@@ -122,9 +122,9 @@ export default function WhatsAppPage() {
         }
         setActionLoading('create');
         try {
-            const r = await api.post('/whatsapp/criar', { nome: newInstanceName.trim() });
-            if (r.data.qrcode) {
-                setQrCode(r.data.qrcode);
+            const createRes = await api.post('/whatsapp/criar', { nome: newInstanceName.trim() });
+            if (createRes.data.qrcode) {
+                setQrCode(createRes.data.qrcode);
             }
             setNewInstanceName('');
             await checkStatus();

@@ -404,30 +404,30 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
   const handleEdit = async (prop: any) => {
     try {
       setLoading(true);
-      const res = await api.get(`/propostas/${prop.id}`);
+      const editRes = await api.get(`/propostas/${prop.id}`);
 
-      const p = res.data;
-      setSelectedProposta(p);
+      const propData = editRes.data;
+      setSelectedProposta(propData);
       setFormData({
-        ...p,
-        dataProposta: new Date(p.dataProposta).toISOString().split('T')[0],
-        dataValidade: new Date(p.dataValidade).toISOString().split('T')[0],
-        tipoProposta: p.tipoProposta || 'COMERCIAL',
-        escopoTecnico: p.escopoTecnico || '',
-        dimensionamentoEquipe: p.dimensionamentoEquipe || '',
-        qtdEquipamentos: p.qtdEquipamentos || '',
-        diasTrabalho: p.diasTrabalho || '',
+        ...propData,
+        dataProposta: new Date(propData.dataProposta).toISOString().split('T')[0],
+        dataValidade: new Date(propData.dataValidade).toISOString().split('T')[0],
+        tipoProposta: propData.tipoProposta || 'COMERCIAL',
+        escopoTecnico: propData.escopoTecnico || '',
+        dimensionamentoEquipe: propData.dimensionamentoEquipe || '',
+        qtdEquipamentos: propData.qtdEquipamentos || '',
+        diasTrabalho: propData.diasTrabalho || '',
         // New RDO Billing Fields
-        franquiaHoras: p.franquiaHoras || 8.0,
-        adicionalHoraExtra: p.adicionalHoraExtra || 35.0,
-        adicionalNoturno: p.adicionalNoturno || 35.0,
-        adicionalFimSemana: p.adicionalFimSemana || 50.0,
-        minimoHorasChamado: p.minimoHorasChamado || 0,
-        itens: p.itens || [],
-        acessorios: p.acessorios || [],
-        responsabilidades: p.responsabilidades || [],
-        equipe: p.equipe || [],
-        unidadesData: p.unidades?.map((u: any) => ({
+        franquiaHoras: propData.franquiaHoras || 8.0,
+        adicionalHoraExtra: propData.adicionalHoraExtra || 35.0,
+        adicionalNoturno: propData.adicionalNoturno || 35.0,
+        adicionalFimSemana: propData.adicionalFimSemana || 50.0,
+        minimoHorasChamado: propData.minimoHorasChamado || 0,
+        itens: propData.itens || [],
+        acessorios: propData.acessorios || [],
+        responsabilidades: propData.responsabilidades || [],
+        equipe: propData.equipe || [],
+        unidadesData: propData.unidades?.map((u: any) => ({
           id: u.id,
           unidadeNome: u.unidadeNome || '',
           unidadeCNPJ: u.unidadeCNPJ || '',
@@ -497,8 +497,8 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
 
   const handleGerarOS = async (propostaId: string) => {
     try {
-      const res = await api.post(`/propostas/${propostaId}/gerar-os`, {});
-      showToast(`OS ${res.data.codigo} criada com sucesso!`);
+      const osGenRes = await api.post(`/propostas/${propostaId}/gerar-os`, {});
+      showToast(`OS ${osGenRes.data.codigo} criada com sucesso!`);
       fetchData();
     } catch (err: any) {
       showToast(err.response?.data?.error || 'Erro ao gerar OS');
@@ -528,15 +528,15 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
   const handleCopiarProposta = async (prop: any) => {
     try {
       setLoading(true);
-      const res = await api.get(`/propostas/${prop.id}`);
-      const p = res.data;
+      const copyRes = await api.get(`/propostas/${prop.id}`);
+      const copyData = copyRes.data;
 
       // Reset selected proposal for new entry
       setSelectedProposta({ novo: true });
       
       // Deep clone all relevant fields for a pre-filled new draft
       setFormData({
-        ...p,
+        ...copyData,
         id: undefined,
         codigo: `PROP-${new Date().getFullYear()}-000`, // Will be sequenced on backend
         dataProposta: new Date().toISOString().split('T')[0],

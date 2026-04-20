@@ -12,7 +12,7 @@ export default defineConfig({
     sourcemap: false,
     minify: 'esbuild',
     rollupOptions: {
-      maxParallelFileOps: 2,
+      maxParallelFileOps: 1,
     },
   },
 })
