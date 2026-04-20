@@ -500,13 +500,21 @@ export const emitirManual = async (req: AuthRequest, res: Response) => {
         if (fat.tipo === 'NFSE') {
             const empresa = await (prisma as any).empresaCNPJ.findUnique({ where: { cnpj: fat.cnpjFaturamento } });
             if (!empresa) throw new Error('Empresa emissora não encontrada.');
-            if (!empresa.certificadoA1) throw new Error('Certificado A1 (PFX) não configurado para a empresa.');
             
-            const certs = extractFromPfx(empresa.certificadoA1, empresa.senhaCertificado || '');
+            let privatePem = empresa.nfsePrivateKey;
+            let certPem = empresa.nfseCertificate;
+
+            if (!privatePem) {
+                if (!empresa.nfseCertificate) throw new Error('Certificado NFSe não configurado para a empresa.');
+                const certs = extractFromPfx(empresa.nfseCertificate, empresa.nfsePassphrase || '');
+                privatePem = certs.privateKeyPem;
+                certPem = certs.certificatePem;
+            }
+
             const campinasSvc = new NfseCampinasService(
-                (empresa.ambienteNFe as any) === 'PRODUCAO' ? 'PRODUCAO' : 'HOMOLOGACAO',
-                certs.privateKeyPem,
-                certs.certificatePem
+                (empresa.nfseAmbient as any) === 'PRODUCAO' ? 'PRODUCAO' : 'HOMOLOGACAO',
+                privatePem,
+                certPem
             );
 
             const resSoap = await campinasSvc.emitirRps(fat, empresa, fat.cliente);
@@ -551,12 +559,21 @@ export const consultarStatusManual = async (req: AuthRequest, res: Response) => 
         let result;
         if (fat.tipo === 'NFSE') {
             const empresa = await (prisma as any).empresaCNPJ.findUnique({ where: { cnpj: fat.cnpjFaturamento } });
-            if (!empresa || !empresa.certificadoA1) throw new Error('Certificado / Empresa não configurada.');
-            
-            const certs = extractFromPfx(empresa.certificadoA1, empresa.senhaCertificado || '');
+            if (!empresa) throw new Error('Empresa não configurada.');
+
+            let privatePem = empresa.nfsePrivateKey;
+            let certPem = empresa.nfseCertificate;
+
+            if (!privatePem) {
+                if (!empresa.nfseCertificate) throw new Error('Certificado NFSe não configurado.');
+                const certs = extractFromPfx(empresa.nfseCertificate, empresa.nfsePassphrase || '');
+                privatePem = certs.privateKeyPem;
+                certPem = certs.certificatePem;
+            }
+
             const campinasSvc = new NfseCampinasService(
-                (empresa.ambienteNFe as any) === 'PRODUCAO' ? 'PRODUCAO' : 'HOMOLOGACAO',
-                certs.privateKeyPem, certs.certificatePem
+                (empresa.nfseAmbient as any) === 'PRODUCAO' ? 'PRODUCAO' : 'HOMOLOGACAO',
+                privatePem, certPem
             );
             
             // Consultar Lote caso tenhamos o numero do lote no focusRef, ou rps
@@ -603,13 +620,22 @@ export const cancelarManual = async (req: AuthRequest, res: Response) => {
         let result;
         if (fat.tipo === 'NFSE') {
             const empresa = await (prisma as any).empresaCNPJ.findUnique({ where: { cnpj: fat.cnpjFaturamento } });
-            if (!empresa || !empresa.certificadoA1) throw new Error('Certificado / Empresa não configurada.');
+            if (!empresa) throw new Error('Empresa não configurada.');
             if (!fat.numero) throw new Error('Faturamento não possui número de nota emitido para cancelar.');
-            
-            const certs = extractFromPfx(empresa.certificadoA1, empresa.senhaCertificado || '');
+
+            let privatePem = empresa.nfsePrivateKey;
+            let certPem = empresa.nfseCertificate;
+
+            if (!privatePem) {
+                if (!empresa.nfseCertificate) throw new Error('Certificado NFSe não configurado.');
+                const certs = extractFromPfx(empresa.nfseCertificate, empresa.nfsePassphrase || '');
+                privatePem = certs.privateKeyPem;
+                certPem = certs.certificatePem;
+            }
+
             const campinasSvc = new NfseCampinasService(
-                (empresa.ambienteNFe as any) === 'PRODUCAO' ? 'PRODUCAO' : 'HOMOLOGACAO',
-                certs.privateKeyPem, certs.certificatePem
+                (empresa.nfseAmbient as any) === 'PRODUCAO' ? 'PRODUCAO' : 'HOMOLOGACAO',
+                privatePem, certPem
             );
             
             result = await campinasSvc.cancelarNfse(empresa, fat.numero, '2'); // 2 = erro emissao (geral)
