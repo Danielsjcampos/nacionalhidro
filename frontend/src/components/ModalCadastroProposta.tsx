@@ -146,7 +146,7 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
 
   // Handlers
   const addItem = () => {
-    const newItems = [...formData.itens, { id: crypto.randomUUID(), quantidade: 1, tipoCobranca: 'DIARIA', valorAcobrar: 0, mobilizacao: 0, horasPorDia: 10, valorTotal: 0 }];
+    const newItems = [...formData.itens, { id: Math.random().toString(36).substring(2, 9), quantidade: 1, tipoCobranca: 'DIARIA', valorAcobrar: 0, mobilizacao: 0, horasPorDia: 10, valorTotal: 0 }];
     updateCalculations({ ...formData, itens: newItems });
   };
 
@@ -187,7 +187,7 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
             stdResps.forEach((sr: any) => {
                if (!currentResps.some(cr => cr.descricao === (sr.descricao || sr.Responsabilidade?.Responsabilidade))) {
                  currentResps.push({ 
-                   id: crypto.randomUUID(), 
+                   id: Math.random().toString(36).substring(2, 9), 
                    descricao: sr.descricao || sr.Responsabilidade?.Responsabilidade || sr.Responsabilidade || '', 
                    tipo: sr.tipo === 1 ? 'CONTRATANTE' : 'CONTRATADA' 
                  });
@@ -484,7 +484,7 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
                       <button onClick={() => {
                         const desc = window.prompt('Digite a responsabilidade:');
                         if (desc) {
-                          setFormData({...formData, responsabilidades: [...formData.responsabilidades, { id: crypto.randomUUID(), descricao: desc, tipo: 'CONTRATADA' }]});
+                          setFormData({...formData, responsabilidades: [...formData.responsabilidades, { id: Math.random().toString(36).substring(2, 9), descricao: desc, tipo: 'CONTRATADA' }]});
                         }
                       }} className="flex items-center gap-2 text-blue-600 font-black text-[10px] uppercase tracking-wider">
                         <Plus className="w-4 h-4" /> Adicionar Responsabilidade Avulsa

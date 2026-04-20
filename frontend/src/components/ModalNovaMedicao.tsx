@@ -134,7 +134,7 @@ export default function ModalNovaMedicao({ isOpen, onClose, onSuccess }: ModalNo
     };
 
     const handleAddSubitem = () => {
-        setSubitens([...subitens, { id: crypto.randomUUID(), descricao: '', valor: 0, centroCustoId: '' }]);
+        setSubitens([...subitens, { id: Math.random().toString(36).substring(2, 9), descricao: '', valor: 0, centroCustoId: '' }]);
     };
 
     const removeSubitem = (id: string) => {

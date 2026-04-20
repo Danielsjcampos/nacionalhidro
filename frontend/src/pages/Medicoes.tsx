@@ -65,7 +65,7 @@ interface ItemCobranca {
 }
 
 const newSubitem = () => ({ 
-    id: crypto.randomUUID(), 
+    id: Math.random().toString(36).substring(2, 9), 
     descricao: '', 
     valor: '', 
     centroCustoId: '', 
