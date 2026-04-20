@@ -304,99 +304,100 @@ export const gerarPdfLoteOrdemServico = async (ordens: any[]): Promise<Buffer> =
 // PROPOSTA COMERCIAL (PREMIUM)
 // ==========================================
 export const gerarPdfProposta = async (proposta: any, cliente: any, itens: any[], empresa: any): Promise<Buffer> => {
-    const format = (v: any) => {
-        const n = Number(v || 0);
-        return isNaN(n) ? '0,00' : n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    };
 
-    const dataHoje    = moment().format('DD/MM/YYYY');
     const dataValidade = proposta.dataValidade ? moment(proposta.dataValidade).format('DD/MM/YYYY') : moment().add(30, 'days').format('DD/MM/YYYY');
     const validadeTexto = proposta.validadeDias ? `${proposta.validadeDias} dias corridos` : `Válida até ${dataValidade}`;
 
-    const mappedItens = (itens || []).map(item => {
-        const vUnit = Number(item.valorAcobrar || 0);
-        const qty   = Number(item.quantidade   || 1);
-        const mob   = Number(item.mobilizacao  || 0);
-        const uso   = Number(item.usoPrevisto  || 1);
-        const total = (qty * vUnit * uso) + mob;
-
-        return {
-            Equipamento:   item.equipamento,
-            Quantidade:    qty,
-            Area:          item.area || '-',
-            TipoCobranca:  item.tipoCobranca || 'DIA',
-            ValorUnit:     format(vUnit),
-            UsoPrevisto:   uso,
-            Mobilizacao:   format(mob),
-            ValorTotalRow: format(total),
-            Imagem:        item.imagem || item.equipamentoImg || null
-        };
+    // Remove equipamentos duplicados p/ visualização legada
+    const uniqueEquips: any[] = [];
+    (itens || []).forEach((item: any) => {
+        if (!uniqueEquips.some(u => u.equipamento === item.equipamento)) {
+            uniqueEquips.push(item);
+        }
     });
+
+    const equipamentosParaView = uniqueEquips.map(item => ({
+        Equipamento: {
+            UrlImagem: item.imagem || item.equipamentoImg || 'https://prodnhidro.blob.core.windows.net/storage/proposta.png',
+            Equipamento: item.equipamento,
+            Descricao: item.descricao || ''
+        }
+    }));
 
     const equipeRaw = proposta.equipe || [];
     const groupedEquipe: any[] = [];
     if (equipeRaw.length > 0) {
-        const map: { [key: string]: string[] } = {};
+        const map: { [key: string]: any[] } = {};
         equipeRaw.forEach((e: any) => {
-            const key = e.equipamento || 'TODOS';
+            const key = e.equipamento || 'VÁRIOS';
             if (!map[key]) map[key] = [];
-            map[key].push(`${e.quantidade || 1} ${e.funcao || e.cargo || 'Membro'}`);
+            map[key].push({
+                Quantidade: e.quantidade || 1,
+                Cargo: { Descricao: e.cargo || e.funcao || 'Membro' }
+            });
         });
         Object.entries(map).forEach(([equip, members]) => {
-            groupedEquipe.push({ EquipamentoDesc: equip, EquipeMembros: members.join('; ') });
+            groupedEquipe.push({ key: equip, values: members });
         });
     }
 
-    // Fallbacks para objetos nulos (comum em importações legadas)
+    const acessoriosView = (proposta.acessorios || []).map((a: any) => ({ Nome: a.acessorio }));
+
+    const respContratante = (proposta.responsabilidades || [])
+        .filter((r: any) => String(r.tipo || '').toUpperCase().includes('CONTRATANTE'))
+        .map((r: any) => ({ Responsabilidade: { Responsabilidade: r.descricao } }));
+
+    const respContratada = (proposta.responsabilidades || [])
+        .filter((r: any) => !String(r.tipo || '').toUpperCase().includes('CONTRATANTE'))
+        .map((r: any) => ({ Responsabilidade: { Responsabilidade: r.descricao } }));
+
+    // Fallbacks
     const c = cliente || { nome: 'Cliente não informado', razaoSocial: 'Cliente não informado' };
     const emp = empresa || { razaoSocial: 'Nacional Hidro', cnpj: '00.000.000/0000-00' };
 
-    // Buscar assinatura do vendedor
     let signatureUrl = '';
     if (proposta.vendedor) {
         const user = await prisma.user.findFirst({
-            where: { 
-                name: { 
-                    equals: proposta.vendedor,
-                    mode: 'insensitive' 
-                } 
-            },
+            where: { name: { equals: proposta.vendedor, mode: 'insensitive' } },
             select: { signatureUrl: true }
         });
         signatureUrl = user?.signatureUrl || '';
     }
 
-
     const view = {
-        PropostaId:       proposta.codigo || 'S/N',
-        DataHoje:         dataHoje,
-        ClienteNome:      c.razaoSocial || c.nome || 'Cliente',
-        ClienteDoc:       c.documento || '',
-        ClienteEndereco:  [c.endereco, c.logradouro, c.numero, c.complemento, c.bairro, c.cidade, c.estado].filter(Boolean).join(', '),
-        ClienteEmail:     c.email || '',
-        ContatoNome:      proposta.contato || c.nome || '',
-        Introducao:       proposta.introducao || '',
-        Objetivo:         proposta.objetivo ? proposta.objetivo.replace(/\n/g, '<br/>') : '',
-        Itens:            mappedItens,
-        Equipe:           groupedEquipe,
-        Acessorios:       proposta.acessorios || [],
-        RespContratante:  (proposta.responsabilidades || []).filter((r: any) => String(r.tipo || '').toUpperCase().includes('CONTRATANTE')),
-        RespContratada:   (proposta.responsabilidades || []).filter((r: any) => !String(r.tipo || '').toUpperCase().includes('CONTRATANTE')),
-        ValorTotalGeral:  format(proposta.valorTotal || 0),
-        DescricaoValores: proposta.descricaoValores || '',
-        DescricaoGarantia:proposta.descricaoGarantia || '',
-        CondicoesPagamento: proposta.condicoesPagamento || '',
-        ValidadeTexto:    validadeTexto,
-        Vendedor:         proposta.vendedor || '',
-        Assinatura:       signatureUrl,
-        EmpresaNome:      emp.razaoSocial || emp.nome || 'NACIONAL HIDROSANEAMENTO',
-        EmpresaDoc:       emp.cnpj || emp.documento || '',
-        ValorTotalExtenso: numeroExtenso(proposta.valorTotal || 0)
-
+        Id: `${proposta.codigo}${proposta.revisao > 0 ? '/REV ' + proposta.revisao : ''}`,
+        Cidade: 'Campinas',
+        Data: moment(proposta.dataProposta || new Date()).utc().format("DD/MM/YYYY"),
+        Cliente: c.razaoSocial || c.nome || 'Cliente',
+        EnderecoCliente: [c.endereco, c.cidade, c.estado].filter(Boolean).join(', '),
+        Contato: proposta.contato || c.nome || '',
+        SetorContato: '',
+        TelefoneContato: c.telefone || '',
+        CelularContato: c.celular || '',
+        EmailContato: c.email || '',
+        Empresa: {
+            Descricao: emp.razaoSocial || emp.nome,
+            CNPJ: emp.cnpj
+        },
+        Introducao: proposta.introducao || '',
+        Objetivo: proposta.objetivo ? String(proposta.objetivo).replace(/\n/g, "<br />").replace(/R\$/g, '<b>R$').replace(/[)]/g, ')</b>') : '',
+        Equipamentos: equipamentosParaView,
+        EquipesEquipamento: groupedEquipe,
+        EquipesUnicas: [], // Removido compatibilidade estrita Strapi
+        Acessorios: acessoriosView,
+        RespContratante: respContratante,
+        RespContratada: respContratada,
+        DescricaoValores: proposta.descricaoValores ? String(proposta.descricaoValores).replace(/\n/g, "<br />").replace(/R\$/g, '<b>R$').replace(/[)]/g, ')</b>') : '',
+        DescricaoGarantia: proposta.descricaoGarantia || '',
+        CondicaoPagamento: proposta.condicoesPagamento ? String(proposta.condicoesPagamento).replace(/\n/g, "<br />") : '',
+        ValidadeProposta: validadeTexto.replace(/\n/g, "<br />"),
+        Vendedor: proposta.vendedor || '',
+        Assinatura: signatureUrl
     };
 
     const templateHtml = await getTemplateHtml('proposta.html');
-    const rendered = mustache.render(templateHtml, view);
+    let rendered = mustache.render(templateHtml, view);
+    rendered = rendered.replace('<script id="template" type="x-tmpl-mustache">', '<div>').replace('</script><!--remove-->', '</div>');
     return generatePdfFromHtml(rendered);
 };
 
