@@ -236,7 +236,7 @@ export default function EstoqueEquipamentos() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Tem certeza que deseja excluir este equipamento?')) return;
+        if (!window.confirm('Tem certeza que deseja excluir este equipamento?')) return;
         try {
             await api.delete(`/equipamentos/${id}`);
             fetchEquip();

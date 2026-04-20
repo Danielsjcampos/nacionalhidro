@@ -36,7 +36,7 @@ export default function TriagemIAPage() {
     };
 
     const handleAprovarTodos = async () => {
-        if (!confirm('Aprovar TODOS os candidatos com score ≥80% e criar como funcionários?')) return;
+        if (!window.confirm('Aprovar TODOS os candidatos com score ≥80% e criar como funcionários?')) return;
         setBulkApproving(true);
         try {
             const res = await api.post('/triagem-ia/aprovar-todos');

@@ -143,7 +143,7 @@ export default function Logistica() {
    };
 
    const handleDeleteVeiculo = async (id: string) => {
-      if (!confirm('Deseja realmente excluir este veículo? Esta ação não pode ser desfeita.')) return;
+      if (!window.confirm('Deseja realmente excluir este veículo? Esta ação não pode ser desfeita.')) return;
       try {
          await api.delete(`/logistica/veiculos/${id}`);
          fetchData();

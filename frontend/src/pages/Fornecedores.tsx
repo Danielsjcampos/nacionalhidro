@@ -54,7 +54,7 @@ export default function Fornecedores() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Excluir fornecedor?')) return;
+        if (!window.confirm('Excluir fornecedor?')) return;
         await api.delete(`/fornecedores/${id}`);
         fetchAll();
     };

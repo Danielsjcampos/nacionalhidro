@@ -108,7 +108,7 @@ export default function FeriasPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Deseja remover este registro de férias?')) return;
+        if (!window.confirm('Deseja remover este registro de férias?')) return;
         try {
             await api.delete(`/ferias/${id}`);
             fetchAll();

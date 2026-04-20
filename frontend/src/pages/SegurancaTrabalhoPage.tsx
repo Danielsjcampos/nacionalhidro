@@ -70,7 +70,7 @@ export default function SegurancaTrabalhoPage() {
     };
 
     const handleDeleteEpi = async (id: string) => {
-        if (!confirm('Excluir EPI do catálogo?')) return;
+        if (!window.confirm('Excluir EPI do catálogo?')) return;
         await api.delete(`/epis/${id}`);
         loadData();
     };
@@ -106,7 +106,7 @@ export default function SegurancaTrabalhoPage() {
     };
 
     const handleDevolver = async (id: string) => {
-        if (!confirm('Marcar EPI como devolvido?')) return;
+        if (!window.confirm('Marcar EPI como devolvido?')) return;
         await api.patch(`/epis/entregas/${id}/devolver`);
         loadData();
     };

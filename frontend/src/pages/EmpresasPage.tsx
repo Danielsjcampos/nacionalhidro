@@ -91,7 +91,7 @@ export default function EmpresasPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Tem certeza que deseja remover este CNPJ? Histórico de faturamento será mantido mas ele não aparecerá mais nos novos faturamentos.')) return;
+        if (!window.confirm('Tem certeza que deseja remover este CNPJ? Histórico de faturamento será mantido mas ele não aparecerá mais nos novos faturamentos.')) return;
         try {
             await api.delete(`/empresas/${id}`);
             fetchIndicadores();

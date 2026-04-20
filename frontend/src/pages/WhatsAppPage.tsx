@@ -89,7 +89,7 @@ export default function WhatsAppPage() {
     };
 
     const handleDisconnect = async () => {
-        if (!confirm('Tem certeza que deseja DESCONECTAR a instância WhatsApp? As mensagens automáticas deixarão de funcionar.')) return;
+        if (!window.confirm('Tem certeza que deseja DESCONECTAR a instância WhatsApp? As mensagens automáticas deixarão de funcionar.')) return;
         setActionLoading('disconnect');
         try {
             await api.post('/whatsapp/desconectar');
@@ -102,7 +102,7 @@ export default function WhatsAppPage() {
     };
 
     const handleDeleteInstance = async () => {
-        if (!confirm('⚠️ ATENÇÃO: Isso vai EXCLUIR a instância WhatsApp permanentemente! Será necessário criar uma nova instância e reconectar. Continuar?')) return;
+        if (!window.confirm('⚠️ ATENÇÃO: Isso vai EXCLUIR a instância WhatsApp permanentemente! Será necessário criar uma nova instância e reconectar. Continuar?')) return;
         setActionLoading('delete');
         try {
             await api.delete('/whatsapp/excluir');
@@ -162,7 +162,7 @@ export default function WhatsAppPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Excluir automação?')) return;
+        if (!window.confirm('Excluir automação?')) return;
         await api.delete(`/whatsapp/automacoes/${id}`);
         fetchAll();
     };

@@ -68,7 +68,7 @@ export default function Usuarios() {
   };
 
   const handleDeleteUser = async (id: string) => {
-    if (!confirm('Deseja remover este membro da equipe? O acesso será revogado imediatamente.')) return;
+    if (!window.confirm('Deseja remover este membro da equipe? O acesso será revogado imediatamente.')) return;
     try {
       await api.delete(`/equipe/members/${id}`);
       fetchData();
@@ -78,7 +78,7 @@ export default function Usuarios() {
   };
 
   const handleDeleteCategoria = async (id: string) => {
-    if (!confirm('Deseja excluir esta categoria? Isso pode afetar usuários vinculados.')) return;
+    if (!window.confirm('Deseja excluir esta categoria? Isso pode afetar usuários vinculados.')) return;
     try {
       await api.delete(`/categorias/${id}`);
       fetchData();

@@ -125,7 +125,7 @@ const AcessoriosTab = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Deseja realmente excluir este acessório?')) return;
+    if (!window.confirm('Deseja realmente excluir este acessório?')) return;
     try { await api.delete(`/acessorios/${id}`); fetchItems(); }
     catch (e) { showToast('Erro ao excluir acessório.'); }
   };
@@ -197,7 +197,7 @@ const ResponsabilidadesTab = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Deseja realmente excluir esta responsabilidade?')) return;
+    if (!window.confirm('Deseja realmente excluir esta responsabilidade?')) return;
     try { await api.delete(`/responsabilidades/${id}`); fetchItems(); }
     catch (e) { showToast('Erro ao excluir responsabilidade.'); }
   };
@@ -308,7 +308,7 @@ const CargosTab = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Deseja realmente excluir este cargo?')) return;
+    if (!window.confirm('Deseja realmente excluir este cargo?')) return;
     try { await api.delete(`/cargos/${id}`); fetchItems(); }
     catch (e) { showToast('Erro ao excluir cargo.'); }
   };

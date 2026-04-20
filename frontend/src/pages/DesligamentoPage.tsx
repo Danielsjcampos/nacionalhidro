@@ -122,7 +122,7 @@ export default function DesligamentoPage() {
 
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Remover registro de desligamento?')) return;
+        if (!window.confirm('Remover registro de desligamento?')) return;
         try {
             await api.delete(`/desligamentos/${id}`);
             fetchAll();

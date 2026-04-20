@@ -116,7 +116,7 @@ export default function RDOPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Excluir este RDO?')) return;
+        if (!window.confirm('Excluir este RDO?')) return;
         await api.delete(`/rdos/${id}`);
         if (selectedOS) fetchRDOs(selectedOS.id);
     };

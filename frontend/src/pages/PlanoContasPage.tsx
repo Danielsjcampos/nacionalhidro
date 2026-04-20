@@ -41,7 +41,7 @@ export default function PlanoContasPage() {
     useEffect(() => { fetchTree(); }, [fetchTree]);
 
     const handleSeed = async () => {
-        if (!confirm('Importar plano de contas padrão?')) return;
+        if (!window.confirm('Importar plano de contas padrão?')) return;
         try {
             await api.post('/plano-contas/seed');
             fetchTree();
@@ -84,7 +84,7 @@ export default function PlanoContasPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Excluir esta conta?')) return;
+        if (!window.confirm('Excluir esta conta?')) return;
         try {
             await api.delete(`/plano-contas/${id}`);
             fetchTree();

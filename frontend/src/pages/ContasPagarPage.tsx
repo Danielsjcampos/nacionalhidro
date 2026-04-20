@@ -167,7 +167,7 @@ export default function ContasPagarPage() {
     };
 
     const handleCancelar = async (id: string) => {
-        if (!confirm('Cancelar este título?')) return;
+        if (!window.confirm('Cancelar este título?')) return;
         await api.patch(`/financeiro/contas-pagar/${id}/cancelar`, { motivo: 'Cancelado pelo usuário' });
         fetchAll();
     };

@@ -70,7 +70,7 @@ export default function PedidosCompraPage() {
   };
 
   const handleStatusChange = async (id: string, status: string) => {
-    if (!confirm(`Deseja alterar o status do pedido para ${status}?`)) return;
+    if (!window.confirm(`Deseja alterar o status do pedido para ${status}?`)) return;
     try {
       const res = await api.patch(`/pedidos-compra/${id}/status`, { status });
       if (status === 'APROVADO') {
@@ -85,7 +85,7 @@ export default function PedidosCompraPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Deseja realmente excluir este pedido? A exclusão afeta o Contas a Pagar vinculado.')) return;
+    if (!window.confirm('Deseja realmente excluir este pedido? A exclusão afeta o Contas a Pagar vinculado.')) return;
     try {
       await api.delete(`/pedidos-compra/${id}`);
       fetchData();

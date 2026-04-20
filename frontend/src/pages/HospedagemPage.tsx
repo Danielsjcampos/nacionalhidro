@@ -93,7 +93,7 @@ export default function HospedagemPage() {
     };
 
     const handleDeleteH = async (id: string) => {
-        if (!confirm('Excluir hospedagem?')) return;
+        if (!window.confirm('Excluir hospedagem?')) return;
         await api.delete(`/hospedagens/${id}`);
         fetchHospedagens(); fetchResumo();
     };
@@ -111,7 +111,7 @@ export default function HospedagemPage() {
     };
 
     const handleDeleteP = async (id: string) => {
-        if (!confirm('Excluir passagem?')) return;
+        if (!window.confirm('Excluir passagem?')) return;
         await api.delete(`/hospedagens/passagens/${id}`);
         fetchPassagens(); fetchResumo();
     };

@@ -248,7 +248,7 @@ export default function FrotaVeiculos() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Deseja excluir este veículo? O histórico de manutenções e OS será afetado.')) return;
+        if (!window.confirm('Deseja excluir este veículo? O histórico de manutenções e OS será afetado.')) return;
         try {
             await api.delete(`/logistica/veiculos/${id}`);
             fetchVeiculos();

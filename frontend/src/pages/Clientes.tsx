@@ -101,7 +101,7 @@ export default function Clientes() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este cliente?')) return;
+    if (!window.confirm('Tem certeza que deseja excluir este cliente?')) return;
     try {
       await api.delete(`/clientes/${id}`);
       setIsEditing(false);

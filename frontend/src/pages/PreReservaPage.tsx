@@ -83,7 +83,7 @@ export default function PreReservaPage() {
     };
 
     const handleConfirmar = async (id: string) => {
-        if (!confirm('Confirmar esta pré-reserva?')) return;
+        if (!window.confirm('Confirmar esta pré-reserva?')) return;
         try {
             await api.patch(`/pre-reservas/${id}/confirmar`);
             fetchReservas();

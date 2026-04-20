@@ -74,7 +74,7 @@ export default function ContasBancariasPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Desativar esta conta bancária?')) return;
+        if (!window.confirm('Desativar esta conta bancária?')) return;
         await api.delete(`/contas-bancarias/${id}`);
         fetchData();
     };
