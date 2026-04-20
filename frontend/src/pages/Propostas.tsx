@@ -1047,8 +1047,7 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
               </div>
             )}
           </div>
-        </div>
-      </>
+        </>
       ) : (
         <ModalCadastroProposta
           isOpen={isEditing && !!selectedProposta}
@@ -1070,8 +1069,9 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
           }}
         />
       )}
+    </div>
 
-      {/* MODAL DISPARO EQUIPE */}
+    {/* MODAL DISPARO EQUIPE */}
       {isDispatchModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">

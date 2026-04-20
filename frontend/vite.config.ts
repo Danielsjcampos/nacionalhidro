@@ -9,9 +9,8 @@ export default defineConfig({
     tailwindcss(),
   ],
   build: {
-    sourcemap: false,
-    minify: false,
-    cssMinify: false,
+    sourcemap: true,
+    minify: 'esbuild',
     rollupOptions: {
       maxParallelFileOps: 1,
     },
