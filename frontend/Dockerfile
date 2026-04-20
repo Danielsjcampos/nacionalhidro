@@ -1,4 +1,4 @@
-FROM node:22-alpine AS builder
+FROM node:22-slim AS builder
 
 # Limite de memória e stack para evitar crash em VPS com pouca RAM
 ENV NODE_OPTIONS="--max-old-space-size=4096 --stack-size=10000"

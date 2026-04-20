@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build --logLevel info",
+    "build": "NODE_OPTIONS='--max-old-space-size=4096 --stack-size=10000' vite build --logLevel info",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
