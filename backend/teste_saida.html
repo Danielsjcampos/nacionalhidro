@@ -38,95 +38,69 @@
 
 <body class="body">
 	<div id="target" style="width: 100%;">
-    <script id="template" type="x-tmpl-mustache">
+    <div>
       <div style="display: non-flexbox; width: 100%; margin-right: 5%">
         <div class="header">
           <img max-width:100% style="margin-bottom: 1%" src="https://prodnhidro.blob.core.windows.net/storage/proposta.png">
         </div>
         <div style="display: inline-flex;width: 100%;height: 70px; margin-top: 2%">
           <div style="width: 40%">
-            <p style="margin-left: 15%; margin-top: 2%"><b>Nº {{ Id }}</b></p>
+            <p style="margin-left: 15%; margin-top: 2%"><b>Nº PROP-LEGADO-3269</b></p>
           </div>
           <div class="page" style="color: red; width: 60%; text-align: end">
-            <p style="font-size:18px">{{ Cidade }}, {{Data}}</p>
+            <p style="font-size:18px">Campinas, 17&#x2F;04&#x2F;2026</p>
           </div>
         </div>
         <div class="page" style="border-bottom: 1px dotted; margin-bottom: 1%">
           <p>À</p>
-          <h4><b>{{ Cliente }}</b></h4>
-          <p class="text-secondary">{{ EnderecoCliente }}</p> <br />
-          <p style="margin-bottom: 0">A/C Sr(a). <span style="margin-left:30px" class="text-secondary"><strong>{{ Contato }}</strong> | {{ SetorContato }}</span></p>
-          <p style="margin-bottom: 0" class="text-secondary">Telefone: <span style="margin-left:33px">{{ TelefoneContato }} | Celular: {{CelularContato}}</span></p>
-          <p class="text-secondary" style="margin-bottom: auto">E-mail: <span style="margin-left:48px">{{ EmailContato }}</span></p>
+          <h4><b>ROUSSELOT  GELATINAS DO BRASIL LTDA</b></h4>
+          <p class="text-secondary"></p> <br />
+          <p style="margin-bottom: 0">A/C Sr(a). <span style="margin-left:30px" class="text-secondary"><strong></strong> | </span></p>
+          <p style="margin-bottom: 0" class="text-secondary">Telefone: <span style="margin-left:33px"> | Celular: </span></p>
+          <p class="text-secondary" style="margin-bottom: auto">E-mail: <span style="margin-left:48px"></span></p>
         </div>
         <div class="page">
-          <p style="margin-right: 15%">{{ Introducao }}</p>
+          <p style="margin-right: 15%"></p>
         </div>
         <div class="page">
           <h6 class="titulo-nome">1. Objetivo:</h6>
-          <p style="margin-right: 15%"> {{{Objetivo}}}</p>
+          <p style="margin-right: 15%"> </p>
         </div>
         <div class="page" style="margin-bottom: 1%">
           <h6 class="titulo-nome">2. Equipamentos:</h6>
-          {{#Equipamentos}}
-          <div class="d-table mt-5 wrapper" style="width: 100%">
-            <div class="d-table-cell pr-5" style="width: 40%">
-              <img src={{ Equipamento.UrlImagem }}
-                alt="Nacional Hidro" style="width: 400px; height: 220px; object-fit: fill;">
-            </div>
-            <div class="d-table-cell" style="width: 60%; vertical-align: top">
-              <p style="bottom: 75px; margin-right: 25%; font-size: small; text-align: justify"><u class="font-weight-bold">{{ Equipamento.Equipamento }}</u>: {{ Equipamento.Descricao }}</p>
-            </div>
-          </div>
-          {{/Equipamentos}}
         </div>
         <div class="page">
           <h6 class="titulo-nome">3. Equipe de trabalho por equipamento e por período:</h6>
-          {{#EquipesEquipamento}}
-          <p style="margin-right: 15%">{{ key }}: {{#values}}{{ Quantidade }} {{ Cargo.Descricao }}; {{/values}}</p>
-          {{/EquipesEquipamento}}
-          {{#EquipesUnicas}}
-          <p style="margin-right: 15%">{{ Quantidade }} {{ Cargo.Descricao }}</p>
-          {{/EquipesUnicas}}
         </div>
         <div class="page">
           <h6 class="titulo-nome">4. Acessórios:</h6>
           <ul class="pl-5" style="list-style-type:circle">
-            {{#Acessorios}}
-            <li style="margin-right: 15%">{{ Nome }}</li>
-            {{/Acessorios}}
           </ul>
         </div>
         <div class="page">
           <h6 class="titulo-nome">5. Responsabilidades:</h6>
           <p class="font-weight-bold mt-3 pl-2">Contratante:</p>
           <ul>
-            {{#RespContratante}}
-            <li style="margin-right: 25%">{{ Responsabilidade.Responsabilidade }} </li>
-            {{/RespContratante}}
           </ul>
           <p class="font-weight-bold mt-3 pl-2">Contratada (Nacional Hidro):</p>
           <ul>
-            {{#RespContratada}}
-            <li style="margin-right: 25%">{{ Responsabilidade.Responsabilidade }} </li>
-            {{/RespContratada}}
           </ul>
         </div>
         <div class="page">
           <h6 class="titulo-nome myDiv">6. Valores Comerciais:</h6>
-          <pre style="margin-right: 15%;border: none; font-size:1rem; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji'">{{{DescricaoValores}}}</pre>
+          <pre style="margin-right: 15%;border: none; font-size:1rem; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji'">     * Valor diária por 1 HIDROJATO COMBINADO ( HIDRO E VACUO)</b>, horário comercial <br /><b>R$ 6550.00  (seis mil quinhentos e cinquenta reais )</b><br /><br />     * Valor diária por 1 AUTO VACUO, horário comercial <br /><b>R$ 5550.00  (cinco mil quinhentos e cinquenta reais )</b><br /></pre>
         </div>
         <div class="page">
           <h6 class="titulo-nome">7. Garantia de Atendimento:</h6>
-          <pre style="margin-right: 15%;border: none; font-size:1rem; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji'">{{{DescricaoGarantia}}} </pre>
+          <pre style="margin-right: 15%;border: none; font-size:1rem; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji'"> </pre>
         </div>
         <div class="page">
           <h6 class="titulo-nome">8. Condição de Pagamento:</h6>
-          <div style="margin-right: 15%">{{{CondicaoPagamento}}} </div><br />
+          <div style="margin-right: 15%">Faturamento para 90 (noventa) dias após execução dos serviços.<br /><br />Após execução, será enviado relatório de prestação de serviço e depois de aceite, emitido a Nota Fiscal Eletrônica e boleto bancário, será enviado ao email da Contratante Cadastrada.<br /><br />Nota: Prazo para verificação e aceite dos serviços de no Maximo 02 (dois) dias, caso não tenhamos o aceite a nota será emitida automaticamente.<br /><br />Dimensionamento em Nota Fiscal:<br /><br />O total dos serviços será emitido em 02 notas, sendo:<br />90% do valor, referente ao recibo de locação. (R$ 10890.00)<br />10% do valor, referente a manuseio do equipamento, nota fiscal de serviço. (R$ 1210.00)<br /><br />OBS: Para atividades de locação de BENS MOVEIS, por força de veto Presidencial, foi retirado do campo de incidência o ISS. Conforme disposições do RISS consubstanciadas no decreto municipal 44.540/2004, A empresa não poderá emitir nota fiscal para atividades de locação de bens móveis tendo que emitir recibos para documentar a mesma. </div><br />
         </div>
         <div class="page">
           <h6 class="titulo-nome">9. Validade da Proposta:</h6>
-          <p style="margin-right: 15%">{{ ValidadeProposta }} </p>
+          <p style="margin-right: 15%"> </p>
         </div>
         <div class="page">
           <p style="margin-right: 15%">Colocamo-nos ao Vosso inteiro dispor para qualquer esclarecimento técnico e/ou comercial que se faça
@@ -134,14 +108,14 @@
           <p>Grato,</p>
         </div>
         <div style="margin-bottom:2%" class="page">
-          <img width="30%" src={{Assinatura}}>
+          <img width="30%" src=>
         </div>
         <div class="page">
-          <h6>{{ Empresa.Descricao }} - {{Empresa.CNPJ }}</h6>
+          <h6> - </h6>
         </div>
   
       </div>
-    </script><!--remove-->
+    </div>
   </div>
 </body>
 </html>

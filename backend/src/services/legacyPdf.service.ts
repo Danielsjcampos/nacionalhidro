@@ -370,7 +370,7 @@ export const gerarPdfProposta = async (proposta: any, cliente: any, itens: any[]
         Data: moment(proposta.dataProposta || new Date()).utc().format("DD/MM/YYYY"),
         Cliente: c.razaoSocial || c.nome || 'Cliente',
         EnderecoCliente: [c.endereco, c.cidade, c.estado].filter(Boolean).join(', '),
-        Contato: proposta.contato || c.nome || '',
+        Contato: proposta.contato || c.nome || c.razaoSocial || '',
         SetorContato: '',
         TelefoneContato: c.telefone || '',
         CelularContato: c.celular || '',
