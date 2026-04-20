@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { HardHat, Trash2, Plus, X, FileText, CheckCircle, AlertTriangle, ShieldCheck } from 'lucide-react';
 import api from '../services/api';
+import { useToast } from '../contexts/ToastContext';
 
 interface EPI { id: string; nome: string; descricao: string; ca: string; validadeDias: number; }
 interface EPIEntregue { id: string; funcionarioId: string; funcionario: { nome: string }; epiId: string; epi: EPI; dataEntrega: string; quantidade: number; tamanho: string; devolvido: boolean; dataDevolucao: string; }
@@ -9,6 +10,7 @@ interface TreinamentoRealizado { id: string; funcionarioId: string; funcionario:
 interface Funcionario { id: string; nome: string; }
 
 export default function SegurancaTrabalhoPage() {
+    const { showToast } = useToast();
     const [tab, setTab] = useState<'epi-entregas' | 'epi-catalogo' | 'treinamento-realizados' | 'treinamento-catalogo'>('epi-entregas');
     const [loading, setLoading] = useState(false);
     
@@ -82,10 +84,10 @@ export default function SegurancaTrabalhoPage() {
             loadData();
         } catch (error: any) {
             if (error.response?.status === 403) {
-                alert(error.response.data.error || 'BLOQUEIO DE COMPLIANCE: Funcionário irregular.');
+                showToast(error.response.data.error || 'BLOQUEIO DE COMPLIANCE: Funcionário irregular.', 'error');
             } else {
                 console.error(error);
-                alert('Erro ao registrar entrega. Verifique os dados.');
+                showToast('Erro ao registrar entrega. Verifique os dados.', 'error');
             }
         }
     };

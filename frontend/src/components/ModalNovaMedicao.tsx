@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
     X, Search, Filter, CheckCircle2, ChevronRight, ChevronLeft, 
-    Calculator, Mail, Info, Plus, Trash2, FileText, AlertTriangle 
+    Calculator, Mail, Info, Plus, Trash2, FileText, AlertTriangle, 
+    Package 
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
@@ -677,4 +678,3 @@ export default function ModalNovaMedicao({ isOpen, onClose, onSuccess }: ModalNo
     );
 }
 
-interface Package {}
