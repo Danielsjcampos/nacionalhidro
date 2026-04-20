@@ -10,9 +10,11 @@ export default defineConfig({
   ],
   build: {
     sourcemap: false,
-    minify: 'esbuild',
+    minify: false,
+    cssMinify: false,
     rollupOptions: {
       maxParallelFileOps: 1,
     },
+    chunkSizeWarningLimit: 2000,
   },
 })
