@@ -86,7 +86,8 @@ async function gerarCodigoOS(): Promise<string> {
 export const createOS = async (req: AuthRequest, res: Response) => {
   try {
     const {
-      servicos, dataInicial, entrada, saida, almoco, propostaId, escala, ...rest
+      servicos, dataInicial, entrada, saida, almoco, propostaId, escala,
+      veiculosEscala, observacoesEscala, ...rest
     } = req.body;
 
     // NOVA REGRA: Toda O.S. deve ser gerada a partir de uma Proposta Aprovada
@@ -199,7 +200,9 @@ export const createOS = async (req: AuthRequest, res: Response) => {
             empresa: rest.empresa || "NACIONAL HIDROSANEAMENTO EIRELI EPP",
             status: "AGENDADO",
             tipoAgendamento: "CONFIRMADO",
-            funcionarios: funcs as any
+            funcionarios: funcs as any,
+            veiculoId: veiculosEscala?.[0]?.veiculoId || undefined,
+            observacoes: observacoesEscala || undefined,
           }
         });
       }
@@ -231,6 +234,7 @@ export const updateOS = async (req: AuthRequest, res: Response) => {
     const {
       servicos, dataInicial, entrada, saida, almoco, escala, justificativaCancelamento,
       materiaisUtilizados, // [{ produtoId, quantidade, darBaixaEstoque? }]
+      veiculosEscala, observacoesEscala,
       ...rest
     } = req.body;
 
@@ -331,7 +335,9 @@ export const updateOS = async (req: AuthRequest, res: Response) => {
               empresa: updatedOs.empresa || "NACIONAL HIDROSANEAMENTO EIRELI EPP",
               status: "AGENDADO",
               tipoAgendamento: "CONFIRMADO",
-              funcionarios: funcs
+              funcionarios: funcs,
+              veiculoId: veiculosEscala?.[0]?.veiculoId || undefined,
+              observacoes: observacoesEscala || undefined,
             }
           });
         }

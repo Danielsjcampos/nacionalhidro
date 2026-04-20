@@ -76,6 +76,7 @@ export default function OS() {
   const [printOs, setPrintOs] = useState<any>(null);
   const [produtos, setProdutos] = useState<any[]>([]);
   const [materiaisUtilizados, setMateriaisUtilizados] = useState<any[]>([]);
+  const [veiculos, setVeiculos] = useState<any[]>([]);
 
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelJustification, setCancelJustification] = useState('');
@@ -119,7 +120,9 @@ export default function OS() {
     acompanhante: '',
     servicos: [{ equipamento: '', descricao: '' }],
     escala: [],
+    veiculosEscala: [] as { veiculoId: string; manutencao: boolean }[],
     observacoes: '',
+    observacoesEscala: '',
     minimoHoras: '',
     entrada: '',
     saida: '',
@@ -133,10 +136,11 @@ export default function OS() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [osRes, propsRes, prodRes] = await Promise.all([
+      const [osRes, propsRes, prodRes, veicRes] = await Promise.all([
         api.get('/os').catch(() => ({ data: [] })),
         api.get('/propostas').catch(() => ({ data: [] })),
         api.get('/estoque').catch(() => ({ data: [] })),
+        api.get('/logistica/veiculos').catch(() => ({ data: [] })),
       ]);
 
       setOsList(Array.isArray(osRes.data) ? osRes.data : []);
@@ -156,6 +160,7 @@ export default function OS() {
       });
       setPropostas(Array.from(mapP.values()));
       setProdutos(Array.isArray(prodRes.data) ? prodRes.data : []);
+      setVeiculos(Array.isArray(veicRes.data) ? veicRes.data : []);
     } catch (err) {
       console.error('Erro ao buscar dados da OS', err);
       setOsList([]);
@@ -402,6 +407,8 @@ export default function OS() {
         ? prop.itens.map((i: any) => ({ equipamento: i.equipamento || '', descricao: i.descricao || '' }))
         : [{ equipamento: '', descricao: '' }],
       observacoes: '',
+      observacoesEscala: '',
+      veiculosEscala: [],
       minimoHoras: '',
       entrada: '',
       saida: '',
@@ -428,6 +435,8 @@ export default function OS() {
         almoco: d.almoco ? new Date(d.almoco).toISOString().slice(0, 16) : '',
         servicos: d.servicos?.length ? d.servicos : [{ equipamento: '', descricao: '' }],
         clienteNome: d.cliente?.nome || '',
+        veiculosEscala: d.veiculosEscala || [],
+        observacoesEscala: d.observacoesEscala || '',
       });
       setModalTab('servicos');
       setMateriaisUtilizados([]);
@@ -492,6 +501,8 @@ export default function OS() {
         status,
         horasTotais: horas.diffRaw > 0 ? Number(horas.diffRaw.toFixed(2)) : undefined,
         horasAdicionais: horas.adicRaw > 0 ? Number(horas.adicRaw.toFixed(2)) : undefined,
+        veiculosEscala: form.veiculosEscala?.length > 0 ? form.veiculosEscala : undefined,
+        observacoesEscala: form.observacoesEscala || undefined,
       };
       // Incluir materiais utilizados se estiver baixando com estoque
       if (baixarEstoque && materiaisUtilizados.length > 0) {
@@ -1069,9 +1080,10 @@ export default function OS() {
 
                     {modalTab === 'escala' && (
                       <div className="space-y-4">
+                        {/* ── Funcionários (Equipe) ── */}
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                            <ChevronRight className="w-3 h-3 text-blue-500" /> Montar Equipe
+                            <ChevronRight className="w-3 h-3 text-blue-500" /> Funcionários
                           </p>
                           <p className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">
                             {form.escala?.length || 0} selecionado(s)
@@ -1081,7 +1093,6 @@ export default function OS() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-[300px] overflow-y-auto pr-2">
                           {(disponibilidades || []).map(f => {
                             const isSelected = form.escala?.includes(f.id);
-                            
                             const isBlocked = f.disponibilidade === 'INDISPONIVEL';
 
                             return (
@@ -1130,6 +1141,85 @@ export default function OS() {
                               Nenhum funcionário encontrado ou carregando...
                             </div>
                           )}
+                        </div>
+
+                        {/* ── Veículos (Escala) — Gap #1 Legacy Parity ── */}
+                        <div className="pt-4 border-t border-slate-200">
+                          <div className="flex items-center justify-between mb-3">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                              <ChevronRight className="w-3 h-3 text-blue-500" /> Veículos
+                            </p>
+                          </div>
+                          {(form.veiculosEscala || []).map((v: any, idx: number) => {
+                            const veic = veiculos.find((x: any) => x.id === v.veiculoId);
+                            return (
+                              <div key={idx} className="grid grid-cols-[2fr_1fr_auto] gap-2 mb-2 items-end">
+                                <FormField label={idx === 0 ? 'Placa / Veículo' : ''}>
+                                  <select
+                                    value={v.veiculoId || ''}
+                                    onChange={e => setForm((f: any) => {
+                                      const arr = [...(f.veiculosEscala || [])];
+                                      arr[idx] = { ...arr[idx], veiculoId: e.target.value };
+                                      return { ...f, veiculosEscala: arr };
+                                    })}
+                                    className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400"
+                                  >
+                                    <option value="">Selecione...</option>
+                                    {veiculos.map((vc: any) => (
+                                      <option key={vc.id} value={vc.id}>
+                                        {vc.placa} — {vc.modelo} {vc.status === 'MANUTENCAO' ? '🔧' : ''}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </FormField>
+                                <FormField label={idx === 0 ? 'Manutenção' : ''}>
+                                  <select
+                                    value={String(v.manutencao || false)}
+                                    onChange={e => setForm((f: any) => {
+                                      const arr = [...(f.veiculosEscala || [])];
+                                      arr[idx] = { ...arr[idx], manutencao: e.target.value === 'true' };
+                                      return { ...f, veiculosEscala: arr };
+                                    })}
+                                    className={`w-full border rounded px-2 py-2 text-xs outline-none focus:border-blue-400 ${
+                                      v.manutencao ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-slate-300'
+                                    }`}
+                                  >
+                                    <option value="false">Não</option>
+                                    <option value="true">Sim</option>
+                                  </select>
+                                </FormField>
+                                <button
+                                  onClick={() => setForm((f: any) => ({
+                                    ...f, veiculosEscala: f.veiculosEscala.filter((_: any, i: number) => i !== idx)
+                                  }))}
+                                  className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                          <button
+                            onClick={() => setForm((f: any) => ({
+                              ...f, veiculosEscala: [...(f.veiculosEscala || []), { veiculoId: '', manutencao: false }]
+                            }))}
+                            className="text-[11px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 mt-1"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Adicionar veículo
+                          </button>
+                        </div>
+
+                        {/* ── Observações da Escala — Gap #4 Legacy Parity ── */}
+                        <div className="pt-4 border-t border-slate-200">
+                          <FormField label="Observações da Escala">
+                            <textarea
+                              value={form.observacoesEscala || ''}
+                              onChange={e => setForm((f: any) => ({ ...f, observacoesEscala: e.target.value }))}
+                              rows={3}
+                              placeholder="Observações específicas da escala..."
+                              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-blue-400 resize-none"
+                            />
+                          </FormField>
                         </div>
                       </div>
                     )}

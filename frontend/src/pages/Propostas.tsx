@@ -1090,9 +1090,9 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
 
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
 
-            {/* ROW 1: Código, Datas, Vendedor, Situação */}
+            {/* ROW 1: Código, Revisão, Classificação, Datas, Vendedor, Empresa, Situação */}
             <div className="grid grid-cols-12 gap-3">
-              <div className="col-span-2 space-y-1">
+              <div className="col-span-1 space-y-1">
                 <label htmlFor="codigo" className="text-[9px] font-bold text-slate-600 uppercase">Código</label>
                 <input
                   id="codigo"
@@ -1100,6 +1100,16 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
                   className="w-full bg-slate-100 border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-500 font-medium outline-none"
                 />
               </div>
+              {(formData.revisao > 0 || isEditing) && (
+                <div className="col-span-1 space-y-1">
+                  <label htmlFor="revisao" className="text-[9px] font-bold text-slate-600 uppercase">Revisão</label>
+                  <input
+                    id="revisao"
+                    type="number" disabled value={formData.revisao || 0}
+                    className="w-full bg-slate-100 border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-500 font-medium outline-none"
+                  />
+                </div>
+              )}
               <div className="col-span-2 space-y-1">
                 <label htmlFor="tipoProposta" className="text-[9px] font-bold text-slate-600 uppercase">Classificação</label>
                 <select
@@ -1130,7 +1140,7 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
                   className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400"
                 />
               </div>
-              <div className="col-span-3 space-y-1">
+              <div className="col-span-2 space-y-1">
                 <label htmlFor="vendedor" className="text-[9px] font-bold text-slate-600 uppercase">Vendedor</label>
                 <select
                   id="vendedor"
@@ -1142,6 +1152,21 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
                   {vendedoresOptions.map((v: any) => <option key={v.id} value={v.name}>{v.name?.toUpperCase()}</option>)}
                 </select>
               </div>
+              <div className="col-span-2 space-y-1">
+                <label htmlFor="empresa" className="text-[9px] font-bold text-slate-600 uppercase">Empresa</label>
+                <select
+                  id="empresa"
+                  value={formData.empresa || ''}
+                  onChange={(e) => setFormData({ ...formData, empresa: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400"
+                >
+                  <option value="">Selecione...</option>
+                  <option value="NACIONAL HIDROSANEAMENTO EIRELI EPP">NACIONAL HIDROSANEAMENTO EIRELI EPP</option>
+                  <option value="NACIONAL HIDRO">NACIONAL HIDRO</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-12 gap-3 mt-1">
               <div className="col-span-3 space-y-1">
                 <label htmlFor="status" className="text-[9px] font-bold text-slate-600 uppercase">Situação</label>
                 <select

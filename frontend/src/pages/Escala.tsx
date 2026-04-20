@@ -384,13 +384,52 @@ export default function Histograma() {
         setModalEscala(prev => {
             if (!prev) return prev;
             const funcs = Array.isArray(prev.funcionarios) ? [...prev.funcionarios] : [];
-            if (funcs.includes(nome)) {
-                return { ...prev, funcionarios: funcs.filter(n => n !== nome) };
+            const existIdx = funcs.findIndex((f: any) => (typeof f === 'object' ? f.nome : f) === nome);
+            if (existIdx >= 0) {
+                return { ...prev, funcionarios: funcs.filter((_: any, i: number) => i !== existIdx) };
             } else {
-                return { ...prev, funcionarios: [...funcs, nome] };
+                return { ...prev, funcionarios: [...funcs, { nome, statusOperacional: 'NORMAL', ausente: false }] };
             }
         });
     };
+
+    const updateFuncionarioField = (index: number, field: string, value: any) => {
+        setModalEscala(prev => {
+            if (!prev) return prev;
+            const funcs = Array.isArray(prev.funcionarios) ? [...prev.funcionarios] : [];
+            if (funcs[index]) {
+                const item = typeof funcs[index] === 'object' ? { ...funcs[index] } : { nome: funcs[index], statusOperacional: 'NORMAL', ausente: false };
+                (item as any)[field] = value;
+                funcs[index] = item;
+            }
+            return { ...prev, funcionarios: funcs };
+        });
+    };
+
+    const removeFuncionario = (index: number) => {
+        setModalEscala(prev => {
+            if (!prev) return prev;
+            const funcs = Array.isArray(prev.funcionarios) ? [...prev.funcionarios] : [];
+            return { ...prev, funcionarios: funcs.filter((_: any, i: number) => i !== index) };
+        });
+    };
+
+    const addFuncionarioRow = () => {
+        setModalEscala(prev => {
+            if (!prev) return prev;
+            const funcs = Array.isArray(prev.funcionarios) ? [...prev.funcionarios] : [];
+            return { ...prev, funcionarios: [...funcs, { nome: '', statusOperacional: 'NORMAL', ausente: false }] };
+        });
+    };
+
+    const STATUS_OPERACIONAL = [
+        { value: 'NORMAL', label: 'Normal' },
+        { value: 'FERIAS', label: 'Férias' },
+        { value: 'ATESTADO', label: 'Atestado' },
+        { value: 'LICENCA', label: 'Licença' },
+        { value: 'INSS', label: 'INSS' },
+        { value: 'FOLGA', label: 'Folga' },
+    ];
 
     const handleSugerirIA = async () => {
         if (!modalEscala?.data) {
@@ -469,8 +508,12 @@ export default function Histograma() {
     };
 
     const handleQuadroFuncConfirm = (selected: any[]) => {
-        const funcNames = selected.map((f: any) => typeof f === 'object' ? (f.nome || f) : f);
-        setModalEscala(prev => prev ? { ...prev, funcionarios: funcNames } : prev);
+        const funcObjs = selected.map((f: any) => ({
+            nome: typeof f === 'object' ? (f.nome || f.nome_completo || '') : f,
+            statusOperacional: 'NORMAL',
+            ausente: false
+        }));
+        setModalEscala(prev => prev ? { ...prev, funcionarios: funcObjs } : prev);
     };
 
     const handleQuadroVeicConfirm = (selected: any[]) => {
@@ -693,7 +736,7 @@ export default function Histograma() {
                                     <td className="px-4 py-3 text-slate-600">{esc.cliente?.nome || '—'}</td>
                                     <td className="px-4 py-3 text-slate-500">{new Date(esc.data).toLocaleDateString('pt-BR')}</td>
                                     <td className="px-4 py-3 text-slate-500">{esc.hora || '—'}</td>
-                                    <td className="px-4 py-3 text-slate-500 text-xs">{Array.isArray(esc.funcionarios) ? esc.funcionarios.join(', ') : '—'}</td>
+                                    <td className="px-4 py-3 text-slate-500 text-xs">{Array.isArray(esc.funcionarios) ? esc.funcionarios.map((f: any) => typeof f === 'object' ? f.nome : f).join(', ') : '—'}</td>
                                     <td className="px-4 py-3 font-medium text-slate-800">{esc.codigoOS || '—'}</td>
                                 </tr>
                             ))}
@@ -946,17 +989,40 @@ export default function Histograma() {
                                     </div>
                                     <div>
                                         <label className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest block mb-1">Equipe Escalada</label>
-                                        <div className="flex flex-wrap gap-2">
-                                            {Array.isArray(modalEscala.funcionarios) && modalEscala.funcionarios.length > 0 ? (
-                                                modalEscala.funcionarios.map(nome => (
-                                                    <span key={nome} className="px-2 py-1 bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg uppercase tracking-tight">
-                                                        {nome}
-                                                    </span>
-                                                ))
-                                            ) : (
-                                                <span className="text-xs text-slate-500 italic">Nenhum funcionário escalado</span>
-                                            )}
-                                        </div>
+                                        {Array.isArray(modalEscala.funcionarios) && modalEscala.funcionarios.length > 0 ? (
+                                            <table className="w-full text-xs border border-slate-200 rounded-lg overflow-hidden">
+                                                <thead className="bg-slate-100">
+                                                    <tr>
+                                                        <th className="px-3 py-1.5 text-left text-[9px] font-black text-slate-500 uppercase">Funcionário</th>
+                                                        <th className="px-3 py-1.5 text-left text-[9px] font-black text-slate-500 uppercase">Status Operacional</th>
+                                                        <th className="px-3 py-1.5 text-center text-[9px] font-black text-slate-500 uppercase">Ausente</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100">
+                                                    {modalEscala.funcionarios.map((f: any, i: number) => {
+                                                        const nome = typeof f === 'object' ? f.nome : f;
+                                                        const status = typeof f === 'object' ? f.statusOperacional : 'NORMAL';
+                                                        const ausente = typeof f === 'object' ? f.ausente : false;
+                                                        return (
+                                                            <tr key={i} className={ausente ? 'bg-red-50' : ''}>
+                                                                <td className="px-3 py-1.5 font-bold text-slate-700">{nome}</td>
+                                                                <td className="px-3 py-1.5">
+                                                                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
+                                                                        status === 'NORMAL' ? 'bg-emerald-100 text-emerald-700' :
+                                                                        status === 'FERIAS' ? 'bg-blue-100 text-blue-700' :
+                                                                        status === 'ATESTADO' ? 'bg-amber-100 text-amber-700' :
+                                                                        'bg-slate-100 text-slate-600'
+                                                                    }`}>{status}</span>
+                                                                </td>
+                                                                <td className="px-3 py-1.5 text-center">{ausente ? <span className="text-red-600 font-black">SIM</span> : '—'}</td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        ) : (
+                                            <span className="text-xs text-slate-500 italic">Nenhum funcionário escalado</span>
+                                        )}
                                     </div>
                                     {modalEscala.observacoes && (
                                         <div>
@@ -1050,6 +1116,18 @@ export default function Histograma() {
                                                 {clientes.map((c) => (
                                                     <option key={c.id} value={c.id}>{c.nome.toUpperCase()}</option>
                                                 ))}
+                                            </select>
+                                        </FormField>
+
+                                        <FormField label="Empresa">
+                                            <select
+                                                className="w-full bg-slate-50/50 border-2 border-slate-100 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-blue-600 transition-all appearance-none cursor-pointer"
+                                                value={(modalEscala as any).empresaId || ''}
+                                                onChange={(e) => setModalEscala({ ...modalEscala, empresaId: e.target.value } as any)}
+                                            >
+                                                <option value="">Selecione a empresa...</option>
+                                                <option value="NACIONAL HIDROSANEAMENTO EIRELI EPP">NACIONAL HIDROSANEAMENTO EIRELI EPP</option>
+                                                <option value="NACIONAL HIDRO">NACIONAL HIDRO</option>
                                             </select>
                                         </FormField>
 
@@ -1291,52 +1369,82 @@ export default function Histograma() {
                                         )}
                                     </div>
 
-                                    <FormField label="Equipe Escalada (Selecione Cliente e Data primeiro)">
-                                        {modalEscala.clienteId && modalEscala.data ? (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                                {teamAvailability.map(func => {
-                                                    const isSelected = Array.isArray(modalEscala.funcionarios) && modalEscala.funcionarios.includes(func.nome);
-                                                    const isUnavailable = func.disponibilidade === 'INDISPONIVEL';
-
-                                                    let badgeCfg = { bg: 'bg-slate-100', text: 'text-slate-500', label: 'Disponível' };
-                                                    if (func.disponibilidade === 'INDISPONIVEL') badgeCfg = { bg: 'bg-slate-200 border border-slate-300', text: 'text-slate-800', label: func.motivo || 'Indisponível' };
-                                                    else if (func.disponibilidade === 'ALERTA') badgeCfg = { bg: 'bg-blue-950 border border-blue-800', text: 'text-white', label: func.motivo || 'Atenção' };
-
-                                                    return (
-                                                        <button
-                                                            key={func.id}
-                                                            type="button"
-                                                            disabled={isUnavailable}
-                                                            onClick={() => toggleFuncionario(func.nome, isUnavailable)}
-                                                            className={`flex flex-col items-start p-3 rounded-xl border text-left transition-all ${isUnavailable ? 'opacity-50 cursor-not-allowed bg-slate-50 border-slate-200' :
-                                                                isSelected ? 'bg-blue-50 border-blue-400 shadow-inner' : 'bg-white border-slate-200 hover:border-slate-300'
-                                                                }`}
-                                                        >
-                                                            <div className="flex items-center justify-between w-full mb-1">
-                                                                <span className={`text-xs font-black uppercase tracking-tight ${isSelected ? 'text-blue-700' : 'text-slate-700'}`}>
-                                                                    {func.nome}
-                                                                </span>
-                                                                <div className={`w-3 h-3 rounded-full border ${isSelected ? 'bg-blue-500 border-blue-600 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]' : 'bg-white border-slate-300'}`} />
-                                                            </div>
-                                                            <span className="text-[10px] text-slate-500 font-bold mb-2">{func.cargo || 'Funcinário'}</span>
-                                                            <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${badgeCfg.bg} ${badgeCfg.text}`}>
-                                                                {badgeCfg.label}
-                                                            </span>
-                                                        </button>
-                                                    );
-                                                })}
-                                                {teamAvailability.length === 0 && (
-                                                    <div className="col-span-full p-4 text-center text-slate-400 text-xs italic bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                                                        Nenhum funcionário encontrado.
-                                                    </div>
-                                                )}
+                                    {/* ── Funcionários (Tabela Linear — Paridade Legado) ── */}
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest">Funcionários</label>
+                                            <div className="flex gap-2">
+                                                <button type="button" onClick={() => setQuadroFuncOpen(true)} className="text-[9px] font-bold text-teal-600 bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-200 hover:bg-teal-100 transition-all uppercase tracking-wider">Ver Quadro de Funcionários</button>
+                                                <button type="button" onClick={addFuncionarioRow} className="text-[9px] font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 hover:bg-blue-100 transition-all uppercase tracking-wider">+ Adicionar</button>
                                             </div>
+                                        </div>
+
+                                        {Array.isArray(modalEscala.funcionarios) && modalEscala.funcionarios.length > 0 ? (
+                                            <table className="w-full text-xs border border-slate-200 rounded-xl overflow-hidden">
+                                                <thead className="bg-slate-100">
+                                                    <tr>
+                                                        <th className="px-3 py-2 text-left text-[9px] font-black text-slate-500 uppercase w-[40%]">Funcionário</th>
+                                                        <th className="px-3 py-2 text-left text-[9px] font-black text-slate-500 uppercase w-[30%]">Status Operacional</th>
+                                                        <th className="px-3 py-2 text-center text-[9px] font-black text-slate-500 uppercase w-[15%]">Não Compareceu</th>
+                                                        <th className="px-3 py-2 text-center text-[9px] font-black text-slate-500 uppercase w-[15%]">Ação</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100">
+                                                    {modalEscala.funcionarios.map((f: any, idx: number) => {
+                                                        const nome = typeof f === 'object' ? f.nome : f;
+                                                        const status = typeof f === 'object' ? (f.statusOperacional || 'NORMAL') : 'NORMAL';
+                                                        const ausente = typeof f === 'object' ? !!f.ausente : false;
+                                                        return (
+                                                            <tr key={idx} className={`hover:bg-blue-50/30 ${ausente ? 'bg-red-50/50' : ''}`}>
+                                                                <td className="px-3 py-2">
+                                                                    <select
+                                                                        className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold outline-none focus:border-blue-500 appearance-none"
+                                                                        value={nome}
+                                                                        onChange={(e) => updateFuncionarioField(idx, 'nome', e.target.value)}
+                                                                    >
+                                                                        <option value="">Selecione...</option>
+                                                                        {teamAvailability.map(ta => (
+                                                                            <option key={ta.id} value={ta.nome}>{ta.nome} — {ta.cargo || 'Funcionário'}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                </td>
+                                                                <td className="px-3 py-2">
+                                                                    <select
+                                                                        className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold outline-none focus:border-blue-500 appearance-none"
+                                                                        value={status}
+                                                                        onChange={(e) => updateFuncionarioField(idx, 'statusOperacional', e.target.value)}
+                                                                    >
+                                                                        {STATUS_OPERACIONAL.map(s => (
+                                                                            <option key={s.value} value={s.value}>{s.label}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                </td>
+                                                                <td className="px-3 py-2 text-center">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={ausente}
+                                                                        onChange={(e) => updateFuncionarioField(idx, 'ausente', e.target.checked)}
+                                                                        className="w-4 h-4 accent-red-600 cursor-pointer"
+                                                                    />
+                                                                </td>
+                                                                <td className="px-3 py-2 text-center">
+                                                                    <button type="button" onClick={() => removeFuncionario(idx)} className="text-red-500 hover:bg-red-50 p-1 rounded transition-colors">
+                                                                        <X className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
                                         ) : (
                                             <div className="p-4 text-center text-slate-400 text-xs italic bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                                                Preencha Data e Cliente para visualizar os funcionários e suas disponibilidades.
+                                                {modalEscala.clienteId && modalEscala.data
+                                                    ? 'Nenhum funcionário adicionado. Use "+ Adicionar" ou "Ver Quadro de Funcionários".'
+                                                    : 'Preencha Data e Cliente para adicionar funcionários.'}
                                             </div>
                                         )}
-                                    </FormField>
+                                    </div>
 
                                     <FormField label="Observações">
                                         <textarea

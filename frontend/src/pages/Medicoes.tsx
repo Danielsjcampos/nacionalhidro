@@ -165,6 +165,8 @@ export default function Medicoes() {
     const [porcentagemRL, setPorcentagemRL] = useState<number>(90);
     const [propostaId, setPropostaId] = useState('');
     const [centrosCusto, setCentrosCusto] = useState<any[]>([]);
+    const [propostas, setPropostas] = useState<any[]>([]);
+    const [acompanhante, setAcompanhante] = useState('');
 
     // ─── MODAL CREATE STATE (variáveis p/ wizard de criação) ───
     const [clientes, setClientes] = useState<any[]>([]);
@@ -389,13 +391,28 @@ export default function Medicoes() {
         setSelectedClienteId(''); setSelectedOsIds([]); setPeriodo('');
         setSubitens([]);
         setTipoDocumento('RL');
+        setPropostas([]);
+        setPropostaId('');
+        setContatoId('');
+        setAcompanhante('');
+        setEmailCC('');
+        setCte(false);
+        setPorcentagemRL(90);
+        setCnpjFaturamento('');
+        setSolicitante('');
+        setVendedorId('');
+        setWizardStep(1);
     };
 
     const fetchOSProntas = async (cId: string) => {
         setSelectedClienteId(cId);
-        if (!cId) { setOsProntas([]); return; }
-        const res = await api.get('/medicoes/os-disponiveis', { params: { clienteId: cId } });
-        setOsProntas(res.data);
+        if (!cId) { setOsProntas([]); setPropostas([]); return; }
+        const [osRes, propRes] = await Promise.all([
+            api.get('/medicoes/os-disponiveis', { params: { clienteId: cId } }),
+            api.get('/propostas', { params: { clienteId: cId, status: 'ACEITA' } }).catch(() => ({ data: { data: [] } }))
+        ]);
+        setOsProntas(osRes.data);
+        setPropostas(propRes.data?.data || propRes.data || []);
     };
 
     const handleCreateMedicao = async () => {
@@ -405,12 +422,15 @@ export default function Medicoes() {
                 clienteId: selectedClienteId,
                 osIds: selectedOsIds,
                 periodo, 
-                solicitante, 
+                solicitante,
+                acompanhante,
                 vendedorId, 
                 subitens,
                 tipoDocumento,
                 empresa: empresaId,
                 emailCobrancaCC: emailCC,
+                contatoId,
+                propostaId,
                 cnpjFaturamento,
                 cte,
                 porcentagemRL
@@ -1094,6 +1114,8 @@ export default function Medicoes() {
                                                     setSelectedClienteId(e.target.value);
                                                     const client = clientes.find(c => c.id === e.target.value);
                                                     if (client?.porcentagemRL) setPorcentagemRL(Number(client.porcentagemRL));
+                                                    setContatoId('');
+                                                    setPropostaId('');
                                                     fetchOSProntas(e.target.value);
                                                 }} 
                                                 className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-500/10"
@@ -1103,12 +1125,52 @@ export default function Medicoes() {
                                             </select>
                                         </div>
                                         <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Proposta</label>
+                                            <select 
+                                                value={propostaId} 
+                                                onChange={e => setPropostaId(e.target.value)}
+                                                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-500/10"
+                                                disabled={!selectedClienteId}
+                                            >
+                                                <option value="">Todas as propostas...</option>
+                                                {propostas.map((p: any) => <option key={p.id} value={p.id}>{p.codigo}/{p.revisao || 0}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contato (A/C)</label>
+                                            {(() => {
+                                                const cl = clientes.find(c => c.id === selectedClienteId);
+                                                const contatos = cl?.contatos ? (typeof cl.contatos === 'string' ? JSON.parse(cl.contatos) : cl.contatos) : [];
+                                                return (
+                                                    <select 
+                                                        value={contatoId} 
+                                                        onChange={e => setContatoId(e.target.value)}
+                                                        className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-500/10"
+                                                        disabled={!selectedClienteId}
+                                                    >
+                                                        <option value="">Selecione o contato...</option>
+                                                        {contatos.map((ct: any) => <option key={ct.id || ct.nome} value={ct.id || ct.nome}>{ct.nome} {ct.email ? `(${ct.email})` : ''}</option>)}
+                                                    </select>
+                                                );
+                                            })()}
+                                        </div>
+                                        <div className="space-y-1.5">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Solicitante (Nome)</label>
                                             <input 
                                                 type="text" 
                                                 value={solicitante} 
                                                 onChange={e => setSolicitante(e.target.value)} 
                                                 placeholder="Nome do solicitante no cliente" 
+                                                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm font-bold shadow-sm" 
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Acompanhante</label>
+                                            <input 
+                                                type="text" 
+                                                value={acompanhante} 
+                                                onChange={e => setAcompanhante(e.target.value)} 
+                                                placeholder="Nome do acompanhante" 
                                                 className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm font-bold shadow-sm" 
                                             />
                                         </div>
@@ -1287,15 +1349,37 @@ export default function Medicoes() {
 
                         {/* Footer Buttons */}
                         <div className="p-6 bg-white border-t border-slate-100 flex items-center justify-between">
-                            <div className="flex flex-col">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor Total de Medição</p>
-                                <p className="text-2xl font-black text-slate-800">
-                                    {fmt(
-                                        osProntas.filter(o => selectedOsIds.includes(o.id)).reduce((s,o) => s + (o.valorPrecificado || 0), 0) +
-                                        subitens.reduce((s, it) => s + (Number(it.valor || 0) * Number(it.quantidade || 1)), 0)
-                                    )}
-                                </p>
-                            </div>
+                            {(() => {
+                                const totalOS = osProntas.filter(o => selectedOsIds.includes(o.id)).reduce((s,o) => s + (o.valorPrecificado || 0), 0);
+                                const totalExtra = subitens.reduce((s, it) => s + (Number(it.valor || 0) * Number(it.quantidade || 1)), 0);
+                                const totalGeral = totalOS + totalExtra;
+                                const valorRL = totalGeral * (porcentagemRL / 100);
+                                const valorServico = totalGeral - valorRL;
+                                return (
+                                    <div className="flex items-center gap-6">
+                                        <div className="flex flex-col">
+                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Valor Total</p>
+                                            <p className="text-xl font-black text-slate-800">{fmt(totalGeral)}</p>
+                                        </div>
+                                        <div className="flex items-center gap-4 pl-6 border-l border-slate-200">
+                                            <div className="flex flex-col">
+                                                <p className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Locação (RL) {porcentagemRL}%</p>
+                                                <p className="text-sm font-black text-blue-600">{fmt(valorRL)}</p>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <p className="text-[8px] font-black text-emerald-400 uppercase tracking-widest">Serviço (NF)</p>
+                                                <p className="text-sm font-black text-emerald-600">{fmt(valorServico)}</p>
+                                            </div>
+                                            {cte && (
+                                                <div className="flex flex-col">
+                                                    <p className="text-[8px] font-black text-amber-400 uppercase tracking-widest">CTe</p>
+                                                    <p className="text-sm font-black text-amber-600">{fmt(totalGeral)}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                             <div className="flex gap-4">
                                 {wizardStep > 1 && (
                                     <button 
