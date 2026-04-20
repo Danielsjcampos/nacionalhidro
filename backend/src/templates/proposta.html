@@ -38,7 +38,6 @@
     .equip-info { flex: 1; }
     .equip-info h5 { color: #1a365d; font-weight: bold; margin-bottom: 8px; font-size: 16px; }
     
-    .signature-img { max-width: 200px; max-height: 80px; margin-top: 10px; }
     .fallback-footer { font-size: 10px; color: #94a3b8; margin-top: 10px; }
   </style>
 </head>
@@ -224,21 +223,15 @@
       <div class="mt-5 pt-4">
         <p>Colocamo-nos ao Vosso inteiro dispor para qualquer esclarecimento técnico e/ou comercial que se faça necessário.</p>
         <p class="mt-5 mb-0">Atenciosamente,</p>
-        
-        <div class="vendedor-block">
-          {{#Assinatura}}
-          <img src="{{Assinatura}}" class="signature-img" alt="Assinatura Digital">
-          {{/Assinatura}}
-          
-          {{#Vendedor}}
-          <p class="font-weight-bold mt-2 mb-0" style="font-size: 18px;">{{Vendedor}}</p>
-          {{/Vendedor}}
-          <p class="text-muted small">Departamento Comercial<br/>Nacional Hidrosaneamento</p>
-        </div>
+        {{#Vendedor}}
+        <p class="font-weight-bold mt-4 mb-0" style="font-size: 18px;">{{Vendedor}}</p>
+        {{/Vendedor}}
+        <p class="text-muted small">Departamento Comercial<br/>Nacional Hidrosaneamento</p>
       </div>
 
       <!-- FOOTER -->
       <div class="footer-container">
+        <!-- Try to load image, fallback to CSS text if 404 handled by browser or missing helper -->
         <img style="width: 100%; max-width: 100%;" src="https://prodnhidro.blob.core.windows.net/storage/rodape.png" 
              alt="Rodapé Nacional Hidro"
              onerror="this.style.display='none'; document.getElementById('footer-fallback').style.display='block';">
