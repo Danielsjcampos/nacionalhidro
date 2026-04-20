@@ -162,6 +162,12 @@ export default function Propostas() {
         const configRes = await api.get(`/configuracoes`);
         setConfiguracoes(configRes.data || null);
       } catch (e) { console.error('Failed to fetch configuracoes', e); }
+    } catch (e: any) {
+      console.error('Core fetch failed', e);
+      showToast('Erro ao carregar dados: ' + e.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -1028,8 +1034,21 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
                       return <span key={pageNum} className="px-1 text-slate-400">...</span>;
                     }
                     return null;
-                           </div>
-        </>
+                  })}
+                  
+                  <button 
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    className="p-1.5 rounded-md border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronDown className="w-4 h-4 -rotate-90" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </>
       ) : (
         <ModalCadastroProposta
           isOpen={isEditing && !!selectedProposta}
