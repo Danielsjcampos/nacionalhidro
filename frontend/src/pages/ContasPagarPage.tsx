@@ -104,7 +104,7 @@ export default function ContasPagarPage() {
             }
 
             // Phase 2: Confirm & Import
-            if(confirm(`NF ${nfe.numero} de ${nfe.emitente?.razaoSocial} no valor de R$${nfe.totais?.valorNF}. Deseja importar?`)) {
+            if(window.confirm(`NF ${nfe.numero} de ${nfe.emitente?.razaoSocial} no valor de R$${nfe.totais?.valorNF}. Deseja importar?`)) {
                 await api.post('/importacao-xml/importar', { nfe });
                 showToast('XML Importado com sucesso!');
                 fetchAll();
@@ -486,7 +486,7 @@ export default function ContasPagarPage() {
                                                 {activeTab === 'HISTORICO' && (
                                                     <>
                                                         <button onClick={() => handleEditarBaixaClick(c)} className="text-blue-600 hover:text-blue-800 p-1" title="Corrigir Baixa"><Edit3 className="w-3.5 h-3.5"/></button>
-                                                        <button onClick={() => { if(confirm('Revogar pagamento e voltar para etapa Pagar?')) { api.patch(`/financeiro/contas-pagar/${c.id}/revogar`).then(() => fetchAll()).catch(() => showToast('Erro ao revogar')); } }} className="text-amber-600 hover:text-amber-800 p-1" title="Revogar / Voltar"><RotateCcw className="w-3.5 h-3.5"/></button>
+                                                        <button onClick={() => { if(window.confirm('Revogar pagamento e voltar para etapa Pagar?')) { api.patch(`/financeiro/contas-pagar/${c.id}/revogar`).then(() => fetchAll()).catch(() => showToast('Erro ao revogar')); } }} className="text-amber-600 hover:text-amber-800 p-1" title="Revogar / Voltar"><RotateCcw className="w-3.5 h-3.5"/></button>
                                                         <button onClick={() => showToast(`Histórico:\n• Entrada: ${fmtDate(c.createdAt)}\n• Vencimento: ${fmtDate(c.dataVencimento)}\n• Pagamento: ${fmtDate(c.dataPagamento || c.updatedAt)}`)} className="text-slate-500 hover:text-slate-700 p-1" title="Ver Histórico"><List className="w-3.5 h-3.5"/></button>
                                                     </>
                                                 )}

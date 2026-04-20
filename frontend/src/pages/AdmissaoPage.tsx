@@ -386,7 +386,7 @@ export default function AdmissaoPage() {
                                                                     }
                                                                     showToast('Link do portal copiado!');
                                                                 } catch (err) {
-                                                                    prompt('Copie o link abaixo:', url);
+                                                                    window.prompt('Copie o link abaixo:', url);
                                                                 }
                                                             }}
                                                             className="text-[10px] w-full bg-blue-100 text-blue-700 py-1.5 rounded-lg font-bold hover:bg-blue-200 transition-colors flex items-center justify-center gap-1"

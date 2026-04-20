@@ -521,7 +521,7 @@ export default function FeriasPage() {
                                 <div className="pt-2 border-t border-slate-200">
                                     <button 
                                         onClick={() => {
-                                            if (confirm('Deseja realmente excluir este registro?')) {
+                                            if (window.confirm('Deseja realmente excluir este registro?')) {
                                                 handleDelete(showDetail.id);
                                                 setShowDetail(null);
                                             }

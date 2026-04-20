@@ -286,21 +286,21 @@ export default function Medicoes() {
         }
 
         if (next === 'CONTESTADA') {
-            const motivo = prompt('Por favor, informe o motivo da contestação:');
+            const motivo = window.prompt('Por favor, informe o motivo da contestação:');
             if (motivo === null) return;
             if (!motivo.trim()) { showToast('O motivo da contestação é obrigatório.'); return; }
             extra.motivoContestacao = motivo;
         }
 
         if (next === 'CANCELADA') {
-            const motivo = prompt('Motivo do cancelamento:');
+            const motivo = window.prompt('Motivo do cancelamento:');
             if (motivo === null) return;
             if (!motivo.trim()) { showToast('O motivo é obrigatório.'); return; }
             extra.justificativaCancelamento = motivo;
         }
 
         if (next === 'REPROVADA') {
-            const motivo = prompt('Motivo da reprovação (será criada uma nova revisão):');
+            const motivo = window.prompt('Motivo da reprovação (será criada uma nova revisão):');
             if (motivo === null) return;
             extra.motivoContestacao = motivo;
         }
@@ -314,7 +314,7 @@ export default function Medicoes() {
     };
 
     const handleRecalcularMedicao = async (id: string) => {
-        if (!confirm('Deseja recalcular automaticamente todos os itens das OS desta medição seguindo as regras de proposta atual?')) return;
+        if (!window.confirm('Deseja recalcular automaticamente todos os itens das OS desta medição seguindo as regras de proposta atual?')) return;
         setSubmitting(true);
         try {
             await api.post(`/medicoes/${id}/recalcular`, {
@@ -334,7 +334,7 @@ export default function Medicoes() {
     };
 
     const handleEnviarDocumentacao = async (id: string) => {
-        if (!confirm('Deseja enviar a documentação final (Medição + Nota Fiscal) para o cliente agora?')) return;
+        if (!window.confirm('Deseja enviar a documentação final (Medição + Nota Fiscal) para o cliente agora?')) return;
         setSubmitting(true);
         try {
             await api.post(`/medicoes/${id}/enviar-documentacao`);
@@ -347,7 +347,7 @@ export default function Medicoes() {
     };
 
     const handleCorrigir = async (m: any) => {
-        if (!confirm('Tem certeza que deseja voltar a Medição para correção?')) return;
+        if (!window.confirm('Tem certeza que deseja voltar a Medição para correção?')) return;
         try {
             await api.patch(`/medicoes/${m.id}/status`, { status: 'AGUARDANDO_APROVACAO', valorAprovado: null });
             fetchData();

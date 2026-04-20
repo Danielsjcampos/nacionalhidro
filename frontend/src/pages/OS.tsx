@@ -217,7 +217,7 @@ export default function OS() {
     try {
       setSaving(true);
       if (newStatus === 'FINALIZADA') {
-        const just = prompt('Deseja inserir alguma observação/justificativa para a finalização? (opcional)');
+        const just = window.prompt('Deseja inserir alguma observação/justificativa para a finalização? (opcional)');
         await api.patch(`/os/${id}/finalizar`, { justificativa: just });
       } else {
         await api.patch(`/os/${id}`, { status: newStatus, justificativaCancelamento: justification });

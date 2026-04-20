@@ -345,10 +345,10 @@ export default function Agendamentos() {
                                   <button onClick={() => handleUpdateTarefa(ag.id, t.id, 'CONCLUIDA')} className="p-1 text-emerald-500 hover:bg-emerald-50 rounded" title="Concluir">
                                     <CheckCircle2 className="w-4 h-4" />
                                   </button>
-                                  <button onClick={() => { const obs = prompt('Observação da ressalva:'); if (obs) handleUpdateTarefa(ag.id, t.id, 'RESSALVA', obs); }} className="p-1 text-amber-500 hover:bg-amber-50 rounded" title="Ressalva">
+                                  <button onClick={() => { const obs = window.prompt('Observação da ressalva:'); if (obs) handleUpdateTarefa(ag.id, t.id, 'RESSALVA', obs); }} className="p-1 text-amber-500 hover:bg-amber-50 rounded" title="Ressalva">
                                     <AlertTriangle className="w-4 h-4" />
                                   </button>
-                                  <button onClick={() => { const obs = prompt('Motivo do impedimento:'); if (obs) handleUpdateTarefa(ag.id, t.id, 'IMPEDIDA', obs); }} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Impedido">
+                                  <button onClick={() => { const obs = window.prompt('Motivo do impedimento:'); if (obs) handleUpdateTarefa(ag.id, t.id, 'IMPEDIDA', obs); }} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Impedido">
                                     <AlertCircle className="w-4 h-4" />
                                   </button>
                                 </>

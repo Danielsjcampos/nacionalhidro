@@ -149,7 +149,7 @@ export default function Faturamento() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Excluir esta fatura?')) return;
+        if (!window.confirm('Excluir esta fatura?')) return;
         await api.delete(`/faturamento/${id}`);
         fetchAll();
     };

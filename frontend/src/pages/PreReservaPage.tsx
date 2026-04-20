@@ -93,7 +93,7 @@ export default function PreReservaPage() {
     };
 
     const handleCancelar = async (id: string) => {
-        const motivo = prompt('Motivo do cancelamento:');
+        const motivo = window.prompt('Motivo do cancelamento:');
         if (motivo === null) return;
         try {
             await api.patch(`/pre-reservas/${id}/cancelar`, { motivo });

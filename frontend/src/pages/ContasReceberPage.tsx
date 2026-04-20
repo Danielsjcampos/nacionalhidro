@@ -414,13 +414,13 @@ export default function ContasReceberPage() {
                                                         <button onClick={() => openEditarBaixa(c)} className="p-1 bg-slate-100 text-blue-600 hover:bg-blue-100 rounded-md shadow-sm" title="Corrigir Baixa">
                                                             <Edit3 className="w-3.5 h-3.5 mx-auto"/>
                                                         </button>
-                                                        <button onClick={() => { if(confirm('Revogar recebimento e voltar para Mesa de Operações?')) { api.patch(`/financeiro/contas-receber/${c.id}/revogar`).then(() => fetchAll()).catch(() => showToast('Erro ao revogar')); } }} className="p-1 bg-slate-100 text-amber-600 hover:bg-amber-100 rounded-md shadow-sm" title="Revogar Baixa">
+                                                        <button onClick={() => { if(window.confirm('Revogar recebimento e voltar para Mesa de Operações?')) { api.patch(`/financeiro/contas-receber/${c.id}/revogar`).then(() => fetchAll()).catch(() => showToast('Erro ao revogar')); } }} className="p-1 bg-slate-100 text-amber-600 hover:bg-amber-100 rounded-md shadow-sm" title="Revogar Baixa">
                                                             <RotateCcw className="w-3.5 h-3.5 mx-auto"/>
                                                         </button>
                                                     </>
                                                 )}
                                                 {(activeTab === 'ABERTOS' || activeTab === 'RECEBER') && (
-                                                    <button onClick={() => { if(confirm('Cancelar faturamento?')) { api.patch(`/financeiro/contas-receber/${c.id}/cancelar`, {motivo: 'Cancelado pelo usuário'}).then(() => fetchAll()); } }} className="p-1 text-red-500 hover:text-red-700 mx-auto" title="Cancelar"><X className="w-3.5 h-3.5 mx-auto"/></button>
+                                                    <button onClick={() => { if(window.confirm('Cancelar faturamento?')) { api.patch(`/financeiro/contas-receber/${c.id}/cancelar`, {motivo: 'Cancelado pelo usuário'}).then(() => fetchAll()); } }} className="p-1 text-red-500 hover:text-red-700 mx-auto" title="Cancelar"><X className="w-3.5 h-3.5 mx-auto"/></button>
                                                 )}
                                             </div>
                                         </td>

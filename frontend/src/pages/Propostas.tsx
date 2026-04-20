@@ -676,7 +676,7 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
     }
 
     const dest = prop.contatoEmail || prop.cliente?.email || 'email do cliente';
-    if (!confirm(`📧 Enviar proposta ${prop.codigo} por e-mail?\n\nDestinatário: ${dest}${prop.cc ? `\nCC: ${prop.cc}` : ''}\n\nDeseja continuar?`)) return;
+    if (!window.confirm(`📧 Enviar proposta ${prop.codigo} por e-mail?\n\nDestinatário: ${dest}${prop.cc ? `\nCC: ${prop.cc}` : ''}\n\nDeseja continuar?`)) return;
 
     try {
       setLoading(true);
