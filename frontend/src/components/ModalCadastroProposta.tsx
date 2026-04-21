@@ -27,8 +27,8 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
     revisao: 0,
     dataProposta: moment().format('YYYY-MM-DD'),
     dataValidade: moment().add(30, 'days').format('YYYY-MM-DD'),
-    usuarioId: '',
-    empresaId: '',
+    vendedor: '',
+    empresa: '',
     clienteId: '',
     contatoId: '',
     cc: '',
@@ -90,7 +90,12 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
 
   const gerarDescricaoGarantia = (data: any) => {
     let text = '';
-    const config = (key: string) => options.configuracoes.find(c => c.key === key)?.valor || '';
+    const config = (key: string) => {
+      if (Array.isArray(options.configuracoes)) {
+        return options.configuracoes.find(c => c.key === key)?.valor || '';
+      }
+      return '';
+    };
 
     data.itens.forEach((it: any) => {
       let template = '';
@@ -250,14 +255,14 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
             </div>
             <div className="col-span-3">
               <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block">Vendedor</label>
-              <select value={formData.usuarioId} onChange={e => setFormData({...formData, usuarioId: e.target.value})} className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none">
+              <select value={formData.vendedor} onChange={e => setFormData({...formData, vendedor: e.target.value})} className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none">
                 <option value="">Selecione...</option>
                 {options.vendedores.map(v => <option key={v.id} value={v.id}>{v.username || v.nome}</option>)}
               </select>
             </div>
             <div className="col-span-3">
               <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block">Empresa</label>
-              <select value={formData.empresaId} onChange={e => setFormData({...formData, empresaId: e.target.value})} className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none">
+              <select value={formData.empresa} onChange={e => setFormData({...formData, empresa: e.target.value})} className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none">
                 <option value="">Selecione...</option>
                 {options.empresas.map(emp => <option key={emp.id} value={emp.id}>{emp.nome || emp.razaoSocial}</option>)}
               </select>

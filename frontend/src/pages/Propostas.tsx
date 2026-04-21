@@ -154,7 +154,7 @@ export default function Propostas() {
       } catch (e) { console.error('Failed to fetch empresas', e); }
 
       try {
-        const respRes = await api.get(`/propostas/config/responsabilidades`);
+        const respRes = await api.get(`/responsabilidades`);
         setResponsabilidadesOptions(respRes.data || []);
       } catch (e) { console.error('Failed to fetch responsabilidades', e); }
 
@@ -542,11 +542,11 @@ Sábado e Noturno: Considerar adicional em 35% no valor orçado.`;
         status: 'RASCUNHO',
         revisao: 0,
         
-        // Ensure all arrays are deep cloned WITHOUT original IDs
-        itens: (copyData.itens || []).map((i: any) => ({ ...i, id: undefined, propostaId: undefined })),
-        acessorios: (copyData.acessorios || []).map((a: any) => ({ ...a, id: undefined, propostaId: undefined })),
-        responsabilidades: (copyData.responsabilidades || []).map((r: any) => ({ ...r, id: undefined, propostaId: undefined })),
-        equipe: (copyData.equipe || []).map((e: any) => ({ ...e, id: undefined, propostaId: undefined })),
+        // Ensure all arrays are deep cloned WITHOUT original IDs, but WITH a fresh UI ID for React keys and handlers
+        itens: (copyData.itens || []).map((i: any) => ({ ...i, id: Math.random().toString(36).substring(2, 9), propostaId: undefined })),
+        acessorios: (copyData.acessorios || []).map((a: any) => ({ ...a, id: Math.random().toString(36).substring(2, 9), propostaId: undefined })),
+        responsabilidades: (copyData.responsabilidades || []).map((r: any) => ({ ...r, id: Math.random().toString(36).substring(2, 9), propostaId: undefined })),
+        equipe: (copyData.equipe || []).map((e: any) => ({ ...e, id: Math.random().toString(36).substring(2, 9), propostaId: undefined })),
         
         // Handle units mapping
         unidadesData: (copyData.unidades || []).map((u: any) => ({
