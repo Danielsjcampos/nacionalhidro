@@ -24,6 +24,7 @@ export const listClientes = async (req: AuthRequest, res: Response) => {
       take: 100, // Limite de segurança mantido para performance
       include: {
         matriz: { select: { id: true, nome: true } },
+        contatosList: { orderBy: { nome: 'asc' } },
         _count: { select: { filiais: true } },
       },
       orderBy: { nome: 'asc' },
