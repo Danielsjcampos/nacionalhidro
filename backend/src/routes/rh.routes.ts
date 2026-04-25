@@ -5,30 +5,30 @@ import {
     createIntegracao, listIntegracoes, deleteIntegracao,
     getDisponibilidade, getResumoRH, getAttendanceToday, checkCompliance
 } from '../controllers/rh.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticate, authorize } from '../middleware/auth.middleware';
 
 const router = Router();
 
 router.use(authenticate);
 
 // Funcionários CRUD
-router.get('/', listFuncionarios);
-router.get('/resumo', getResumoRH);
-router.get('/attendance/today', getAttendanceToday);
-router.get('/disponibilidade', getDisponibilidade);
-router.get('/:id', getFuncionario);
-router.get('/:funcionarioId/compliance-check', checkCompliance);
-router.post('/', createFuncionario);
-router.put('/:id', updateFuncionario);
+router.get('/', authorize('rh.funcionarios.listar'), listFuncionarios);
+router.get('/resumo', authorize('rh.funcionarios.listar'), getResumoRH);
+router.get('/attendance/today', authorize('rh.funcionarios.listar'), getAttendanceToday);
+router.get('/disponibilidade', authorize('rh.funcionarios.listar'), getDisponibilidade);
+router.get('/:id', authorize('rh.funcionarios.listar'), getFuncionario);
+router.get('/:funcionarioId/compliance-check', authorize('rh.funcionarios.listar'), checkCompliance);
+router.post('/', authorize('rh.funcionarios.criar'), createFuncionario);
+router.put('/:id', authorize('rh.funcionarios.editar'), updateFuncionario);
 
 // Afastamentos
-router.get('/:id/afastamentos', listAfastamentos);
-router.post('/:id/afastamentos', createAfastamento);
-router.delete('/:id/afastamentos/:afastamentoId', deleteAfastamento);
+router.get('/:id/afastamentos', authorize('rh.funcionarios.listar'), listAfastamentos);
+router.post('/:id/afastamentos', authorize('rh.funcionarios.editar'), createAfastamento);
+router.delete('/:id/afastamentos/:afastamentoId', authorize('rh.funcionarios.editar'), deleteAfastamento);
 
 // Integrações
-router.get('/:id/integracoes', listIntegracoes);
-router.post('/:id/integracoes', createIntegracao);
-router.delete('/:id/integracoes/:integracaoId', deleteIntegracao);
+router.get('/:id/integracoes', authorize('rh.funcionarios.listar'), listIntegracoes);
+router.post('/:id/integracoes', authorize('rh.funcionarios.editar'), createIntegracao);
+router.delete('/:id/integracoes/:integracaoId', authorize('rh.funcionarios.editar'), deleteIntegracao);
 
 export default router;

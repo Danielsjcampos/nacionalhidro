@@ -395,7 +395,7 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
   };
 
   const cliente = options.clientes.find((c: any) => c.id === form.clienteId);
-  const contatos = typeof cliente?.contatos === 'string' ? JSON.parse(cliente.contatos || '[]') : (cliente?.contatos || []);
+  const contatos = cliente?.contatosList || (typeof cliente?.contatos === 'string' ? JSON.parse(cliente.contatos || '[]') : (cliente?.contatos || []));
   const isEnviada = initialData?.enviada || initialData?.status === 'ENVIADA';
   const isGerRev = isEnviada;
   const validationErr = validate();

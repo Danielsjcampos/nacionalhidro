@@ -5,27 +5,27 @@ import {
     criarNegociacao, listNegociacoes, pagarParcelaNegociacao,
     verificarQuebrasAcordo
 } from '../controllers/cobranca.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticate, authorize } from '../middleware/auth.middleware';
 
 const router = Router();
 router.use(authenticate);
 
 // KPIs
-router.get('/kpis', getCobrancaKPIs);
-router.post('/verificar-quebras', verificarQuebrasAcordo);
+router.get('/kpis', authorize('financeiro.cobranca.listar'), getCobrancaKPIs);
+router.post('/verificar-quebras', authorize('financeiro.cobranca.listar'), verificarQuebrasAcordo);
 
 // Contas a Receber
-router.get('/contas-receber', listContasReceber);
-router.post('/contas-receber', createContaReceber);
-router.patch('/contas-receber/:id/receber', receberConta);
+router.get('/contas-receber', authorize('financeiro.cobranca.listar'), listContasReceber);
+router.post('/contas-receber', authorize('financeiro.cobranca.criar'), createContaReceber);
+router.patch('/contas-receber/:id/receber', authorize('financeiro.cobranca.criar'), receberConta);
 
 // Histórico de Cobrança  
-router.post('/cobrancas', registrarCobranca);
-router.get('/cobrancas/:contaReceberId', getHistoricoCobranca);
+router.post('/cobrancas', authorize('financeiro.cobranca.criar'), registrarCobranca);
+router.get('/cobrancas/:contaReceberId', authorize('financeiro.cobranca.listar'), getHistoricoCobranca);
 
 // Negociações
-router.get('/negociacoes', listNegociacoes);
-router.post('/negociacoes', criarNegociacao);
-router.patch('/negociacoes/parcelas/:id/pagar', pagarParcelaNegociacao);
+router.get('/negociacoes', authorize('financeiro.cobranca.listar'), listNegociacoes);
+router.post('/negociacoes', authorize('financeiro.cobranca.criar'), criarNegociacao);
+router.patch('/negociacoes/parcelas/:id/pagar', authorize('financeiro.cobranca.criar'), pagarParcelaNegociacao);
 
 export default router;

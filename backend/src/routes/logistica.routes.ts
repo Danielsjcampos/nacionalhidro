@@ -8,40 +8,39 @@ import {
   quadroFuncionarios, quadroVeiculos,
   registrarNaoCompareceu, reverterCancelamentoEscala
 } from '../controllers/logistica.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticate, authorize } from '../middleware/auth.middleware';
 
 const router = Router();
 
 router.use(authenticate);
 
-// GPS (T17)
-router.get('/gps', listarPosicoesFrota);
-router.post('/gps', receberPosicaoGPS);
+// GPS
+router.get('/gps', authorize('frota.mapa.ver'), listarPosicoesFrota);
+router.post('/gps', authorize('frota.mapa.ver'), receberPosicaoGPS);
 
-// Quadros de Disponibilidade (M02/M05/M08)
-router.get('/quadro-funcionarios', quadroFuncionarios);
-router.get('/quadro-veiculos', quadroVeiculos);
+// Quadros de Disponibilidade
+router.get('/quadro-funcionarios', authorize('logistica.escala.listar'), quadroFuncionarios);
+router.get('/quadro-veiculos', authorize('logistica.escala.listar'), quadroVeiculos);
 
-// Validar OS por código (M01)
-router.get('/validar-os/:codigo', validarOS);
+// Validar OS por código
+router.get('/validar-os/:codigo', authorize('logistica.os.listar'), validarOS);
 
 // Escalas
-router.get('/verificar-funcionario/:id/:clienteId', verificarFuncionario);
-router.get('/escalas', listEscalas);
-router.post('/escalas', createEscala);
-router.post('/escalas/:id/duplicar', duplicarEscala);
-router.patch('/escalas/:id/cancelar', cancelarEscala);
-router.patch('/escalas/:id/nao-compareceu', registrarNaoCompareceu);
-router.patch('/escalas/:id/reverter-cancelamento', reverterCancelamentoEscala);
-router.patch('/escalas/:id', updateEscala);
-router.delete('/escalas/:id', deleteEscala);
+router.get('/verificar-funcionario/:id/:clienteId', authorize('logistica.escala.listar'), verificarFuncionario);
+router.get('/escalas', authorize('logistica.escala.listar'), listEscalas);
+router.post('/escalas', authorize('logistica.escala.criar'), createEscala);
+router.post('/escalas/:id/duplicar', authorize('logistica.escala.criar'), duplicarEscala);
+router.patch('/escalas/:id/cancelar', authorize('logistica.escala.editar'), cancelarEscala);
+router.patch('/escalas/:id/nao-compareceu', authorize('logistica.escala.editar'), registrarNaoCompareceu);
+router.patch('/escalas/:id/reverter-cancelamento', authorize('logistica.escala.editar'), reverterCancelamentoEscala);
+router.patch('/escalas/:id', authorize('logistica.escala.editar'), updateEscala);
+router.delete('/escalas/:id', authorize('logistica.escala.editar'), deleteEscala);
 
 // Veículos
-router.get('/veiculos', listVeiculos);
-router.post('/veiculos', createVeiculo);
-router.patch('/veiculos/:id', updateVeiculo);
-router.patch('/veiculos/:id/manutencao', sendToMaintenance);
-router.delete('/veiculos/:id', deleteVeiculo);
+router.get('/veiculos', authorize('frota.veiculos.listar'), listVeiculos);
+router.post('/veiculos', authorize('frota.veiculos.editar'), createVeiculo);
+router.patch('/veiculos/:id', authorize('frota.veiculos.editar'), updateVeiculo);
+router.patch('/veiculos/:id/manutencao', authorize('frota.veiculos.editar'), sendToMaintenance);
+router.delete('/veiculos/:id', authorize('frota.veiculos.editar'), deleteVeiculo);
 
 export default router;
-

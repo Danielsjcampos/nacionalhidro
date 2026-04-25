@@ -90,7 +90,11 @@ export const getProposta = async (req: AuthRequest, res: Response) => {
     const proposta = await prisma.proposta.findUnique({
       where: { id },
       include: {
-        cliente: true,
+        cliente: {
+          include: {
+            contatosList: true
+          }
+        },
         itens: true,
         acessorios: true,
         responsabilidades: true,

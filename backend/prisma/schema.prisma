@@ -23,6 +23,7 @@ model User {
   resetPasswordToken    String?
   pedidosCompra PedidoCompra[]   @relation("SolicitantePedidoCompra")
   categoria     CategoriaEquipe? @relation(fields: [roleId], references: [id])
+  ordensServico OrdemServico[]   @relation("VendedorOS")
 }
 
 model CategoriaEquipe {
@@ -45,6 +46,26 @@ model CategoriaEquipe {
   canAccessManutencao    Boolean  @default(false)
   canAccessMedicoes      Boolean  @default(false)
   users                  User[]
+  permissoes             CategoriaPermission[]
+}
+
+model Permission {
+  id          String                @id @default(uuid())
+  chave       String                @unique
+  modulo      String
+  descricao   String
+  createdAt   DateTime              @default(now())
+  categorias  CategoriaPermission[]
+}
+
+model CategoriaPermission {
+  id            String          @id @default(uuid())
+  categoriaId   String
+  permissionId  String
+  categoria     CategoriaEquipe @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
+  permission    Permission      @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([categoriaId, permissionId])
 }
 
 model Cliente {
@@ -262,6 +283,7 @@ model OrdemServico {
   codigo                    String         @unique
   clienteId                 String
   propostaId                String?
+  vendedorId                String?
   prioridade                String         @default("MEDIA")
   status                    String         @default("ABERTA")
   tecnicos                  String?
@@ -279,6 +301,8 @@ model OrdemServico {
   horasAdicionais           Decimal?       @db.Decimal(10, 2)
   horasTotais               Decimal?       @db.Decimal(10, 2)
   minimoHoras               Int?
+  horaTolerancia            Int?           @default(0)
+  descontarAlmoco           Boolean        @default(false)
   observacoes               String?
   quantidadeDia             String?
   saida                     DateTime?
@@ -302,6 +326,7 @@ model OrdemServico {
   cliente                   Cliente        @relation(fields: [clienteId], references: [id])
   medicao                   Medicao?       @relation(fields: [medicaoId], references: [id])
   proposta                  Proposta?      @relation(fields: [propostaId], references: [id])
+  vendedor                  User?          @relation("VendedorOS", fields: [vendedorId], references: [id])
   rdos                      RDO[]
   servicos                  ServicoOS[]
   hospedagens               Hospedagem[]
@@ -374,11 +399,13 @@ model Medicao {
 }
 
 model ServicoOS {
-  id          String       @id @default(uuid())
-  osId        String
-  equipamento String
-  descricao   String?
-  os          OrdemServico @relation(fields: [osId], references: [id])
+  id             String        @id @default(uuid())
+  osId           String
+  equipamento    String
+  equipamentoId  String?
+  descricao      String?
+  os             OrdemServico  @relation(fields: [osId], references: [id])
+  equipamentoRef Equipamento?  @relation(fields: [equipamentoId], references: [id])
 }
 
 model CobrancaEmail {
@@ -822,16 +849,17 @@ model Escala {
 }
 
 model Equipamento {
-  id                String   @id @default(uuid())
+  id                String      @id @default(uuid())
   nome              String
   descricao         String?
-  ativo             Boolean  @default(true)
+  ativo             Boolean     @default(true)
   imagem            String?
   responsabilidades Json?
   acessorios        Json?
   veiculos          Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  servicosOS        ServicoOS[]
 }
 
 model Configuracao {
@@ -1070,6 +1098,7 @@ model Faturamento {
   valorCOFINS        Decimal?  @default(0) @db.Decimal(12, 2)
   valorLiquido       Decimal   @default(0) @db.Decimal(12, 2)
   cnpjFaturamento    String?
+  empresaCnpjId      String?
   status             String    @default("EMITIDA")
   observacoes        String?
   emailEnviadoEm     DateTime?
@@ -1085,8 +1114,9 @@ model Faturamento {
   dadosWebHook       Json?
   urlArquivoNota     String?
   urlArquivoXml      String?
-  cliente            Cliente   @relation(fields: [clienteId], references: [id])
-  medicao            Medicao?  @relation(fields: [medicaoId], references: [id])
+  cliente            Cliente      @relation(fields: [clienteId], references: [id])
+  medicao            Medicao?     @relation(fields: [medicaoId], references: [id])
+  empresaCnpj        EmpresaCNPJ? @relation(fields: [empresaCnpjId], references: [id])
 }
 
 model EmpresaCNPJ {
@@ -1131,6 +1161,7 @@ model EmpresaCNPJ {
   cteCfop            String?  @default("5351")        // CT-e: CFOP operação de transporte
   cteTipoDoc         String?  @default("0")           // CT-e: tipo documento (0=Normal)
   bancos             EmpresaBanco[]
+  faturamentos       Faturamento[]
 }
 
 model Fornecedor {

@@ -105,6 +105,8 @@ const CENTROS_CUSTO = [
 export const listFaturamentos = async (req: AuthRequest, res: Response) => {
     try {
         const { clienteId, tipo, status, cnpjFaturamento, mes, ano } = req.query;
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 50;
         const where: any = {};
 
         if (clienteId) where.clienteId = clienteId as string;
@@ -121,15 +123,20 @@ export const listFaturamentos = async (req: AuthRequest, res: Response) => {
             };
         }
 
-        const list = await (prisma as any).faturamento.findMany({
-            where,
-            include: { 
-                cliente: { select: { id: true, nome: true, cnpj: true } },
-                medicao: { select: { id: true, codigo: true } }
-            },
-            orderBy: { dataEmissao: 'desc' }
-        });
-        res.json(list);
+        const [list, total] = await Promise.all([
+            (prisma as any).faturamento.findMany({
+                where,
+                include: { 
+                    cliente: { select: { id: true, nome: true, cnpj: true } },
+                    medicao: { select: { id: true, codigo: true } }
+                },
+                orderBy: { dataEmissao: 'desc' },
+                take: limit,
+                skip: (page - 1) * limit,
+            }),
+            (prisma as any).faturamento.count({ where })
+        ]);
+        res.json({ data: list, total, page, totalPages: Math.ceil(total / limit) });
     } catch (error) {
         console.error('List faturamentos error:', error);
         res.status(500).json({ error: 'Failed to fetch invoices' });
@@ -153,8 +160,8 @@ export const getFaturamento = async (req: AuthRequest, res: Response) => {
 
 // ─── HELPER: Check Teto Fiscal ──────────────────────────────────
 async function checkTetoFiscal(cnpj: string, novoValor: number): Promise<{ excedido: boolean, mensagem?: string }> {
-    if (!cnpj) return { excedido: false };
-    const empresa = await (prisma as any).empresaCNPJ.findUnique({ where: { cnpj } });
+    if (!cnpj || typeof cnpj !== 'string' || !cnpj.trim()) return { excedido: false };
+    const empresa = await (prisma as any).empresaCNPJ.findUnique({ where: { cnpj: cnpj.trim() } });
     if (!empresa || !empresa.ativa) return { excedido: false };
 
     const now = new Date();
@@ -193,8 +200,10 @@ export const createFaturamento = async (req: AuthRequest, res: Response) => {
 
         let taxes: any = {};
         const valBrutoNum = Number(valorBruto || 0);
-        if (rest.cnpjFaturamento) {
-            const empresa = await (prisma as any).empresaCNPJ.findUnique({ where: { cnpj: rest.cnpjFaturamento } });
+        // P0-1: Guard null/undefined cnpjFaturamento to prevent "Argument cnpj must not be null"
+        const cnpjSanitizado = (rest.cnpjFaturamento && typeof rest.cnpjFaturamento === 'string') ? rest.cnpjFaturamento.trim() : '';
+        if (cnpjSanitizado) {
+            const empresa = await (prisma as any).empresaCNPJ.findUnique({ where: { cnpj: cnpjSanitizado } });
             if (empresa) {
                 const configGeneral = await (prisma as any).configuracao.findFirst();
                 taxes = TaxService.calculateTaxes(

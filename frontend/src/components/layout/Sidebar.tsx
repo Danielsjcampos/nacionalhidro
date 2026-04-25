@@ -213,26 +213,44 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
     if (['Dashboard', 'Sistema'].includes(g.label)) return true;
     
     const perms = user?.permissoes;
+    const permKeys: string[] = user?.permissionKeys || [];
     // If no permissions object (legacy admin or role=admin), show everything
-    if (!perms || user?.role?.name === 'admin' || user?.role === 'admin') return true;
+    if ((!perms && permKeys.length === 0) || user?.role?.name === 'admin' || user?.role === 'admin') return true;
 
-    // Map sidebar groups to permission keys
-    const groupPermMap: Record<string, (keyof typeof perms)[]> = {
+    // Map sidebar groups to granular permission key prefixes
+    const groupGranularMap: Record<string, string[]> = {
+      'Comercial':  ['comercial.'],
+      'Logística':  ['logistica.'],
+      'Frota':      ['frota.', 'manutencao.'],
+      'Estoque':    ['estoque.'],
+      'Segurança':  ['rh.'],
+      'Medição':    ['medicoes.'],
+      'Financeiro': ['financeiro.'],
+      'RH':         ['rh.'],
+    };
+
+    const prefixes = groupGranularMap[g.label];
+    if (!prefixes) return true;
+
+    // Check granular keys first
+    if (permKeys.length > 0) {
+      return prefixes.some(prefix => permKeys.some(key => key.startsWith(prefix)));
+    }
+
+    // Fallback to legacy boolean permissions
+    const legacyMap: Record<string, string[]> = {
       'Comercial':  ['comercial'],
       'Logística':  ['logistica', 'operacao'],
       'Frota':      ['frota', 'manutencao'],
       'Estoque':    ['estoque'],
-      'Segurança':  ['rh'], // segurança está vinculada ao RH
+      'Segurança':  ['rh'],
       'Medição':    ['medicoes'],
       'Financeiro': ['financeiro', 'contasPagar', 'contasReceber', 'cobranca', 'faturamento'],
       'RH':         ['rh', 'dp'],
     };
-
-    const requiredPerms = groupPermMap[g.label];
-    if (!requiredPerms) return true; // not mapped = show
-    
-    // Show group if user has ANY of the required permissions
-    return requiredPerms.some(key => (perms as any)?.[key]);
+    const legacyPerms = legacyMap[g.label];
+    if (!legacyPerms) return true;
+    return legacyPerms.some(key => (perms as any)?.[key]);
   });
 
   return (

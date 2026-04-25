@@ -4,19 +4,19 @@ import {
   updateContaReceber, cancelarContaReceber, validarNota,
   getFaturamentosDisponiveis, receberParcela, salvarParcelaCR
 } from '../controllers/contasReceber.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticate, authorize } from '../middleware/auth.middleware';
 
 const router = Router();
 router.use(authenticate);
 
-router.get('/validar-nota', validarNota);
-router.get('/faturamentos', getFaturamentosDisponiveis);
-router.get('/', listContasReceber);
-router.get('/:id', getContaReceber);
-router.post('/', createContaReceber);
-router.post('/:id/receber', receberParcela);
-router.patch('/parcela/:id', salvarParcelaCR);
-router.patch('/:id', updateContaReceber);
-router.delete('/:id', cancelarContaReceber);
+router.get('/validar-nota', authorize('financeiro.contas_receber.listar'), validarNota);
+router.get('/faturamentos', authorize('financeiro.contas_receber.listar'), getFaturamentosDisponiveis);
+router.get('/', authorize('financeiro.contas_receber.listar'), listContasReceber);
+router.get('/:id', authorize('financeiro.contas_receber.listar'), getContaReceber);
+router.post('/', authorize('financeiro.contas_receber.criar'), createContaReceber);
+router.post('/:id/receber', authorize('financeiro.contas_receber.editar'), receberParcela);
+router.patch('/parcela/:id', authorize('financeiro.contas_receber.editar'), salvarParcelaCR);
+router.patch('/:id', authorize('financeiro.contas_receber.editar'), updateContaReceber);
+router.delete('/:id', authorize('financeiro.contas_receber.excluir'), cancelarContaReceber);
 
 export default router;

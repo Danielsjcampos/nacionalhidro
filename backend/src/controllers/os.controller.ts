@@ -21,7 +21,9 @@ export const listOS = async (req: AuthRequest, res: Response) => {
     const list = await prisma.ordemServico.findMany({
       where,
       include: {
-        cliente: true,
+        cliente: {
+          include: { contatosList: true }
+        },
         servicos: true,
         proposta: { select: { id: true, codigo: true, status: true } }
       },
@@ -42,7 +44,11 @@ export const getOS = async (req: AuthRequest, res: Response) => {
     const os = await prisma.ordemServico.findUnique({
       where: { id },
       include: {
-        cliente: true,
+        cliente: {
+          include: {
+            contatosList: true
+          }
+        },
         proposta: true,
         servicos: true,
         manutencao: true,
@@ -52,7 +58,14 @@ export const getOS = async (req: AuthRequest, res: Response) => {
     });
 
     if (!os) return res.status(404).json({ error: 'OS not found' });
-    res.json(os);
+
+    // P0-5: Buscar Escala vinculada por codigoOS (não é FK direta)
+    const escala = await prisma.escala.findFirst({
+      where: { codigoOS: os.codigo },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json({ ...os, escala });
   } catch (error) {
     console.error('Get OS error:', error);
     res.status(500).json({ error: 'Failed to fetch OS details' });

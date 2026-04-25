@@ -6,43 +6,43 @@ import {
     finalizarOS, reverterCancelamentoOS, sincronizarRDOComItensCobranca
 } from '../controllers/os.controller';
 import { listMateriaisOS, addMaterialOS, removeMaterialOS } from '../controllers/materialOS.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticate, authorize } from '../middleware/auth.middleware';
 
 const router = Router();
 
 router.use(authenticate);
 
 // ── OS CRUD ──────────────────────────────────────────────────────
-router.get('/', listOS);
-router.get('/exportar/lote-pdf', printLoteOSPdf);
-router.get('/:id', getOS);
-router.post('/', createOS);
-router.post('/print', printOS);
-router.get('/:id/pdf', downloadPdfOS);
-router.patch('/:id', updateOS);
-router.delete('/:id', deleteOS);
+router.get('/', authorize('logistica.os.listar'), listOS);
+router.get('/exportar/lote-pdf', authorize('logistica.os.listar'), printLoteOSPdf);
+router.get('/:id', authorize('logistica.os.listar'), getOS);
+router.post('/', authorize('logistica.os.criar'), createOS);
+router.post('/print', authorize('logistica.os.listar'), printOS);
+router.get('/:id/pdf', authorize('logistica.os.listar'), downloadPdfOS);
+router.patch('/:id', authorize('logistica.os.editar'), updateOS);
+router.delete('/:id', authorize('logistica.os.excluir'), deleteOS);
 
 // ── Duplicar OS ──────────────────────────────────────────────────
-router.post('/:id/duplicar', duplicateOS);
-router.post('/:id/sync-rdo', sincronizarRDOComItensCobranca);
+router.post('/:id/duplicar', authorize('logistica.os.criar'), duplicateOS);
+router.post('/:id/sync-rdo', authorize('logistica.os.editar'), sincronizarRDOComItensCobranca);
 
-// ── Gap Analysis 2.6: Finalizar + Reverter Cancelamento ──────────
-router.patch('/:id/finalizar', finalizarOS);
-router.patch('/:id/reverter-cancelamento', reverterCancelamentoOS);
+// ── Finalizar + Reverter Cancelamento ──────────
+router.patch('/:id/finalizar', authorize('logistica.os.editar'), finalizarOS);
+router.patch('/:id/reverter-cancelamento', authorize('logistica.os.editar'), reverterCancelamentoOS);
 
 // ── Lote (criar e baixar) ────────────────────────────────────────
-router.post('/lote', createOSLote);
-router.patch('/baixar-lote', baixarOSLote);
+router.post('/lote', authorize('logistica.os.criar'), createOSLote);
+router.patch('/baixar-lote', authorize('logistica.os.editar'), baixarOSLote);
 
-// ── Itens de Cobrança (subitens para hora extra, noturno, etc.) ──
-router.get('/:osId/itens-cobranca', listItensCobranca);
-router.post('/:osId/itens-cobranca', createItemCobranca);
-router.patch('/itens-cobranca/:itemId', updateItemCobranca);
-router.delete('/itens-cobranca/:itemId', deleteItemCobranca);
+// ── Itens de Cobrança ──
+router.get('/:osId/itens-cobranca', authorize('logistica.os.listar'), listItensCobranca);
+router.post('/:osId/itens-cobranca', authorize('logistica.os.editar'), createItemCobranca);
+router.patch('/itens-cobranca/:itemId', authorize('logistica.os.editar'), updateItemCobranca);
+router.delete('/itens-cobranca/:itemId', authorize('logistica.os.excluir'), deleteItemCobranca);
 
-// ── Materiais Utilizados (T05 — Baixa de Estoque) ────────────────
-router.get('/:osId/materiais', listMateriaisOS);
-router.post('/:osId/materiais', addMaterialOS);
-router.delete('/materiais/:id', removeMaterialOS);
+// ── Materiais Utilizados ────────────────
+router.get('/:osId/materiais', authorize('logistica.os.listar'), listMateriaisOS);
+router.post('/:osId/materiais', authorize('logistica.os.editar'), addMaterialOS);
+router.delete('/materiais/:id', authorize('logistica.os.excluir'), removeMaterialOS);
 
 export default router;

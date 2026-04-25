@@ -1,93 +1,89 @@
 import { Response } from 'express';
 import prisma from '../lib/prisma';
-import { AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest, hasPermission } from '../middleware/auth.middleware';
 
 export const getDashboardStats = async (req: AuthRequest, res: Response) => {
   try {
-    // 1. Propostas
-    const propostasTotal = await prisma.proposta.count();
-    const propostasAceitas = await prisma.proposta.count({ where: { status: 'ACEITA' } });
-    const propostasPendentes = await prisma.proposta.count({ where: { status: 'ENVIADA' } });
-    const propostasRecusadas = await prisma.proposta.count({ where: { status: 'RECUSADA' } });
+    const userId = req.user?.userId || '';
+    const role = req.user?.role || '';
 
-    // Valor total de propostas aceitas (Faturamento Potencial)
-    const valorPropostas = await prisma.proposta.aggregate({
-      _sum: { valorTotal: true },
-      where: { status: 'ACEITA' }
-    });
+    // ── Verificar permissões do usuário ──
+    const [canFinanceiro, canComercial, canLogistica, canRH, canEstoque, canFrota] = await Promise.all([
+      hasPermission(userId, role, 'financeiro.dashboard.ver'),
+      hasPermission(userId, role, 'comercial.propostas.listar'),
+      hasPermission(userId, role, 'logistica.dashboard.ver'),
+      hasPermission(userId, role, 'rh.funcionarios.listar'),
+      hasPermission(userId, role, 'estoque.listar'),
+      hasPermission(userId, role, 'frota.veiculos.listar'),
+    ]);
 
-    // 2. Serviços (OS)
-    const osTotal = await prisma.ordemServico.count();
-    const osEmAndamento = await prisma.ordemServico.count({ where: { status: 'EM_EXECUCAO' } });
-    const osFinalizadas = await prisma.ordemServico.count({ where: { status: 'FINALIZADA' } });
+    // 1. Propostas (apenas se tiver permissão comercial)
+    let propostasData = { total: 0, aceitas: 0, pendentes: 0, recusadas: 0, valorTotal: 0 };
+    if (canComercial) {
+      const [total, aceitas, pendentes, recusadas, valor] = await Promise.all([
+        prisma.proposta.count(),
+        prisma.proposta.count({ where: { status: 'ACEITA' } }),
+        prisma.proposta.count({ where: { status: 'ENVIADA' } }),
+        prisma.proposta.count({ where: { status: 'RECUSADA' } }),
+        prisma.proposta.aggregate({ _sum: { valorTotal: true }, where: { status: 'ACEITA' } }),
+      ]);
+      propostasData = { total, aceitas, pendentes, recusadas, valorTotal: valor._sum.valorTotal ? Number(valor._sum.valorTotal) : 0 };
+    }
+
+    // 2. Operacional (OS) — visível se logística
+    let operacionalData = { osTotal: 0, osEmAndamento: 0, osFinalizadas: 0, frotaManutencao: 0, estoqueBaixo: 0, totalProdutos: 0 };
+    if (canLogistica || canEstoque || canFrota) {
+      const [osTotal, osEmAndamento, osFinalizadas, frotaMaint, estBaixo, ttlProd] = await Promise.all([
+        canLogistica ? prisma.ordemServico.count() : Promise.resolve(0),
+        canLogistica ? prisma.ordemServico.count({ where: { status: 'EM_EXECUCAO' } }) : Promise.resolve(0),
+        canLogistica ? prisma.ordemServico.count({ where: { status: 'FINALIZADA' } }) : Promise.resolve(0),
+        canFrota ? prisma.manutencao.count({ where: { status: 'EM_ANDAMENTO' } }) : Promise.resolve(0),
+        canEstoque ? prisma.produto.count({ where: { estoqueAtual: { lte: 5 } } }) : Promise.resolve(0),
+        canEstoque ? prisma.produto.count() : Promise.resolve(0),
+      ]);
+      operacionalData = { osTotal, osEmAndamento, osFinalizadas, frotaManutencao: frotaMaint, estoqueBaixo: estBaixo, totalProdutos: ttlProd };
+    }
 
     // 3. Clientes
-    const clientesTotal = await prisma.cliente.count();
-    const clientesNovos = await prisma.cliente.count({
-      where: {
-        createdAt: {
-          gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) // First day of current month
-        }
-      }
-    });
+    let clientesTotal = 0, clientesNovos = 0;
+    if (canComercial) {
+      [clientesTotal, clientesNovos] = await Promise.all([
+        prisma.cliente.count(),
+        prisma.cliente.count({ where: { createdAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } } }),
+      ]);
+    }
 
-    // 4. Financeiro (Real usando ContaReceber e ContaPagar)
-    const receitas = await prisma.contaReceber.aggregate({
-      _sum: { valorRecebido: true, valorOriginal: true },
-      where: { status: 'RECEBIDO' }
-    });
-    const despesas = await prisma.contaPagar.aggregate({
-      _sum: { valorPago: true, valorOriginal: true },
-      where: { status: 'PAGO' }
-    });
-    
-    const ttlReceita = Number(receitas._sum.valorRecebido || receitas._sum.valorOriginal || 0);
-    const ttlDespesa = Number(despesas._sum.valorPago || despesas._sum.valorOriginal || 0);
+    // 4. Financeiro
+    let ttlReceita = 0, ttlDespesa = 0;
+    let chartData: any[] = [];
+    if (canFinanceiro) {
+      const [receitas, despesas] = await Promise.all([
+        prisma.contaReceber.aggregate({ _sum: { valorRecebido: true, valorOriginal: true }, where: { status: 'RECEBIDO' } }),
+        prisma.contaPagar.aggregate({ _sum: { valorPago: true, valorOriginal: true }, where: { status: 'PAGO' } }),
+      ]);
+      ttlReceita = Number(receitas._sum.valorRecebido || receitas._sum.valorOriginal || 0);
+      ttlDespesa = Number(despesas._sum.valorPago || despesas._sum.valorOriginal || 0);
+      chartData = [
+        { name: 'Jan', receitas: 12000, despesas: 8000 },
+        { name: 'Fev', receitas: 19000, despesas: 12000 },
+        { name: 'Mar', receitas: 15000, despesas: 10000 },
+        { name: 'Abr', receitas: 22000, despesas: 15000 },
+        { name: 'Mai', receitas: 28000, despesas: 18000 },
+        { name: 'Jun', receitas: 32000, despesas: 20000 },
+      ];
+    }
 
-    // 5. Estoque (Produtos)
-    const estoqueBaixo = await prisma.produto.count({
-      where: {
-        estoqueAtual: { lte: 5 } // Exemplo: estoque mínimo genérico
-      }
-    });
-    const totalProdutos = await prisma.produto.count();
-
-    // 6. Logística / Frota (Se houver tabela Veiculo/Frota, caso contrário mockamos ou contamos manutenções)
-    const veiculosManutencao = await prisma.manutencao.count({ where: { status: 'EM_ANDAMENTO' } });
-
-    // 7. Recursos Humanos (Status Operacional)
-    // - Em Contratação: Admissoes que não estão CONCLUIDAS nem CANCELADAS
-    // No schema.prisma a Model chama 'Admissao' e usa 'etapa' ao invés de status e não possui 'CONCLUIDO'.
-    const rhEmContratacao = await prisma.admissao.count({
-      where: {
-        etapa: { notIn: ['CONTRATADO', 'CANCELADO'] }
-      }
-    });
-
-    // - Afastados: ExamesASO com status INAPTO ou Atestados (vamos usar ASO INAPTO por ora ou dados de Ponto/Férias/Afastamento se houver)
-    // O Model é 'ASOControle' (onde o campo é resultado: INAPTO)
-    const rhAfastados = await prisma.aSOControle.count({
-      where: { resultado: 'INAPTO' }
-    });
-
-    // - Atestados: Usurários com exameASO 'APTO_COM_RESTRICOES' funcionará provisoriamente como "atestados/restritos"
-    const rhAtestados = await prisma.aSOControle.count({
-      where: { resultado: 'APTO_COM_RESTRICOES' }
-    });
-
-    // - Aptos: Usuários Ativos totais subtraindo afastados e restritos.
-    const usersAtivosTotal = await prisma.user.count({ where: { isAtivo: true } });
-    const rhAptos = Math.max(0, usersAtivosTotal - rhAfastados - rhAtestados);
-
-    // 8. Dados para Gráficos (Mockados para demonstração de mensal, idealmente via groupBy)
-    const chartData = [
-      { name: 'Jan', receitas: 12000, despesas: 8000 },
-      { name: 'Fev', receitas: 19000, despesas: 12000 },
-      { name: 'Mar', receitas: 15000, despesas: 10000 },
-      { name: 'Abr', receitas: 22000, despesas: 15000 },
-      { name: 'Mai', receitas: 28000, despesas: 18000 },
-      { name: 'Jun', receitas: 32000, despesas: 20000 },
-    ];
+    // 5. RH
+    let rhData = { total: 0, aptos: 0, emContratacao: 0, atestados: 0, afastados: 0 };
+    if (canRH) {
+      const [emContratacao, afastados, atestados, usersAtivos] = await Promise.all([
+        prisma.admissao.count({ where: { etapa: { notIn: ['CONTRATADO', 'CANCELADO'] } } }),
+        prisma.aSOControle.count({ where: { resultado: 'INAPTO' } }),
+        prisma.aSOControle.count({ where: { resultado: 'APTO_COM_RESTRICOES' } }),
+        prisma.user.count({ where: { isAtivo: true } }),
+      ]);
+      rhData = { total: usersAtivos, aptos: Math.max(0, usersAtivos - afastados - atestados), emContratacao, atestados, afastados };
+    }
 
     res.json({
       summary: {
@@ -96,28 +92,9 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
         clientesAtivos: clientesTotal,
         novosClientes: clientesNovos,
       },
-      propostas: {
-        total: propostasTotal,
-        aceitas: propostasAceitas,
-        pendentes: propostasPendentes,
-        recusadas: propostasRecusadas,
-        valorTotal: valorPropostas._sum.valorTotal ? Number(valorPropostas._sum.valorTotal) : 0
-      },
-      operacional: {
-        osTotal,
-        osEmAndamento,
-        osFinalizadas,
-        frotaManutencao: veiculosManutencao,
-        estoqueBaixo,
-        totalProdutos
-      },
-      rh: {
-        total: usersAtivosTotal,
-        aptos: rhAptos,
-        emContratacao: rhEmContratacao,
-        atestados: rhAtestados,
-        afastados: rhAfastados
-      },
+      propostas: propostasData,
+      operacional: operacionalData,
+      rh: canRH ? rhData : null,
       apiHealth: {
         uptime: process.uptime(),
         memory: process.memoryUsage(),

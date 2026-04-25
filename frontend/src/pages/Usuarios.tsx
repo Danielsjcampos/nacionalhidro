@@ -405,117 +405,13 @@ export default function Usuarios() {
         </div>
       )}
 
-      {/* Modal Edição Permissões */}
+      {/* Modal Edição Permissões — Granular */}
       {editingCat && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2rem] w-full max-w-4xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300 border border-slate-200">
-            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-white">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
-                  <ShieldAlert className="w-6 h-6" />
-                </div>
-                <div>
-                  <h2 className="font-black uppercase tracking-widest text-lg text-slate-800 italic leading-none">Configuração de Acessos</h2>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-tighter">Defina as permissões granulares para a categoria: <span className="text-blue-600 underline">{(editingCat.nome || 'Nova Categoria').toUpperCase()}</span></p>
-                </div>
-              </div>
-              <button onClick={() => setEditingCat(null)} className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center transition-all text-slate-400 hover:text-slate-600">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            
-            <div className="p-8 space-y-8 bg-slate-50/30">
-              <div className="max-w-md">
-                <label className="text-[10px] font-black text-slate-400 uppercase italic block mb-2 tracking-widest">Identificação do Grupo / Nível</label>
-                <input 
-                  type="text" 
-                  value={editingCat.nome}
-                  onChange={(e) => setEditingCat({...editingCat, nome: e.target.value})}
-                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-lg outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-600 font-bold text-slate-800 transition-all shadow-sm"
-                  placeholder="Ex: Comercial Senior"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* FINANCEIRO SECTION */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-                    <Building className="w-4 h-4 text-slate-400" />
-                    <label className="text-[10px] font-black text-slate-800 uppercase italic tracking-[0.1em]">Departamento Financeiro</label>
-                  </div>
-                  <div className="space-y-2">
-                    {[
-                      { id: 'canAccessFinanceiro', label: 'Financeiro (Geral)' },
-                      { id: 'canAccessContasPagar', label: 'Contas a Pagar' },
-                      { id: 'canAccessContasReceber', label: 'Contas a Receber' },
-                      { id: 'canAccessCobranca', label: 'Gestão de Cobrança' },
-                      { id: 'canAccessFaturamento', label: 'Faturamento de NF' },
-                    ].map(p => (
-                      <PermissionToggle key={p.id} label={p.label} active={editingCat[p.id]} onToggle={() => togglePermission(p.id)} />
-                    ))}
-                  </div>
-                </div>
-
-                {/* OPERACIONAL SECTION */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-                    <Settings className="w-4 h-4 text-slate-400" />
-                    <label className="text-[10px] font-black text-slate-800 uppercase italic tracking-[0.1em]">Operacional & Logística</label>
-                  </div>
-                  <div className="space-y-2">
-                    {[
-                      { id: 'canAccessLogistica', label: 'Logística & Agenda' },
-                      { id: 'canAccessOperacao', label: 'Operacional / OS' },
-                      { id: 'canAccessMedicoes', label: 'Medições de Campo' },
-                      { id: 'canAccessManutencao', label: 'Manut. de Equip.' },
-                      { id: 'canAccessFrota', label: 'Frota de Veículos' },
-                      { id: 'canAccessEstoque', label: 'Estoque / Materiais' },
-                    ].map(p => (
-                      <PermissionToggle key={p.id} label={p.label} active={editingCat[p.id]} onToggle={() => togglePermission(p.id)} />
-                    ))}
-                  </div>
-                </div>
-
-                {/* COMERCIAL / ADM SECTION */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-                    <UsersIcon className="w-4 h-4 text-slate-400" />
-                    <label className="text-[10px] font-black text-slate-800 uppercase italic tracking-[0.1em]">Comercial & Gestão</label>
-                  </div>
-                  <div className="space-y-2">
-                    {[
-                      { id: 'canAccessComercial', label: 'Vendas & Propostas' },
-                      { id: 'canAccessRH', label: 'Recursos Humanos' },
-                      { id: 'canAccessDP', label: 'Depto Pessoal (DP)' },
-                    ].map(p => (
-                      <PermissionToggle key={p.id} label={p.label} active={editingCat[p.id]} onToggle={() => togglePermission(p.id)} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-8 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
-              <p className="text-[9px] text-slate-400 font-bold uppercase italic tracking-tighter max-w-xs leading-relaxed">
-                As permissões aqui definidas são aplicadas instantaneamente a todos os usuários vinculados a esta categoria.
-              </p>
-              <div className="flex gap-4">
-                <button 
-                  onClick={() => setEditingCat(null)}
-                  className="px-6 py-3 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase italic tracking-widest transition-colors"
-                >
-                  Descartar
-                </button>
-                <button 
-                  onClick={handleSaveCategoria}
-                  className="bg-slate-800 hover:bg-black text-white px-10 py-4 rounded-2xl text-[10px] font-black uppercase italic tracking-widest flex items-center gap-2 shadow-2xl shadow-slate-200 transition-all hover:translate-y-[-2px] active:translate-y-[0px]"
-                >
-                  <Save className="w-5 h-5 transition-transform group-hover:scale-110" /> Atualizar Configurações
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <PermissaoModal 
+          categoria={editingCat} 
+          onClose={() => setEditingCat(null)} 
+          onSaved={() => { setEditingCat(null); fetchData(); }}
+        />
       )}
     </div>
   );
@@ -537,3 +433,157 @@ function PermissionToggle({ label, active, onToggle }: { label: string, active: 
     </div>
   );
 }
+
+// ── Modal de Permissões Granulares ──────────────────────────────
+function PermissaoModal({ categoria, onClose, onSaved }: { categoria: any, onClose: () => void, onSaved: () => void }) {
+  const [allPerms, setAllPerms] = useState<Record<string, any[]>>({});
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [nome, setNome] = useState(categoria.nome || '');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [permsRes, catRes] = await Promise.all([
+          api.get('/permissions'),
+          categoria.id ? api.get(`/permissions/categorias/${categoria.id}`) : Promise.resolve({ data: { permissionKeys: [] } })
+        ]);
+        setAllPerms(permsRes.data.grouped || {});
+        setSelectedKeys(new Set(catRes.data.permissionKeys || []));
+      } catch (e) { console.error(e); }
+      finally { setLoading(false); }
+    };
+    load();
+  }, [categoria.id]);
+
+  const toggleKey = (chave: string) => {
+    setSelectedKeys(prev => {
+      const next = new Set(prev);
+      if (next.has(chave)) next.delete(chave); else next.add(chave);
+      return next;
+    });
+  };
+
+  const toggleModule = (modulo: string) => {
+    const modulePerms = allPerms[modulo] || [];
+    const allSelected = modulePerms.every(p => selectedKeys.has(p.chave));
+    setSelectedKeys(prev => {
+      const next = new Set(prev);
+      modulePerms.forEach(p => { if (allSelected) next.delete(p.chave); else next.add(p.chave); });
+      return next;
+    });
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Save categoria name (legacy)
+      if (categoria.id) {
+        await api.patch(`/categorias/${categoria.id}`, { nome });
+        await api.put(`/permissions/categorias/${categoria.id}`, { permissionKeys: Array.from(selectedKeys) });
+      } else {
+        const res = await api.post('/categorias', { nome, canAccessComercial: true });
+        if (res.data?.id) {
+          await api.put(`/permissions/categorias/${res.data.id}`, { permissionKeys: Array.from(selectedKeys) });
+        }
+      }
+      onSaved();
+    } catch (e) { console.error(e); }
+    finally { setSaving(false); }
+  };
+
+  const moduleLabels: Record<string, string> = {
+    financeiro: '💰 Financeiro', comercial: '📊 Comercial', logistica: '🚛 Logística',
+    medicoes: '📐 Medições', rh: '👥 RH / DP', frota: '🚗 Frota',
+    manutencao: '🔧 Manutenção', estoque: '📦 Estoque', admin: '⚙️ Administração',
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-[2rem] w-full max-w-5xl shadow-2xl overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col">
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+              <Shield className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="font-black uppercase tracking-widest text-lg text-slate-800 italic">Permissões Granulares</h2>
+              <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Selecione as ações permitidas para cada módulo</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-lg border border-blue-100">
+              {selectedKeys.size} permissões
+            </span>
+            <button onClick={onClose} className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 overflow-y-auto flex-1">
+          <div className="max-w-sm mb-6">
+            <label className="text-[10px] font-black text-slate-400 uppercase italic block mb-2">Nome da Categoria</label>
+            <input type="text" value={nome} onChange={e => setNome(e.target.value)}
+              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-600 font-bold text-slate-800"
+              placeholder="Ex: Financeiro Senior" />
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Object.entries(allPerms).map(([modulo, perms]) => {
+                const allChecked = perms.every(p => selectedKeys.has(p.chave));
+                const someChecked = perms.some(p => selectedKeys.has(p.chave));
+                return (
+                  <div key={modulo} className="border border-slate-200 rounded-2xl overflow-hidden">
+                    <div
+                      onClick={() => toggleModule(modulo)}
+                      className={`p-3 flex items-center justify-between cursor-pointer transition-all ${allChecked ? 'bg-blue-600 text-white' : someChecked ? 'bg-blue-50 text-blue-800' : 'bg-slate-50 text-slate-700'}`}
+                    >
+                      <span className="text-[10px] font-black uppercase tracking-widest italic">
+                        {moduleLabels[modulo] || modulo}
+                      </span>
+                      <span className="text-[9px] font-bold opacity-70">
+                        {perms.filter(p => selectedKeys.has(p.chave)).length}/{perms.length}
+                      </span>
+                    </div>
+                    <div className="p-2 space-y-1 bg-white">
+                      {perms.map(p => (
+                        <label key={p.chave} className="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-50 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={selectedKeys.has(p.chave)}
+                            onChange={() => toggleKey(p.chave)}
+                            className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] font-bold text-slate-700 truncate">{p.descricao}</p>
+                            <p className="text-[8px] text-slate-400 font-mono truncate">{p.chave}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="p-6 bg-slate-50 border-t border-slate-200 flex justify-end gap-3 shrink-0">
+          <button onClick={onClose} className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase italic">Cancelar</button>
+          <button onClick={handleSave} disabled={saving}
+            className="bg-slate-800 hover:bg-black text-white px-10 py-3.5 rounded-2xl text-[10px] font-black uppercase italic flex items-center gap-2 shadow-xl disabled:opacity-50">
+            <Save className="w-4 h-4" /> {saving ? 'Salvando...' : 'Salvar Permissões'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+

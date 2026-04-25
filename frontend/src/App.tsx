@@ -74,37 +74,43 @@ import VencimentosPage from './pages/VencimentosPage';
 import DocumentosSeguracaPage from './pages/DocumentosSeguracaPage';
 
 
-// Route-to-permission mapping
+// Route-to-permission mapping (granular keys)
 const routePermissions: Record<string, string[]> = {
-  '/propostas': ['comercial'], '/crm': ['comercial'], '/clientes': ['comercial'],
-  '/os': ['logistica', 'operacao'], '/logistica': ['logistica', 'operacao'],
-  '/agendamentos': ['logistica', 'operacao'],
-  '/hospedagens': ['logistica', 'operacao'], '/dashboard-logistica': ['logistica', 'operacao'],
-  '/escala': ['logistica', 'operacao'], '/rdo': ['logistica', 'operacao'],
-  '/painel-motorista': ['logistica', 'operacao'],
-  '/frota/mapa': ['frota'], '/frota/veiculos': ['frota'],
-  '/manutencao': ['frota', 'manutencao'],
-  '/checklist': ['frota', 'manutencao'],
-  '/estoque/controle': ['estoque'], '/estoque/equipamentos': ['estoque'],
-  '/seguranca-trabalho': ['rh'],
-  '/medicoes': ['medicoes'],
-  '/dashboard-financeiro': ['financeiro', 'contasPagar', 'contasReceber'],
-  '/contas-pagar': ['financeiro', 'contasPagar'], '/contas-receber': ['financeiro', 'contasReceber'],
-  '/cobranca': ['financeiro', 'cobranca'], '/faturamento': ['financeiro', 'faturamento'],
-  '/contratos': ['financeiro'], '/fluxo-caixa-diario': ['financeiro'],
-  '/relatorios': ['financeiro'], '/dre': ['financeiro'],
-  '/centros-custo': ['financeiro'], '/plano-contas': ['financeiro'],
-  '/contas-bancarias': ['financeiro'], '/empresas': ['financeiro'],
-  '/importacao-xml': ['financeiro'],
-  '/gestao-colaboradores': ['rh', 'dp'], '/rh': ['rh', 'dp'],
-  '/recrutamento': ['rh'], '/admissao': ['rh', 'dp'],
-  '/ferias': ['rh', 'dp'], '/desligamento': ['rh', 'dp'],
-  '/aso-controle': ['rh'], '/relatorios-rh': ['rh', 'dp'],
-  '/vencimentos': ['rh'], '/documentos-seguranca': ['rh'],
-  '/vaga-solicitacoes': ['rh', 'dp'],
-  '/integracoes': ['rh', 'dp'],
-  '/ponto': ['rh', 'dp'], '/triagem-ia': ['rh'],
-  '/workflows': ['rh', 'dp', 'admin'],
+  '/dashboard': ['financeiro.dashboard.ver', 'logistica.dashboard.ver', 'rh.funcionarios.listar', 'comercial.propostas.listar'],
+  '/propostas': ['comercial.propostas.listar'], '/crm': ['comercial.crm.ver'], '/clientes': ['comercial.clientes.listar'],
+  '/os': ['logistica.os.listar'], '/logistica': ['logistica.escala.listar'],
+  '/agendamentos': ['logistica.escala.listar'],
+  '/hospedagens': ['logistica.hospedagem.listar'], '/dashboard-logistica': ['logistica.dashboard.ver'],
+  '/escala': ['logistica.escala.listar'], '/rdo': ['logistica.rdo.listar'],
+  '/painel-motorista': ['logistica.os.listar'],
+  '/frota/mapa': ['frota.mapa.ver'], '/frota/veiculos': ['frota.veiculos.listar'],
+  '/manutencao': ['manutencao.listar'],
+  '/checklist': ['frota.checklist.ver'],
+  '/estoque/controle': ['estoque.listar'], '/estoque/equipamentos': ['estoque.equipamentos.ver'],
+  '/seguranca-trabalho': ['rh.funcionarios.listar'],
+  '/medicoes': ['medicoes.listar'],
+  '/dashboard-financeiro': ['financeiro.dashboard.ver'],
+  '/pedidos-compra': ['financeiro.contas_pagar.listar'],
+  '/contas-pagar': ['financeiro.contas_pagar.listar'], '/contas-receber': ['financeiro.contas_receber.listar'],
+  '/cobranca': ['financeiro.cobranca.listar'], '/faturamento': ['financeiro.faturamento.listar'],
+  '/contratos': ['financeiro.faturamento.listar'], '/fluxo-caixa-diario': ['financeiro.fluxo_caixa.ver'],
+  '/relatorios': ['financeiro.dre.ver'], '/dre': ['financeiro.dre.ver'],
+  '/centros-custo': ['financeiro.dashboard.ver'], '/plano-contas': ['financeiro.dashboard.ver'],
+  '/contas-bancarias': ['financeiro.dashboard.ver'], '/empresas': ['financeiro.dashboard.ver'],
+  '/importacao-xml': ['financeiro.contas_pagar.criar'],
+  '/gestao-colaboradores': ['rh.funcionarios.listar'], '/rh': ['rh.funcionarios.listar'],
+  '/recrutamento': ['rh.recrutamento.ver'], '/admissao': ['rh.admissao.ver'],
+  '/ferias': ['rh.ferias.ver'], '/desligamento': ['rh.desligamento.ver'],
+  '/aso-controle': ['rh.aso.ver'], '/relatorios-rh': ['rh.relatorios.ver'],
+  '/vencimentos': ['rh.aso.ver'], '/documentos-seguranca': ['rh.funcionarios.listar'],
+  '/vaga-solicitacoes': ['rh.recrutamento.ver'],
+  '/integracoes': ['rh.funcionarios.listar'],
+  '/ponto': ['rh.ponto.ver'], '/triagem-ia': ['rh.recrutamento.ver'],
+  '/workflows': ['rh.recrutamento.ver', 'rh.admissao.ver'],
+  '/ocorrencias': ['rh.ocorrencias.ver'],
+  '/processos-trabalhistas': ['rh.funcionarios.listar'],
+  '/usuarios': ['admin.usuarios.ver'], '/configuracoes': ['admin.usuarios.ver'],
+  '/audit-log': ['admin.logs.ver'],
 };
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -113,14 +119,28 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   const userJson = localStorage.getItem('userData');
   const user = userJson ? JSON.parse(userJson) : null;
+  const permissionKeys: string[] = user?.permissionKeys || [];
   const perms = user?.permissoes;
   const pathname = window.location.pathname;
 
-  // Check permissions (admin/master or no perms = full access)
+  // Admin = acesso total
   const roleName = user?.role?.name || user?.role;
-  if (perms && roleName !== 'admin') {
-    const required = routePermissions[pathname];
-    if (required && !required.some(key => (perms as any)[key])) {
+  if (roleName === 'admin') {
+    return <MainLayout>{children}</MainLayout>;
+  }
+
+  // Verificar permissão granular
+  const required = routePermissions[pathname];
+  if (required) {
+    // Checar pelo novo sistema de chaves granulares
+    const hasGranular = permissionKeys.length > 0 && required.some(key => permissionKeys.includes(key));
+    // Fallback: checar pelo sistema legado de booleanos
+    const hasLegacy = perms && required.some(key => {
+      const legacyKey = key.split('.')[0];
+      return (perms as any)[legacyKey];
+    });
+
+    if (!hasGranular && !hasLegacy) {
       return (
         <MainLayout>
           <div className="flex items-center justify-center h-full">

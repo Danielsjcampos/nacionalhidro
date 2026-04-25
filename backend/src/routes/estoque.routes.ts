@@ -3,26 +3,26 @@ import {
   listProdutos, createProduto, updateProduto, deleteProduto,
   updateEstoque, consumoOS, getAlertasEstoque, getMovimentacoes
 } from '../controllers/estoque.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticate, authorize } from '../middleware/auth.middleware';
 
 const router = Router();
 
 router.use(authenticate);
 
-// T06: Low stock alerts (MUST be before /:id routes)
-router.get('/alertas', getAlertasEstoque);
+// Alertas
+router.get('/alertas', authorize('estoque.listar'), getAlertasEstoque);
 
-// T05: OS material consumption (bulk, MUST be before /:id routes)
-router.post('/consumo-os', consumoOS);
+// Consumo OS
+router.post('/consumo-os', authorize('estoque.movimentar'), consumoOS);
 
 // Product CRUD
-router.get('/', listProdutos);
-router.post('/', createProduto);
-router.patch('/:id', updateProduto);
-router.delete('/:id', deleteProduto);
+router.get('/', authorize('estoque.listar'), listProdutos);
+router.post('/', authorize('estoque.movimentar'), createProduto);
+router.patch('/:id', authorize('estoque.movimentar'), updateProduto);
+router.delete('/:id', authorize('estoque.movimentar'), deleteProduto);
 
 // Stock movements
-router.post('/:id/movimentacao', updateEstoque);
-router.get('/:id/movimentacoes', getMovimentacoes);
+router.post('/:id/movimentacao', authorize('estoque.movimentar'), updateEstoque);
+router.get('/:id/movimentacoes', authorize('estoque.listar'), getMovimentacoes);
 
 export default router;

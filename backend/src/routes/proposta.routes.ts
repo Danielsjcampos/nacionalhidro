@@ -4,7 +4,7 @@ import {
   updatePropostaStatus, deleteProposta, gerarOSdeUnidade, gerarPropostaTecnica, enviarEmailProposta, gerarRevisao, gerarPDFPropostaWeb,
   dispararEquipe
 } from '../controllers/proposta.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticate, authorize } from '../middleware/auth.middleware';
 import multer from 'multer';
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -13,18 +13,17 @@ const router = Router();
 
 router.use(authenticate);
 
-router.get('/', listPropostas);
-router.get('/:id', getProposta);
-router.post('/', createProposta);
-router.patch('/:id', updateProposta);
-router.patch('/:id/status', updatePropostaStatus);
-router.post('/:id/enviar-email', upload.single('pdf'), enviarEmailProposta);
-router.get('/:id/gerar-pdf', gerarPDFPropostaWeb);
-router.post('/:id/gerar-os', gerarOSdeUnidade);
-router.post('/:id/gerar-tecnica', gerarPropostaTecnica);
-router.post('/:id/revisao', gerarRevisao);
-router.post('/:id/disparar-equipe', dispararEquipe);
-router.delete('/:id', deleteProposta);
+router.get('/', authorize('comercial.propostas.listar'), listPropostas);
+router.get('/:id', authorize('comercial.propostas.listar'), getProposta);
+router.post('/', authorize('comercial.propostas.criar'), createProposta);
+router.patch('/:id', authorize('comercial.propostas.editar'), updateProposta);
+router.patch('/:id/status', authorize('comercial.propostas.editar'), updatePropostaStatus);
+router.post('/:id/enviar-email', authorize('comercial.propostas.editar'), upload.single('pdf'), enviarEmailProposta);
+router.get('/:id/gerar-pdf', authorize('comercial.propostas.listar'), gerarPDFPropostaWeb);
+router.post('/:id/gerar-os', authorize('comercial.propostas.criar'), gerarOSdeUnidade);
+router.post('/:id/gerar-tecnica', authorize('comercial.propostas.criar'), gerarPropostaTecnica);
+router.post('/:id/revisao', authorize('comercial.propostas.editar'), gerarRevisao);
+router.post('/:id/disparar-equipe', authorize('comercial.propostas.editar'), dispararEquipe);
+router.delete('/:id', authorize('comercial.propostas.excluir'), deleteProposta);
 
 export default router;
-

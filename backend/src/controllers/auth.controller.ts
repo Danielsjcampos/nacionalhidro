@@ -6,7 +6,10 @@ import nodemailer from 'nodemailer';
 import { logSystemEvent } from '../middlewares/logger.middleware';
 import prisma from '../lib/prisma';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('❌ JWT_SECRET não definido. Configure a variável de ambiente.');
+}
 
 export const login = async (req: Request, res: Response) => {
   try {
@@ -42,7 +45,18 @@ export const login = async (req: Request, res: Response) => {
 
     logSystemEvent('LOGIN', `Usuário logado com sucesso: ${user.name} (${loginIdentifier})`, 'INFO', { userId: user.id });
 
+    // Buscar permissões granulares da categoria
+    let permissionKeys: string[] = [];
+    if (user.roleId) {
+      const catPerms = await prisma.categoriaPermission.findMany({
+        where: { categoriaId: user.roleId },
+        include: { permission: true }
+      });
+      permissionKeys = catPerms.map(cp => cp.permission.chave);
+    }
+
     const cat = user.categoria as any;
+    // Manter formato legado para compatibilidade
     const permissoes = cat ? {
       financeiro: !!cat.canAccessFinanceiro,
       contasPagar: !!cat.canAccessContasPagar,
@@ -73,6 +87,7 @@ export const login = async (req: Request, res: Response) => {
         telefone: user.telefone,
         categoriaNome: cat?.nome || null,
         permissoes,
+        permissionKeys,
       }
     });
   } catch (error: any) {
@@ -233,7 +248,7 @@ export const resetPassword = async (req: Request, res: Response) => {
 
 export const register = async (req: Request, res: Response) => {
   try {
-    const { email, password, name, role } = req.body;
+    const { email, password, name } = req.body;
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
@@ -242,12 +257,16 @@ export const register = async (req: Request, res: Response) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Primeiro usuário do sistema recebe role 'admin', demais recebem 'user'
+    const userCount = await prisma.user.count();
+    const assignedRole = userCount === 0 ? 'admin' : 'user';
+
     await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name,
-        role: role || 'admin'
+        role: assignedRole
       },
     });
 

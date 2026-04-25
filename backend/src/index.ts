@@ -193,6 +193,8 @@ import contasPagarRoutes from './routes/contasPagar.routes';
 import contasReceberRoutes from './routes/contasReceber.routes';
 app.use('/contas-pagar', contasPagarRoutes);
 app.use('/contas-receber', contasReceberRoutes);
+import permissoesRoutes from './routes/permissoes.routes';
+app.use('/permissions', permissoesRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
