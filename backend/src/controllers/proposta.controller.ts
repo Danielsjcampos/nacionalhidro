@@ -46,6 +46,9 @@ export const listPropostas = async (req: AuthRequest, res: Response) => {
         take: limit,
         include: {
           cliente: true,
+          vendedorUser: { select: { id: true, name: true } },
+          itens: true,
+          equipe: { include: { cargoRef: true } },
           unidades: {
             include: {
               ordensServico: { select: { id: true, codigo: true, status: true } }
@@ -62,6 +65,7 @@ export const listPropostas = async (req: AuthRequest, res: Response) => {
     const now = new Date();
     const enriched = propostas.map((p: any) => ({
       ...p,
+      vendedorNome: p.vendedorUser?.name || p.vendedor || null,
       // Proteção contra dataValidade nula
       expirada: p.dataValidade ? (new Date(p.dataValidade) < now && p.status !== 'ACEITA') : false,
       totalUnidades: p.unidades?.length || 0,
@@ -95,10 +99,11 @@ export const getProposta = async (req: AuthRequest, res: Response) => {
             contatosList: true
           }
         },
+        vendedorUser: { select: { id: true, name: true, email: true } },
         itens: true,
         acessorios: true,
         responsabilidades: true,
-        equipe: true,
+        equipe: { include: { cargoRef: true } },
         unidades: {
           include: {
             ordensServico: { select: { id: true, codigo: true, status: true } }
@@ -162,6 +167,7 @@ export const createProposta = async (req: AuthRequest, res: Response) => {
           empresa: rest.empresa,
           contato: rest.contato,
           cc: rest.cc,
+          ...(rest.vendedorId ? { vendedorUser: { connect: { id: rest.vendedorId } } } : {}),
           cliente: { connect: { id: clienteId } },
           itens: {
             create: itens?.map((i: any) => ({
@@ -188,7 +194,8 @@ export const createProposta = async (req: AuthRequest, res: Response) => {
           responsabilidades: {
             create: responsabilidades?.map((r: any) => ({
               tipo: String(r.tipo || ''),
-              descricao: String(r.descricao || '')
+              descricao: String(r.descricao || ''),
+              importante: !!r.importante,
             }))
           },
           equipe: {
@@ -375,6 +382,7 @@ export const updateProposta = async (req: AuthRequest, res: Response) => {
           empresa: rest.empresa,
           contato: rest.contato,
           cc: rest.cc,
+          ...(rest.vendedorId ? { vendedorUser: { connect: { id: rest.vendedorId } } } : { vendedorUser: { disconnect: true } }),
           cliente: clienteId ? { connect: { id: clienteId } } : undefined,
           itens: {
             create: itens?.map((i: any) => ({
@@ -401,7 +409,8 @@ export const updateProposta = async (req: AuthRequest, res: Response) => {
           responsabilidades: {
             create: responsabilidades?.map((r: any) => ({
               tipo: String(r.tipo || ''),
-              descricao: String(r.descricao || '')
+              descricao: String(r.descricao || ''),
+              importante: !!r.importante,
             }))
           },
           equipe: {
@@ -484,7 +493,11 @@ export const gerarOSdeUnidade = async (req: AuthRequest, res: Response) => {
 
     const proposta: any = await prisma.proposta.findUnique({
       where: { id },
-      include: { cliente: true, itens: true }
+      include: {
+        cliente: true,
+        itens: true,
+        equipe: { include: { cargoRef: true } },
+      }
     });
 
     if (!proposta) {
@@ -535,7 +548,16 @@ export const gerarOSdeUnidade = async (req: AuthRequest, res: Response) => {
       return os;
     });
 
-    res.status(201).json(result);
+    // Retornar equipe sugerida da proposta para facilitar a montagem da escala
+    const equipeSugerida = (proposta.equipe || []).map((e: any) => ({
+      cargo: e.cargoRef?.nome || e.cargo || e.funcao || 'N/A',
+      cargoId: e.cargoId,
+      equipamento: e.equipamento,
+      equipamentoId: e.equipamentoId,
+      quantidade: e.quantidade || 1,
+    }));
+
+    res.status(201).json({ ...result, equipeSugerida });
   } catch (error: any) {
     console.error('Generate OS error:', error);
     res.status(500).json({ error: 'Failed to generate OS', details: error.message });
@@ -774,7 +796,12 @@ export const enviarEmailProposta = async (req: AuthRequest, res: Response) => {
       if (proposta.status === 'RASCUNHO') {
         await prisma.proposta.update({
           where: { id },
-          data: { status: 'ENVIADA' }
+          data: { status: 'ENVIADA', emailEnviado: true, dataEnvioEmail: new Date() }
+        });
+      } else {
+        await prisma.proposta.update({
+          where: { id },
+          data: { emailEnviado: true, dataEnvioEmail: new Date() }
         });
       }
       res.json({ message: `E-mail enviado com sucesso para ${emailDestino}!`, result });
@@ -878,8 +905,10 @@ export const gerarRevisao = async (req: AuthRequest, res: Response) => {
     const nova = await prisma.proposta.create({
       data: {
         codigo: newCodigo,
+        revisao: (old.revisao || 0) + 1,
         clienteId: old.clienteId,
         vendedor: old.vendedor,
+        vendedorId: old.vendedorId,
         contato: old.contato,
         cc: old.cc,
         naoEnviarAoCliente: old.naoEnviarAoCliente,
@@ -927,13 +956,17 @@ export const gerarRevisao = async (req: AuthRequest, res: Response) => {
         responsabilidades: {
           create: old.responsabilidades.map(r => ({
             tipo: r.tipo,
-            descricao: r.descricao
+            descricao: r.descricao,
+            importante: r.importante || false,
           }))
         },
         equipe: {
           create: old.equipe.map((e: any) => ({
             funcao: e.funcao,
+            cargo: e.cargo,
+            cargoId: e.cargoId,
             equipamento: e.equipamento,
+            equipamentoId: e.equipamentoId,
             quantidade: e.quantidade,
             nome: e.nome || ''
           }))

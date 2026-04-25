@@ -85,3 +85,26 @@ export const deleteMember = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: 'Failed to delete team member' });
   }
 };
+
+// ─── VENDEDORES (filtrados por permissão comercial) ─────────────
+export const listVendedores = async (req: AuthRequest, res: Response) => {
+  try {
+    const users = await prisma.user.findMany({
+      where: {
+        isAtivo: true,
+        OR: [
+          { role: 'admin' },
+          { categoria: { canAccessComercial: true } },
+          { categoria: { permissoes: { some: { permission: { chave: 'comercial.propostas.criar' } } } } },
+        ],
+      },
+      select: { id: true, name: true, email: true },
+      orderBy: { name: 'asc' },
+    });
+    res.json(users);
+  } catch (error) {
+    console.error('List vendedores error:', error);
+    res.status(500).json({ error: 'Falha ao listar vendedores' });
+  }
+};
+

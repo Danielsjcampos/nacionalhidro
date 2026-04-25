@@ -72,7 +72,7 @@ export default function Propostas() {
     const [cl,eq,vd,ac,cp,em,rs,cfg] = await Promise.all([
       safe(()=>api.get('/clientes').then(r=>r.data)),
       safe(()=>api.get('/equipamentos').then(r=>r.data)),
-      safe(()=>api.get('/equipe/members').then(r=>r.data)),
+      safe(()=>api.get('/equipe/vendedores').then(r=>r.data)),
       safe(()=>api.get('/acessorios').then(r=>r.data)),
       safe(()=>api.get('/cargos').then(r=>r.data)),
       safe(()=>api.get('/empresas').then(r=>r.data)),

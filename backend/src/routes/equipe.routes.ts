@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import { 
-  listTeam, createMember, updateMember, deleteMember, listCategories 
+  listTeam, createMember, updateMember, deleteMember, listCategories, listVendedores
 } from '../controllers/equipe.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 
 const router = Router();
 
 router.use(authenticate);
+
+// Vendedores — aberto para quem pode criar propostas (usado no dropdown)
+router.get('/vendedores', listVendedores);
 
 router.get('/members', authorize('admin.usuarios.ver'), listTeam);
 router.post('/members', authorize('admin.usuarios.criar'), createMember);

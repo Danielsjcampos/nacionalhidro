@@ -313,18 +313,26 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
     const eq = options.equipamentos.find((e: any) => e.id === equipId);
     updateItem(itemUid, { equipamentoId: equipId, equipamento: eq?.nome || '' });
     if (!eq) return;
-    // rebuild acessorios
-    const eqAcs: PropostaAcessorio[] = (eq.acessorios || []).map((a: any) => {
+
+    // ── Auto-fill acessórios from junction table (EquipamentoAcessorio) ──
+    const eqAcs: PropostaAcessorio[] = (eq.acessoriosVinculados || eq.acessorios || []).map((a: any) => {
+      // Junction table format: { id, acessorio: { id, nome } }
+      if (a.acessorio && typeof a.acessorio === 'object') {
+        return { _uid: uid(), id: a.acessorio.id, nome: a.acessorio.nome };
+      }
+      // Fallback: legacy JSON format or flat
       const found = options.acessorios.find((oa: any) => oa.id === (a.id || a));
       return { _uid: uid(), id: found?.id || '', nome: found?.nome || a.nome || '' };
     });
-    // rebuild responsabilidades preserving existing classified
-    const eqResps: PropostaResponsabilidade[] = (eq.responsabilidades || []).map((r: any) => ({
+
+    // ── Auto-fill responsabilidades from junction table (EquipamentoResponsabilidade) ──
+    const eqResps: PropostaResponsabilidade[] = (eq.responsabilidadesPadrao || eq.responsabilidades || []).map((r: any) => ({
       _uid: uid(), id: r.id || '0',
       descricao: r.descricao || r.Responsabilidade?.Responsabilidade || r.responsabilidade || '',
-      responsavel: r.responsavel || (r.tipo === 'CONTRATANTE' ? 2 : r.tipo === 'CONTRATADA' ? 1 : null),
+      responsavel: r.tipo === 'CONTRATANTE' ? 2 : r.tipo === 'CONTRATADA' ? 1 : (r.responsavel ?? null),
       importante: r.importante || false,
     }));
+
     setForm(p => ({
       ...p,
       acessorios: [...p.acessorios.filter(a => a.id === '0'), ...eqAcs],
@@ -366,6 +374,7 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
       ...form,
       clienteId: form.clienteId,
       vendedor: form.vendedorId,
+      vendedorId: form.vendedorId || undefined,
       empresa: form.empresaId,
       contato: form.contatoId,
       cc: form.emailCopia,
@@ -387,8 +396,14 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
         descricao: r.descricao,
         responsavel: r.responsavel,
         tipo: r.responsavel === 2 ? 'CONTRATANTE' : 'CONTRATADA',
+        importante: r.importante || false,
       })),
-      equipe: form.equipes.map(({ _uid, cargo, ...e }) => ({ ...e, cargo: cargo?.descricao || cargo?.nome })),
+      equipe: form.equipes.map(({ _uid, cargo, ...e }) => ({
+        ...e,
+        cargoId: e.cargoId || undefined,
+        cargo: cargo?.nome || cargo?.descricao || e.cargoId,
+        equipamentoId: e.equipamentoId || undefined,
+      })),
       condicoesPagamento: form.condicaoPagamento,
     };
     try { await onSave(payload); } finally { setSaving(false); }
@@ -422,7 +437,7 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
             <div className="col-span-2"><label className={lbl}>Vendedor</label>
               <select value={form.vendedorId} onChange={e => set('vendedorId', e.target.value as any)} className={inp}>
                 <option value="">Selecione...</option>
-                {options.vendedores.map((v: any) => <option key={v.id} value={v.id}>{v.username || v.nome}</option>)}
+                {options.vendedores.map((v: any) => <option key={v.id} value={v.id}>{v.name || v.nome || v.email}</option>)}
               </select>
             </div>
             <div className="col-span-3"><label className={lbl}>Empresa</label>
@@ -442,7 +457,7 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
             <div className="col-span-3"><label className={lbl}>Contato (A/C)</label>
               <select value={form.contatoId} onChange={e => set('contatoId', e.target.value as any)} className={inp}>
                 <option value="">Selecione...</option>
-                {contatos.map((c: any, i: number) => <option key={i} value={c.id || c.nome}>{c.nome}</option>)}
+                {contatos.map((c: any, i: number) => <option key={c.id || i} value={c.id || c.nome}>{c.nome}{c.setor ? ` — ${c.setor}` : c.cargo ? ` — ${c.cargo}` : ''}</option>)}
               </select>
             </div>
             <div className="col-span-4"><label className={lbl}>CC (Cópia E-mail)</label>

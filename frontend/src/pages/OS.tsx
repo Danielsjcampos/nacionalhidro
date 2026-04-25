@@ -87,6 +87,9 @@ export default function OS() {
   const [baixaLoteOpen, setBaixaLoteOpen] = useState(false);
   const [quadroFuncOpen, setQuadroFuncOpen] = useState(false);
 
+  // ── Equipe Sugerida (from Proposta.equipe → OS) ──
+  const [equipeSugerida, setEquipeSugerida] = useState<any[]>([]);
+
   useEffect(() => {
     if (printOs) {
       setTimeout(() => {
@@ -462,6 +465,22 @@ export default function OS() {
     setSelectedOS(null);
     setModalTab('servicos');
     setMateriaisUtilizados([]);
+    // FIX 5: Extrair equipe sugerida da proposta
+    if (prop?.equipe?.length) {
+      const sugerida = prop.equipe.map((e: any) => ({
+        cargo: e.cargoRef?.nome || e.cargo || e.funcao || 'N/A',
+        cargoId: e.cargoId,
+        equipamento: e.equipamento,
+        equipamentoId: e.equipamentoId,
+        quantidade: e.quantidade || 1,
+      }));
+      setEquipeSugerida(sugerida);
+      // Auto-set qtdPessoas from total equipe
+      const totalPessoas = sugerida.reduce((sum: number, e: any) => sum + (e.quantidade || 1), 0);
+      setForm((prev: any) => ({ ...prev, qtdPessoas: totalPessoas }));
+    } else {
+      setEquipeSugerida([]);
+    }
     setShowModal(true);
   };
 
@@ -502,8 +521,24 @@ export default function OS() {
           ? prop.itens.map((i: any) => ({ equipamento: i.equipamento || '', descricao: i.descricao || '' }))
           : [{ equipamento: '', descricao: '' }],
       }));
+      // FIX 5: Populate equipe sugerida
+      if (prop.equipe?.length) {
+        const sugerida = prop.equipe.map((e: any) => ({
+          cargo: e.cargoRef?.nome || e.cargo || e.funcao || 'N/A',
+          cargoId: e.cargoId,
+          equipamento: e.equipamento,
+          equipamentoId: e.equipamentoId,
+          quantidade: e.quantidade || 1,
+        }));
+        setEquipeSugerida(sugerida);
+        const totalPessoas = sugerida.reduce((sum: number, e: any) => sum + (e.quantidade || 1), 0);
+        setForm((f: any) => ({ ...f, qtdPessoas: totalPessoas }));
+      } else {
+        setEquipeSugerida([]);
+      }
     } else {
       setForm((f: any) => ({ ...f, propostaId: '', clienteNome: '', contato: '', servicos: [{ equipamento: '', descricao: '' }] }));
+      setEquipeSugerida([]);
     }
   };
 
@@ -1066,6 +1101,39 @@ export default function OS() {
 
                     {modalTab === 'escala' && (
                       <div className="space-y-4">
+                        {/* ── FIX 5: Equipe Sugerida (from Proposta) ── */}
+                        {equipeSugerida.length > 0 && (
+                          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Users className="w-4 h-4 text-blue-600" />
+                              <span className="text-[10px] font-black text-blue-700 uppercase tracking-widest">
+                                Equipe Sugerida (da Proposta)
+                              </span>
+                              <span className="ml-auto text-[10px] font-bold text-blue-500 bg-blue-100 rounded-full px-2 py-0.5">
+                                {equipeSugerida.reduce((sum: number, e: any) => sum + (e.quantidade || 1), 0)} pessoa(s)
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              {equipeSugerida.map((e: any, idx: number) => (
+                                <div key={idx} className="flex items-center justify-between bg-white border border-blue-100 rounded-lg px-3 py-2">
+                                  <div>
+                                    <span className="text-xs font-bold text-slate-700">{e.cargo}</span>
+                                    {e.equipamento && (
+                                      <span className="ml-1.5 text-[10px] text-slate-400">({e.equipamento})</span>
+                                    )}
+                                  </div>
+                                  <span className="text-xs font-black text-blue-600 bg-blue-50 rounded-full px-2 py-0.5">
+                                    ×{e.quantidade}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                            <p className="text-[9px] text-blue-500 italic">
+                              Selecione funcionários abaixo de acordo com os cargos sugeridos.
+                            </p>
+                          </div>
+                        )}
+
                         {/* ── Funcionários (Equipe) ── */}
                         <div className="flex items-center justify-between mb-2">
                           <label className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest flex items-center gap-1">

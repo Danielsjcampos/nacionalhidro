@@ -24,6 +24,7 @@ model User {
   pedidosCompra PedidoCompra[]   @relation("SolicitantePedidoCompra")
   categoria     CategoriaEquipe? @relation(fields: [roleId], references: [id])
   ordensServico OrdemServico[]   @relation("VendedorOS")
+  propostasVendedor Proposta[]   @relation("VendedorProposta")
 }
 
 model CategoriaEquipe {
@@ -173,12 +174,16 @@ model Proposta {
   codigo                String                     @unique
   numero                Int                        @default(autoincrement())
   revisada              Boolean                    @default(false)
+  revisao               Int                        @default(0)
   clienteId             String
+  vendedorId            String?
   vendedor              String?
   empresa               String?
   contato               String?
   cc                    String?
   naoEnviarAoCliente    Boolean                    @default(false)
+  emailEnviado          Boolean                    @default(false)
+  dataEnvioEmail        DateTime?
   dataProposta          DateTime                   @default(now())
   dataValidade          DateTime
   validadeDias          Int                        @default(30)
@@ -225,6 +230,7 @@ model Proposta {
   agendamentos          Agendamento[]
   ordensServico         OrdemServico[]
   cliente               Cliente                    @relation(fields: [clienteId], references: [id])
+  vendedorUser          User?                      @relation("VendedorProposta", fields: [vendedorId], references: [id])
   propostaGlobal        Proposta?                  @relation("PropostaUnidades", fields: [propostaGlobalId], references: [id])
   unidades              Proposta[]                 @relation("PropostaUnidades")
   acessorios            PropostaAcessorio[]
@@ -264,18 +270,22 @@ model PropostaResponsabilidade {
   propostaId String
   tipo       String
   descricao  String
+  importante Boolean  @default(false)
   proposta   Proposta @relation(fields: [propostaId], references: [id])
 }
 
 model PropostaEquipe {
-  id          String   @id @default(uuid())
-  propostaId  String
-  nome        String?
-  cargo       String?
-  equipamento String?
-  funcao      String?
-  quantidade  Int      @default(1)
-  proposta    Proposta @relation(fields: [propostaId], references: [id])
+  id            String   @id @default(uuid())
+  propostaId    String
+  cargoId       String?
+  nome          String?
+  cargo         String?
+  equipamento   String?
+  equipamentoId String?
+  funcao        String?
+  quantidade    Int      @default(1)
+  proposta      Proposta @relation(fields: [propostaId], references: [id])
+  cargoRef      Cargo?   @relation(fields: [cargoId], references: [id])
 }
 
 model OrdemServico {
@@ -849,17 +859,39 @@ model Escala {
 }
 
 model Equipamento {
-  id                String      @id @default(uuid())
-  nome              String
-  descricao         String?
-  ativo             Boolean     @default(true)
-  imagem            String?
-  responsabilidades Json?
-  acessorios        Json?
-  veiculos          Json?
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-  servicosOS        ServicoOS[]
+  id                      String                       @id @default(uuid())
+  nome                    String
+  descricao               String?
+  ativo                   Boolean                      @default(true)
+  imagem                  String?
+  responsabilidades       Json?
+  acessorios              Json?
+  veiculos                Json?
+  createdAt               DateTime                     @default(now())
+  updatedAt               DateTime                     @updatedAt
+  servicosOS              ServicoOS[]
+  acessoriosVinculados    EquipamentoAcessorio[]
+  responsabilidadesPadrao EquipamentoResponsabilidade[]
+}
+
+model EquipamentoAcessorio {
+  id              String      @id @default(uuid())
+  equipamentoId   String
+  acessorioId     String
+  equipamento     Equipamento @relation(fields: [equipamentoId], references: [id], onDelete: Cascade)
+  acessorio       Acessorio   @relation(fields: [acessorioId], references: [id], onDelete: Cascade)
+
+  @@unique([equipamentoId, acessorioId])
+}
+
+model EquipamentoResponsabilidade {
+  id              String      @id @default(uuid())
+  equipamentoId   String
+  descricao       String
+  tipo            String      // "CONTRATANTE" | "CONTRATADA"
+  importante      Boolean     @default(false)
+  ordem           Int         @default(0)
+  equipamento     Equipamento @relation(fields: [equipamentoId], references: [id], onDelete: Cascade)
 }
 
 model Configuracao {
@@ -1698,10 +1730,11 @@ model PontoEletronico {
 }
 
 model Acessorio {
-  id        String   @id @default(uuid())
-  nome      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                    String                 @id @default(uuid())
+  nome                  String                 @unique
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  equipamentos          EquipamentoAcessorio[]
 }
 
 model ResponsabilidadePadrao {
@@ -1713,11 +1746,12 @@ model ResponsabilidadePadrao {
 }
 
 model Cargo {
-  id               String   @id @default(uuid())
-  nome             String   @unique
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  unicoEquipamento Boolean  @default(false)
+  id               String           @id @default(uuid())
+  nome             String           @unique
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  unicoEquipamento Boolean          @default(false)
+  propostaEquipes  PropostaEquipe[]
 }
 
 model Admissao {
