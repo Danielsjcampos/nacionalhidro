@@ -17,29 +17,33 @@ export interface TaxCalculationResult {
     aliquotaISS: number;
 }
 
+/**
+ * Regimes Tributários:
+ *   1 = Simples Nacional → PIS/COFINS/IR/CSLL = 0 (só ISS e INSS manual)
+ *   2 = Lucro Presumido  → PIS 0.65%, COFINS 3%, IR 1.5%, CSLL 1%
+ *   3 = Lucro Real        → PIS 0.65%, COFINS 3%, IR 1.5%, CSLL 1%
+ *
+ * INSS: sempre manual (preenchido pelo usuário)
+ * ISS:  alíquota configurável por município (preenchida pelo usuário)
+ */
 export class TaxService {
-    /**
-     * Calcula os impostos retidos baseados na lógica legada da Nacional Hidro.
-     * Alíquotas: PIS 0.65%, COFINS 3%, CSLL 1%, IR 1%.
-     * Se Simples Nacional (regime === 1), retira PIS, COFINS, CSLL e IR.
-     */
     static calculateTaxes(
         valorBruto: number,
-        regimeTributario: number = 1, // Default para Simples Nacional se não informado
-        aliquotaIss: number = 2,      // Default para Campinas
-        aliquotaInss: number = 0      // Default sem retenção
+        regimeTributario: number = 1,
+        aliquotaIss: number = 2,
+        aliquotaInss: number = 0
     ): TaxCalculationResult {
         const bruto = Number(valorBruto);
-        
-        // Alíquotas Fixas (conforme legado)
-        let aPIS = 0.0065;
-        let aCOFINS = 0.03;
-        let aCSLL = 0.01;
-        let aIR = 0.01;
+
+        // Alíquotas federais por regime (Lucro Presumido/Real)
+        let aPIS = 0.0065;    // 0.65%
+        let aCOFINS = 0.03;   // 3%
+        let aCSLL = 0.01;     // 1%
+        let aIR = 0.015;      // 1.5%
         let aINSS = Number(aliquotaInss) / 100;
         let aISS = Number(aliquotaIss) / 100;
 
-        // Se Simples Nacional, os federais são zero (conforme legado ModalEdicaoFaturamento.js)
+        // Simples Nacional: zera impostos federais retidos
         if (regimeTributario === 1) {
             aPIS = 0;
             aCOFINS = 0;
@@ -75,3 +79,4 @@ export class TaxService {
         };
     }
 }
+

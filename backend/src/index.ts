@@ -57,6 +57,8 @@ import cargoRoutes from './routes/cargo.routes';
 import pedidoCompraRoutes from './routes/pedidoCompra.routes';
 import ocorrenciaRoutes from './routes/ocorrencia.routes';
 import processoRoutes from './routes/processo.routes';
+import osLogisticaRoutes from './routes/osLogistica.routes';
+import escalaLogisticaRoutes from './routes/escalaLogistica.routes';
 
 const app = express();
 const httpServer = createServer(app);
@@ -166,7 +168,13 @@ app.use('/upload', uploadRoutes);
 app.use('/cargos', cargoRoutes);
 app.use('/pedidos-compra', pedidoCompraRoutes);
 app.use('/ocorrencias', ocorrenciaRoutes);
+import asoRoutes from './routes/aso.routes';
+app.use('/asos', asoRoutes);
+import documentoRoutes from './routes/documento.routes';
+app.use('/documentos', documentoRoutes);
 app.use('/processos', processoRoutes);
+app.use('/os-logistica', osLogisticaRoutes);
+app.use('/escala-logistica', escalaLogisticaRoutes);
 import checklistRoutes from './routes/checklist.routes';
 app.use('/checklist', checklistRoutes);
 import agendamentoRoutes from './routes/agendamento.routes';
@@ -176,6 +184,15 @@ import workflowRoutes from './routes/workflow.routes';
 app.use('/gestao-colaboradores', gestaoColaboradoresRoutes);
 app.use('/agendamentos', agendamentoRoutes);
 app.use('/workflows', workflowRoutes);
+import naturezaRoutes from './routes/natureza.routes';
+app.use('/naturezas', naturezaRoutes);
+import empresaFullRoutes from './routes/empresaFull.routes';
+app.use('/', empresaFullRoutes);
+// Módulo 7 — Contas a Pagar/Receber V2
+import contasPagarRoutes from './routes/contasPagar.routes';
+import contasReceberRoutes from './routes/contasReceber.routes';
+app.use('/contas-pagar', contasPagarRoutes);
+app.use('/contas-receber', contasReceberRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

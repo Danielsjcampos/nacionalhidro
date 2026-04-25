@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import {
     listTreinamentos, createTreinamento, updateTreinamento, deleteTreinamento,
-    listTreinamentosRealizados, createTreinamentoRealizado, deleteTreinamentoRealizado
+    listTreinamentosRealizados, createTreinamentoRealizado, deleteTreinamentoRealizado,
+    updateTreinamentoRealizado
 } from '../controllers/treinamento.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
@@ -18,6 +19,7 @@ router.delete('/:id', deleteTreinamento);
 // Realização e Certificados
 router.get('/realizados/lista', listTreinamentosRealizados);
 router.post('/realizados', createTreinamentoRealizado);
+router.put('/realizados/:id', updateTreinamentoRealizado);
 router.delete('/realizados/:id', deleteTreinamentoRealizado);
 
 export default router;

@@ -20,5 +20,7 @@ router.patch('/:id/status', updateMedicaoStatus);
 router.post('/:id/enviar', enviarAoCliente);
 router.post('/:id/enviar-documentacao', enviarDocumentacaoFinal);
 router.post('/:id/recalcular', recalcularMedicao);
+router.get('/:id/pdf', gerarPdfMedicaoBaixar);
+router.post('/:id/pdf', gerarPdfMedicaoBaixar);
 
 export default router;

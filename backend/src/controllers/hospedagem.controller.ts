@@ -19,8 +19,8 @@ async function autoCreateContaPagarViagem(
     });
 
     const descricao = tipo === 'HOSPEDAGEM'
-        ? `Hospedagem ${registro.hotel || registro.cidade || ''} - ${registro.funcionario || registro.colaborador || ''}`.trim()
-        : `Passagem ${registro.origem || ''}→${registro.destino || ''} - ${registro.funcionario || registro.colaborador || ''}`.trim();
+        ? `Hospedagem ${registro.hotel || registro.cidade || ''} - ${registro.funcionario?.nome || registro.colaborador || ''}`.trim()
+        : `Passagem ${registro.origem || ''}→${registro.destino || ''} - ${registro.funcionario?.nome || registro.colaborador || ''}`.trim();
 
     if (existing) {
         // Se o valor mudou e ainda está aberto, atualiza
@@ -67,17 +67,75 @@ async function autoCreateContaPagarViagem(
     });
 }
 
+// ─── HELPER: Cleanup ContaPagar antes de deletar ─────────────────
+async function cleanupContaPagar(registroId: string, tipo: string): Promise<void> {
+    try {
+        const cp = await (prisma as any).contaPagar.findFirst({
+            where: {
+                observacoes: { contains: registroId },
+                categoria: tipo
+            }
+        });
+        if (!cp) return;
+
+        if (cp.status === 'ABERTO') {
+            await (prisma as any).contaPagar.delete({ where: { id: cp.id } });
+            console.log(`[Viagem Cleanup] Deleted open ContaPagar ${cp.id} for ${tipo} ${registroId}`);
+        } else {
+            console.log(`[Viagem Cleanup] Kept paid ContaPagar ${cp.id} (status: ${cp.status}) for ${tipo} ${registroId}`);
+        }
+    } catch (err) {
+        console.error(`[Viagem Cleanup] Error cleaning ContaPagar for ${tipo} ${registroId}:`, err);
+    }
+}
+
+// ─── CSV HELPER ──────────────────────────────────────────────────
+function toCSV(headers: string[], rows: string[][]): string {
+    const bom = '\uFEFF';
+    const headerLine = headers.join(';');
+    const dataLines = rows.map(r => r.join(';'));
+    return bom + [headerLine, ...dataLines].join('\n');
+}
+
 // ─── HOSPEDAGEM ─────────────────────────────────────────────────
 export const listHospedagens = async (req: AuthRequest, res: Response) => {
     try {
-        const { status, osId } = req.query;
+        const { status, osId, formato } = req.query;
         const where: any = {};
         if (status) where.status = status;
         if (osId) where.osId = osId as string;
         const list = await (prisma as any).hospedagem.findMany({
             where,
+            include: {
+                funcionario: { select: { id: true, nome: true, cargo: true } },
+                os: { select: { id: true, codigo: true } },
+                fornecedor: { select: { id: true, nome: true, nomeFantasia: true } },
+            },
             orderBy: { dataCheckin: 'desc' }
         });
+
+        // CSV export
+        if (formato === 'csv') {
+            const headers = ['Hotel', 'Cidade', 'Funcionário', 'OS', 'Check-in', 'Check-out', 'Diárias', 'Valor Diária', 'Total', 'Status', 'Tipo Acomodação'];
+            const rows = list.map((h: any) => [
+                h.hotel || '',
+                h.cidade || '',
+                h.funcionario?.nome || '',
+                h.os?.codigo || '',
+                h.dataCheckin ? new Date(h.dataCheckin).toLocaleDateString('pt-BR') : '',
+                h.dataCheckout ? new Date(h.dataCheckout).toLocaleDateString('pt-BR') : '',
+                String(h.diarias || 1),
+                String(h.valorDiaria || 0),
+                String(h.valorTotal || 0),
+                h.status || '',
+                h.tipoAcomodacao || '',
+            ]);
+            const csv = toCSV(headers, rows);
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', 'attachment; filename=hospedagens.csv');
+            return res.send(csv);
+        }
+
         res.json(list);
     } catch (error) {
         console.error('List hospedagens error:', error);
@@ -107,7 +165,7 @@ export const createHospedagem = async (req: AuthRequest, res: Response) => {
                 }
 
                 if (osId) {
-                    const os = await (prisma as any).oS.findUnique({ where: { id: osId }, select: { clienteId: true } });
+                    const os = await (prisma as any).ordemServico.findUnique({ where: { id: osId }, select: { clienteId: true } });
                     if (os && os.clienteId) {
                         const cliente = await (prisma as any).cliente.findUnique({ where: { id: os.clienteId }, select: { integracoesExigidas: true } });
                         if (cliente?.integracoesExigidas && Array.isArray(cliente.integracoesExigidas)) {
@@ -161,7 +219,16 @@ export const updateHospedagem = async (req: AuthRequest, res: Response) => {
     try {
         const id = req.params.id as string;
         const update: any = { ...req.body };
+        if (update.dataCheckin) update.dataCheckin = new Date(update.dataCheckin);
         if (update.dataCheckout) update.dataCheckout = new Date(update.dataCheckout);
+        if (update.valorDiaria !== undefined) update.valorDiaria = Number(update.valorDiaria);
+        if (update.diarias !== undefined) update.diarias = Number(update.diarias);
+        if (update.valorDiaria !== undefined || update.diarias !== undefined) {
+            const current = await (prisma as any).hospedagem.findUnique({ where: { id } });
+            const diarias = update.diarias ?? current?.diarias ?? 1;
+            const valorDiaria = update.valorDiaria ?? Number(current?.valorDiaria ?? 0);
+            update.valorTotal = valorDiaria * diarias;
+        }
         const h = await (prisma as any).hospedagem.update({ where: { id }, data: update });
         
         // Sincronizar com Conta a Pagar
@@ -181,6 +248,8 @@ export const updateHospedagem = async (req: AuthRequest, res: Response) => {
 export const deleteHospedagem = async (req: AuthRequest, res: Response) => {
     try {
         const id = req.params.id as string;
+        // GAP 2: Cleanup ContaPagar antes de deletar
+        await cleanupContaPagar(id, 'HOSPEDAGEM');
         await (prisma as any).hospedagem.delete({ where: { id } });
         res.status(204).send();
     } catch (error: any) {
@@ -192,14 +261,41 @@ export const deleteHospedagem = async (req: AuthRequest, res: Response) => {
 // ─── PASSAGENS ──────────────────────────────────────────────────
 export const listPassagens = async (req: AuthRequest, res: Response) => {
     try {
-        const { osId, status } = req.query;
+        const { osId, status, formato } = req.query;
         const where: any = {};
         if (osId) where.osId = osId as string;
         if (status) where.status = status as string;
         const list = await (prisma as any).passagem.findMany({
             where,
+            include: {
+                funcionario: { select: { id: true, nome: true, cargo: true } },
+                os: { select: { id: true, codigo: true } },
+            },
             orderBy: { dataIda: 'desc' }
         });
+
+        // CSV export
+        if (formato === 'csv') {
+            const headers = ['Tipo', 'Origem', 'Destino', 'Funcionário', 'OS', 'Ida', 'Volta', 'Companhia', 'Localizador', 'Valor', 'Status'];
+            const rows = list.map((p: any) => [
+                p.tipo || '',
+                p.origem || '',
+                p.destino || '',
+                p.funcionario?.nome || '',
+                p.os?.codigo || '',
+                p.dataIda ? new Date(p.dataIda).toLocaleDateString('pt-BR') : '',
+                p.dataVolta ? new Date(p.dataVolta).toLocaleDateString('pt-BR') : '',
+                p.companhia || '',
+                p.localizador || '',
+                String(p.valor || 0),
+                p.status || '',
+            ]);
+            const csv = toCSV(headers, rows);
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', 'attachment; filename=passagens.csv');
+            return res.send(csv);
+        }
+
         res.json(list);
     } catch (error) {
         console.error('List passagens error:', error);
@@ -229,7 +325,7 @@ export const createPassagem = async (req: AuthRequest, res: Response) => {
                 }
 
                 if (osId) {
-                    const os = await (prisma as any).oS.findUnique({ where: { id: osId }, select: { clienteId: true } });
+                    const os = await (prisma as any).ordemServico.findUnique({ where: { id: osId }, select: { clienteId: true } });
                     if (os && os.clienteId) {
                         const cliente = await (prisma as any).cliente.findUnique({ where: { id: os.clienteId }, select: { integracoesExigidas: true } });
                         if (cliente?.integracoesExigidas && Array.isArray(cliente.integracoesExigidas)) {
@@ -275,7 +371,11 @@ export const createPassagem = async (req: AuthRequest, res: Response) => {
 export const updatePassagem = async (req: AuthRequest, res: Response) => {
     try {
         const id = req.params.id as string;
-        const p = await (prisma as any).passagem.update({ where: { id }, data: req.body });
+        const update: any = { ...req.body };
+        if (update.dataIda) update.dataIda = new Date(update.dataIda);
+        if (update.dataVolta) update.dataVolta = new Date(update.dataVolta);
+        if (update.valor !== undefined) update.valor = Number(update.valor);
+        const p = await (prisma as any).passagem.update({ where: { id }, data: update });
 
         // Sincronizar com Conta a Pagar
         try {
@@ -294,6 +394,8 @@ export const updatePassagem = async (req: AuthRequest, res: Response) => {
 export const deletePassagem = async (req: AuthRequest, res: Response) => {
     try {
         const id = req.params.id as string;
+        // GAP 2: Cleanup ContaPagar antes de deletar
+        await cleanupContaPagar(id, 'PASSAGEM');
         await (prisma as any).passagem.delete({ where: { id } });
         res.status(204).send();
     } catch (error: any) {

@@ -649,6 +649,47 @@ export default function DesligamentoPage() {
                                         </label>
                                     </div>
                                 )}
+
+                                {/* Módulo 8: PRÉ_ANALISE / PROVIDENCIANDO / AUDIENCIA */}
+                                {['PRE_ANALISE_JURIDICA', 'PROVIDENCIANDO_DOCUMENTACAO', 'AUDIENCIA_AGENDADA'].includes(showDetail.etapa) && (
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                        <h4 className="text-xs font-black text-rose-700 uppercase flex items-center gap-2"><Scale className="w-4 h-4" /> Trilha Trabalhista — {showDetail.etapa === 'PRE_ANALISE_JURIDICA' ? 'Pré-Análise' : showDetail.etapa === 'PROVIDENCIANDO_DOCUMENTACAO' ? 'Documentação' : 'Audiência'}</h4>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div><label className="text-[10px] font-black text-slate-400 uppercase">Tipo Audiência</label><select value={drawerForm.tipoAudiencia || ''} onChange={e => setDrawerForm({...drawerForm, tipoAudiencia: e.target.value})} className="w-full mt-2 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"><option value="">—</option><option value="INICIAL">Inicial</option><option value="INSTRUCAO">Instrução</option><option value="JULGAMENTO">Julgamento</option><option value="CONCILIACAO">Conciliação</option></select></div>
+                                            <div><label className="text-[10px] font-black text-slate-400 uppercase">Data Audiência</label><input type="date" value={drawerForm.dataAudiencia || ''} onChange={e => setDrawerForm({...drawerForm, dataAudiencia: e.target.value})} className="w-full mt-2 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" /></div>
+                                            <div><label className="text-[10px] font-black text-slate-400 uppercase">Data Perícia</label><input type="date" value={drawerForm.dataPericia || ''} onChange={e => setDrawerForm({...drawerForm, dataPericia: e.target.value})} className="w-full mt-2 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" /></div>
+                                            <div><label className="text-[10px] font-black text-slate-400 uppercase">Tipo Perícia</label><select value={drawerForm.tipoPericia || ''} onChange={e => setDrawerForm({...drawerForm, tipoPericia: e.target.value})} className="w-full mt-2 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"><option value="">—</option><option value="MEDICA">Médica</option><option value="CONTABIL">Contábil</option><option value="ENGENHARIA">Engenharia</option></select></div>
+                                            <div><label className="text-[10px] font-black text-slate-400 uppercase">Prazo Envio Docs</label><input type="date" value={drawerForm.prazoEnvioDocumentacao || ''} onChange={e => setDrawerForm({...drawerForm, prazoEnvioDocumentacao: e.target.value})} className="w-full mt-2 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" /></div>
+                                            <div><label className="text-[10px] font-black text-slate-400 uppercase">Data Envio Docs</label><input type="date" value={drawerForm.dataEnvioDocumentos || ''} onChange={e => setDrawerForm({...drawerForm, dataEnvioDocumentos: e.target.value})} className="w-full mt-2 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" /></div>
+                                        </div>
+                                        <div><label className="text-[10px] font-black text-slate-400 uppercase">Observações Jurídico</label><textarea value={drawerForm.observacoesJuridico || ''} onChange={e => setDrawerForm({...drawerForm, observacoesJuridico: e.target.value})} rows={2} className="w-full mt-2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700" /></div>
+                                    </div>
+                                )}
+
+                                {/* Módulo 8: PROCESSO_ANDAMENTO / PROCESSO_ACORDO */}
+                                {['PROCESSO_ANDAMENTO', 'PROCESSO_ACORDO'].includes(showDetail.etapa) && (
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                        <h4 className="text-xs font-black text-amber-700 uppercase flex items-center gap-2"><Scale className="w-4 h-4" /> Acordo e Encargos</h4>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div><label className="text-[10px] font-black text-slate-400 uppercase">Valor Rescisão (R$)</label><input type="number" step="0.01" value={drawerForm.valorRescisao || ''} onChange={e => setDrawerForm({...drawerForm, valorRescisao: e.target.value})} className="w-full mt-2 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" /></div>
+                                            <div><label className="text-[10px] font-black text-slate-400 uppercase">Valor Acordo (R$)</label><input type="number" step="0.01" value={drawerForm.valorAcordo || ''} onChange={e => setDrawerForm({...drawerForm, valorAcordo: e.target.value})} className="w-full mt-2 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" /></div>
+                                            <div><label className="text-[10px] font-black text-slate-400 uppercase">Custas Judiciais (R$)</label><input type="number" step="0.01" value={drawerForm.valorCustasJudiciais || ''} onChange={e => setDrawerForm({...drawerForm, valorCustasJudiciais: e.target.value})} className="w-full mt-2 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" /></div>
+                                            <div><label className="text-[10px] font-black text-slate-400 uppercase">Encargos (R$)</label><input type="number" step="0.01" value={drawerForm.valorEncargos || ''} onChange={e => setDrawerForm({...drawerForm, valorEncargos: e.target.value})} className="w-full mt-2 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" /></div>
+                                            <div><label className="text-[10px] font-black text-slate-400 uppercase">Últ. Parcela Acordo</label><input type="date" value={drawerForm.dataUltimaParcelaAcordo || ''} onChange={e => setDrawerForm({...drawerForm, dataUltimaParcelaAcordo: e.target.value})} className="w-full mt-2 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" /></div>
+                                            <div><label className="text-[10px] font-black text-slate-400 uppercase">Últ. Parcela Encargos</label><input type="date" value={drawerForm.dataUltimaParcelaEncargos || ''} onChange={e => setDrawerForm({...drawerForm, dataUltimaParcelaEncargos: e.target.value})} className="w-full mt-2 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" /></div>
+                                        </div>
+                                        <div><label className="text-[10px] font-black text-slate-400 uppercase">Status do Acordo</label><select value={drawerForm.statusAcordo || ''} onChange={e => setDrawerForm({...drawerForm, statusAcordo: e.target.value})} className="w-full mt-2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700"><option value="">—</option><option value="EM_NEGOCIACAO">Em Negociação</option><option value="ACORDO_ACEITO">Acordo Aceito</option><option value="ACORDO_RECUSADO">Acordo Recusado</option><option value="PAGO">Pago</option></select></div>
+                                    </div>
+                                )}
+
+                                {/* Módulo 8: LANCADO_SIN_JURIDICO */}
+                                {showDetail.etapa === 'LANCADO_SIN_JURIDICO' && (
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                        <h4 className="text-xs font-black text-emerald-700 uppercase flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Lançamento SIN — Jurídico</h4>
+                                        <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={!!drawerForm.lancadoSinJuridico} onChange={e => setDrawerForm({...drawerForm, lancadoSinJuridico: e.target.checked})} className="w-5 h-5 text-emerald-600 rounded border-slate-300" /><span className="text-sm font-bold text-slate-700">Lançado no SIN?</span></label>
+                                        <div><label className="text-[10px] font-black text-slate-400 uppercase">Observações Finais</label><textarea value={drawerForm.observacoesFinaisJuridico || ''} onChange={e => setDrawerForm({...drawerForm, observacoesFinaisJuridico: e.target.value})} rows={2} className="w-full mt-2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700" /></div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Additional Actions (Excluir, Transferir p/ Jurídico) */}
@@ -713,14 +754,34 @@ export default function DesligamentoPage() {
                                     Avançar p/ Pré-Análise <ChevronRight className="w-4 h-4" />
                                 </button>
                             )}
+                            {view === 'juridica' && showDetail.etapa === 'PRE_ANALISE_JURIDICA' && (
+                                <button onClick={() => handleMover(showDetail.id, 'PROVIDENCIANDO_DOCUMENTACAO', drawerForm)} className="w-full bg-rose-600 text-white py-3.5 rounded-2xl text-xs font-black shadow-lg shadow-rose-600/20 hover:bg-rose-700 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest">
+                                    Providenciar Docs <ChevronRight className="w-4 h-4" />
+                                </button>
+                            )}
+                            {view === 'juridica' && showDetail.etapa === 'PROVIDENCIANDO_DOCUMENTACAO' && (
+                                <button onClick={() => handleMover(showDetail.id, 'AUDIENCIA_AGENDADA', drawerForm)} className="w-full bg-orange-600 text-white py-3.5 rounded-2xl text-xs font-black shadow-lg shadow-orange-600/20 hover:bg-orange-700 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest">
+                                    Agendar Audiência <ChevronRight className="w-4 h-4" />
+                                </button>
+                            )}
                             {view === 'juridica' && showDetail.etapa === 'AUDIENCIA_AGENDADA' && (
-                                <button onClick={() => handleMover(showDetail.id, 'PROCESSO_ANDAMENTO')} className="w-full bg-amber-600 text-white py-3.5 rounded-2xl text-xs font-black shadow-lg shadow-amber-600/20 hover:bg-amber-700 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest">
+                                <button onClick={() => handleMover(showDetail.id, 'PROCESSO_ANDAMENTO', drawerForm)} className="w-full bg-amber-600 text-white py-3.5 rounded-2xl text-xs font-black shadow-lg shadow-amber-600/20 hover:bg-amber-700 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest">
                                     Em Andamento <ChevronRight className="w-4 h-4" />
                                 </button>
                             )}
+                            {view === 'juridica' && showDetail.etapa === 'PROCESSO_ANDAMENTO' && (
+                                <button onClick={() => handleMover(showDetail.id, 'PROCESSO_ACORDO', drawerForm)} className="w-full bg-lime-600 text-white py-3.5 rounded-2xl text-xs font-black shadow-lg shadow-lime-600/20 hover:bg-lime-700 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest">
+                                    Acordo <ChevronRight className="w-4 h-4" />
+                                </button>
+                            )}
                             {view === 'juridica' && showDetail.etapa === 'PROCESSO_ACORDO' && (
-                                <button onClick={() => handleMover(showDetail.id, 'LANCADO_SIN_JURIDICO')} className="w-full bg-emerald-600 text-white py-3.5 rounded-2xl text-xs font-black shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest">
+                                <button onClick={() => handleMover(showDetail.id, 'LANCADO_SIN_JURIDICO', drawerForm)} className="w-full bg-emerald-600 text-white py-3.5 rounded-2xl text-xs font-black shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest">
                                     Lançar SIN Jurídico <ChevronRight className="w-4 h-4" />
+                                </button>
+                            )}
+                            {view === 'juridica' && showDetail.etapa === 'LANCADO_SIN_JURIDICO' && (
+                                <button onClick={() => handleMover(showDetail.id, 'PROCESSO_ENCERRADO', drawerForm)} className="w-full bg-slate-700 text-white py-3.5 rounded-2xl text-xs font-black shadow-lg shadow-slate-700/20 hover:bg-slate-800 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest">
+                                    Encerrar Processo <CheckCircle2 className="w-4 h-4" />
                                 </button>
                             )}
                         </div>

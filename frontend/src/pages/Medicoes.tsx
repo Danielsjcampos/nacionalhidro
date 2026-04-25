@@ -2,6 +2,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import ModalNovaMedicao from '../components/ModalNovaMedicao';
+import ModalEdicaoMedicao from '../components/ModalEdicaoMedicao';
 import {
     FileText, Plus, Search, Loader2, X, CheckCircle2, Clock,
     DollarSign, Send, Ban, List, Columns, Printer, Pencil,
@@ -127,6 +128,7 @@ export default function Medicoes() {
 
     // ─── MODALS / FORMS ───
     const [showCreate, setShowCreate] = useState(false);
+    const [editMedicaoId, setEditMedicaoId] = useState<string | null>(null);
     const [showItemForm, setShowItemForm] = useState(false);
     const [itemForm, setItemForm] = useState({ 
         descricao: '', 
@@ -264,6 +266,10 @@ export default function Medicoes() {
             setSelectedMedicao(medRes.data);
             setSelectedOS(null);
         } catch {}
+    };
+
+    const openMedicaoModal = (m: any) => {
+        setEditMedicaoId(m.id);
     };
 
     const downloadPdf = async (m: any) => {
@@ -578,7 +584,7 @@ export default function Medicoes() {
                                                         <Eye className="w-4 h-4" />
                                                     </button>
                                                     {(item.status === 'EM_ABERTO' || item.status === 'EM_CONFERENCIA') && (
-                                                        <button title="Editar" className="hover:text-blue-600 transition-colors" onClick={e => { e.stopPropagation(); openMedicao(item); }}>
+                                                        <button title="Editar" className="hover:text-blue-600 transition-colors" onClick={e => { e.stopPropagation(); openMedicaoModal(item); }}>
                                                             <Pencil className="w-4 h-4" />
                                                         </button>
                                                     )}
@@ -825,7 +831,10 @@ export default function Medicoes() {
                                 </h3>
                                 <p className="text-[10px] text-white/60">{selectedMedicao.cliente?.nome}</p>
                             </div>
-                            <button onClick={() => setSelectedMedicao(null)} className="hover:bg-white/10 p-1.5 rounded-lg"><X className="w-4 h-4" /></button>
+                            <div className="flex items-center gap-2">
+                                <button onClick={() => openMedicaoModal(selectedMedicao)} title="Edição Completa" className="hover:bg-white/10 p-1.5 rounded-lg text-blue-300 hover:text-white transition-colors"><Pencil className="w-4 h-4" /></button>
+                                <button onClick={() => setSelectedMedicao(null)} className="hover:bg-white/10 p-1.5 rounded-lg"><X className="w-4 h-4" /></button>
+                            </div>
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-4 space-y-5 custom-scrollbar">
@@ -898,6 +907,15 @@ export default function Medicoes() {
                                     <p className="text-xs font-bold">{fmtDate(selectedMedicao.aprovadaEm)}</p>
                                 </div>
                             </div>
+
+                            {/* Reprovação info (reaberta para edição) */}
+                            {selectedMedicao.motivoReprovacao && (
+                                <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                                    <p className="text-[10px] font-black text-red-600 uppercase mb-1">⚠ Reprovada Anteriormente</p>
+                                    <p className="text-xs text-red-800">{selectedMedicao.motivoReprovacao}</p>
+                                    {selectedMedicao.reprovadaEm && <p className="text-[10px] text-red-500 mt-1">Em: {fmtDate(selectedMedicao.reprovadaEm)}</p>}
+                                </div>
+                            )}
 
                             {/* Contestação info */}
                             {selectedMedicao.status === 'CONTESTADA' && selectedMedicao.motivoContestacao && (
@@ -989,6 +1007,12 @@ export default function Medicoes() {
                 isOpen={showCreate} 
                 onClose={() => setShowCreate(false)} 
                 onSuccess={() => { fetchData(); setActiveTab('medicao'); }} 
+            />
+            <ModalEdicaoMedicao
+                isOpen={!!editMedicaoId}
+                medicaoId={editMedicaoId}
+                onClose={() => setEditMedicaoId(null)}
+                onSuccess={() => { fetchData(); if (selectedMedicao) openMedicao(selectedMedicao); }}
             />
         </div>
     );

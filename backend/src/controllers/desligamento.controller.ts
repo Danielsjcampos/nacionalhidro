@@ -242,10 +242,19 @@ export const updateDesligamento = async (req: AuthRequest, res: Response) => {
             dataAssinatura, dataExpurgo, dataAudiencia, dataPericia,
             dataRecepcaoNotificacao, dataEnvioJuridico,
             dataUltimaParcelaAcordo, dataUltimaParcelaEncargos,
+            // Módulo 8 gaps
+            prazoEnvioDocumentacao, dataEnvioDocumentos,
+            dataPericia2, dataUltimaParcelaAcordo2,
+            dataUltimaParcelasEncargos, dataUltimaParcelaPagamento,
+            valorEncargos2, valorRescisao, valorAcordo, valorCustasJudiciais,
+            valorDesconto, valorEncargos,
+            funcionario: _func,
+            id: _id, createdAt: _c, updatedAt: _u,
             ...rest
         } = req.body;
 
         const parseDate = (d: any) => d ? new Date(d) : undefined;
+        const parseDecimal = (v: any) => v !== undefined && v !== null ? parseFloat(v) : undefined;
 
         const d = await (prisma as any).desligamento.update({
             where: { id: req.params.id },
@@ -268,6 +277,19 @@ export const updateDesligamento = async (req: AuthRequest, res: Response) => {
                 dataEnvioJuridico: parseDate(dataEnvioJuridico),
                 dataUltimaParcelaAcordo: parseDate(dataUltimaParcelaAcordo),
                 dataUltimaParcelaEncargos: parseDate(dataUltimaParcelaEncargos),
+                // Módulo 8 gaps
+                prazoEnvioDocumentacao: parseDate(prazoEnvioDocumentacao),
+                dataEnvioDocumentos: parseDate(dataEnvioDocumentos),
+                dataPericia2: parseDate(dataPericia2),
+                dataUltimaParcelaAcordo2: parseDate(dataUltimaParcelaAcordo2),
+                dataUltimaParcelasEncargos: parseDate(dataUltimaParcelasEncargos),
+                dataUltimaParcelaPagamento: parseDate(dataUltimaParcelaPagamento),
+                valorRescisao: parseDecimal(valorRescisao),
+                valorAcordo: parseDecimal(valorAcordo),
+                valorCustasJudiciais: parseDecimal(valorCustasJudiciais),
+                valorDesconto: parseDecimal(valorDesconto),
+                valorEncargos: parseDecimal(valorEncargos),
+                valorEncargos2: parseDecimal(valorEncargos2),
             },
             include: { funcionario: true },
         });

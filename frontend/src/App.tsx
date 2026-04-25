@@ -70,6 +70,8 @@ import RelatoriosCentralPage from './pages/RelatoriosCentralPage';
 import OcorrenciasPage from './pages/OcorrenciasPage';
 import ProcessosTrabalhistasPage from './pages/ProcessosTrabalhistasPage';
 import VagaSolicitacaoPage from './pages/VagaSolicitacao';
+import VencimentosPage from './pages/VencimentosPage';
+import DocumentosSeguracaPage from './pages/DocumentosSeguracaPage';
 
 
 // Route-to-permission mapping
@@ -98,6 +100,7 @@ const routePermissions: Record<string, string[]> = {
   '/recrutamento': ['rh'], '/admissao': ['rh', 'dp'],
   '/ferias': ['rh', 'dp'], '/desligamento': ['rh', 'dp'],
   '/aso-controle': ['rh'], '/relatorios-rh': ['rh', 'dp'],
+  '/vencimentos': ['rh'], '/documentos-seguranca': ['rh'],
   '/vaga-solicitacoes': ['rh', 'dp'],
   '/integracoes': ['rh', 'dp'],
   '/ponto': ['rh', 'dp'], '/triagem-ia': ['rh'],
@@ -105,16 +108,17 @@ const routePermissions: Record<string, string[]> = {
 };
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('accessToken');
   if (!token) return <Navigate to="/login" replace />;
 
-  const userJson = localStorage.getItem('user');
+  const userJson = localStorage.getItem('userData');
   const user = userJson ? JSON.parse(userJson) : null;
   const perms = user?.permissoes;
   const pathname = window.location.pathname;
 
   // Check permissions (admin/master or no perms = full access)
-  if (perms && user?.role !== 'admin') {
+  const roleName = user?.role?.name || user?.role;
+  if (perms && roleName !== 'admin') {
     const required = routePermissions[pathname];
     if (required && !required.some(key => (perms as any)[key])) {
       return (
@@ -207,6 +211,8 @@ function App() {
         <Route path="/relatorios-rh" element={<ProtectedRoute><RelatoriosRHPage /></ProtectedRoute>} />
         <Route path="/aso-controle" element={<ProtectedRoute><ASOControlePage /></ProtectedRoute>} />
         <Route path="/integracoes" element={<ProtectedRoute><IntegracoesPage /></ProtectedRoute>} />
+        <Route path="/vencimentos" element={<ProtectedRoute><VencimentosPage /></ProtectedRoute>} />
+        <Route path="/documentos-seguranca" element={<ProtectedRoute><DocumentosSeguracaPage /></ProtectedRoute>} />
         <Route path="/agendamentos" element={<ProtectedRoute><Agendamentos /></ProtectedRoute>} />
         <Route path="/workflows" element={<ProtectedRoute><WorkflowList /></ProtectedRoute>} />
         <Route path="/workflows/:id" element={<ProtectedRoute><WorkflowBoard /></ProtectedRoute>} />

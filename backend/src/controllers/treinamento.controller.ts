@@ -93,6 +93,28 @@ export const createTreinamentoRealizado = async (req: AuthRequest, res: Response
     }
 };
 
+export const updateTreinamentoRealizado = async (req: AuthRequest, res: Response) => {
+    try {
+        const { dataRealizacao, dataVencimento, certificadoUrl, observacoes } = req.body;
+
+        const data: any = {};
+        if (dataRealizacao !== undefined) data.dataRealizacao = new Date(dataRealizacao);
+        if (dataVencimento !== undefined) data.dataVencimento = dataVencimento ? new Date(dataVencimento) : null;
+        if (certificadoUrl !== undefined) data.certificadoUrl = certificadoUrl || null;
+        if (observacoes !== undefined) data.observacoes = observacoes || null;
+
+        const rel = await prisma.treinamentoRealizado.update({
+            where: { id: req.params.id as string },
+            data,
+            include: { treinamento: true, funcionario: { select: { nome: true } } },
+        });
+        res.json(rel);
+    } catch (error: any) {
+        console.error('Update Treinamento realizado error:', error);
+        res.status(500).json({ error: 'Failed to update realized Treinamento', details: error.message });
+    }
+};
+
 export const deleteTreinamentoRealizado = async (req: AuthRequest, res: Response) => {
     try {
         await prisma.treinamentoRealizado.delete({ where: { id: req.params.id as string } });

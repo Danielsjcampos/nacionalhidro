@@ -6,6 +6,17 @@ import moment from 'moment';
 import { numeroExtenso } from '../utils/numeroExtenso';
 import prisma from '../lib/prisma';
 
+// B-10.5: Helper para datas em PDFs com timezone de Brasília
+const formatDateBR = (date: any): string => {
+    if (!date) return '';
+    try {
+        return new Date(date).toLocaleDateString('pt-BR', {
+            timeZone: 'America/Sao_Paulo'
+        });
+    } catch {
+        return moment(date).format('DD/MM/YYYY');
+    }
+};
 
 const templatesDir = path.resolve(__dirname, '../templates');
 
@@ -78,15 +89,15 @@ export const generatePdfFromHtml = async (html: string, headerTemplate?: string)
 // ==========================================
 export const gerarPdfReciboLocacao = async (faturamento: any, cliente: any, empresa: any): Promise<Buffer> => {
     let data_locacao = faturamento.dataEmissao
-        ? moment(faturamento.dataEmissao).format('DD/MM/YYYY')
-        : moment().format('DD/MM/YYYY');
+        ? formatDateBR(faturamento.dataEmissao)
+        : formatDateBR(new Date());
 
     if (faturamento.medicao?.ordensServico && faturamento.medicao.ordensServico.length > 0) {
         const ordens = faturamento.medicao.ordensServico.sort(
             (a: any, b: any) => new Date(a.dataInicial).getTime() - new Date(b.dataInicial).getTime()
         );
-        const data1 = moment(ordens[0].dataInicial).format('DD/MM/YYYY');
-        const data2 = moment(ordens[ordens.length - 1].dataInicial).format('DD/MM/YYYY');
+        const data1 = formatDateBR(ordens[0].dataInicial);
+        const data2 = formatDateBR(ordens[ordens.length - 1].dataInicial);
         data_locacao = data1 === data2 ? data1 : `${data1} à ${data2}`;
     }
 
@@ -100,8 +111,8 @@ export const gerarPdfReciboLocacao = async (faturamento: any, cliente: any, empr
         RegimeTributario: empresa.regimeTributario === 1
             ? 'EMPRESA OPTANTE PELO SIMPLES NACIONAL'
             : 'EMPRESA OPTANTE PELO REGIME NORMAL',
-        DataEmissao:     moment(faturamento.dataEmissao).utc().format('DD/MM/YYYY'),
-        Vencimento:      moment(faturamento.dataVencimento).utc().format('DD/MM/YYYY'),
+        DataEmissao:     formatDateBR(faturamento.dataEmissao),
+        Vencimento:      formatDateBR(faturamento.dataVencimento),
         Periodo:         data_locacao,
         ValorRL:         formatNumberReal(faturamento.valorBruto),
         ReciboLocacaoId: faturamento.numero || 'S/N',
@@ -127,7 +138,7 @@ export const gerarPdfMedicao = async (medicao: any, empresa: any, cliente: any, 
         if (obj.itensCobranca && obj.itensCobranca.length > 0) {
             obj.itensCobranca.forEach((s: any) => {
                 formattedOrdens.push({
-                    DataInicial:      obj.dataInicial ? moment(obj.dataInicial).utc().format('DD/MM/YYYY') : '-',
+                    DataInicial:      obj.dataInicial ? formatDateBR(obj.dataInicial) : '-',
                     Codigo:           obj.codigo,
                     Equipamento:      s.descricao,
                     DescricaoServico: s.descricao,
@@ -142,7 +153,7 @@ export const gerarPdfMedicao = async (medicao: any, empresa: any, cliente: any, 
             // OS sem itensCobranca: exibe como linha única com valorPrecificado
             const vp = Number(obj.valorPrecificado || 0);
             formattedOrdens.push({
-                DataInicial:      obj.dataInicial ? moment(obj.dataInicial).utc().format('DD/MM/YYYY') : '-',
+                DataInicial:      obj.dataInicial ? formatDateBR(obj.dataInicial) : '-',
                 Codigo:           obj.codigo,
                 Equipamento:      obj.observacoes || '-',
                 DescricaoServico: '-',
@@ -213,7 +224,7 @@ export const gerarPdfMedicao = async (medicao: any, empresa: any, cliente: any, 
         ContatoEmail:    cliente?.email    || '',
         ContatoTelefone: cliente?.telefone || cliente?.celular || '',
         Solicitante:     medicao.solicitante || '-',
-        DataEmissao:     moment().format('DD/MM/YYYY'),
+        DataEmissao:     formatDateBR(new Date()),
         Periodo:         periodo,
         // Tabela de OS + subitens
         ordens:          formattedOrdens,
@@ -247,9 +258,31 @@ export const gerarPdfMedicao = async (medicao: any, empresa: any, cliente: any, 
 // ORDEM DE SERVIÇO — idêntico ao legado
 // ==========================================
 export const gerarPdfOrdemServico = async (ordem: any, cliente: any, servicos: any[]): Promise<Buffer> => {
+    // Buscar Escala associada para preencher Motorista/Ajudante/Veículo
+    let motoristaNome = '';
+    let ajudanteNome = '';
+    let veiculoPlaca = '';
+
+    try {
+        const escala = await (prisma as any).escala.findFirst({
+            where: { codigoOS: ordem.codigo },
+            orderBy: { createdAt: 'desc' },
+            include: { veiculo: true }
+        });
+
+        if (escala) {
+            const funcs = Array.isArray(escala.funcionarios) ? escala.funcionarios as any[] : [];
+            if (funcs.length > 0) motoristaNome = funcs[0]?.nome || '';
+            if (funcs.length > 1) ajudanteNome = funcs[1]?.nome || '';
+            veiculoPlaca = escala.veiculo?.placa || '';
+        }
+    } catch (e) {
+        // Escala pode não existir — campos ficam vazios para preenchimento manual
+    }
+
     const view = {
         NumeroOS:   ordem.codigo || 'S/N',
-        Data:       moment(ordem.dataInicial).format('DD/MM/YYYY'),
+        Data:       formatDateBR(ordem.dataInicial),
         Cliente: {
             RazaoSocial: cliente?.razaoSocial || cliente?.nome || '',
             Endereco:    cliente?.endereco || '',
@@ -268,7 +301,10 @@ export const gerarPdfOrdemServico = async (ordem: any, cliente: any, servicos: a
             Equipamento:  s.equipamento || ordem.equipamento || '-',
             Discriminacao: s.descricao || '-'
         })),
-        Observacao: ordem.observacoes || ''
+        Observacao: ordem.observacoes || '',
+        Motorista: motoristaNome,
+        Ajudante:  ajudanteNome,
+        Veiculo:   veiculoPlaca
     };
 
     const templateHtml = await getTemplateHtml('ordem_servico.html');
@@ -278,11 +314,30 @@ export const gerarPdfOrdemServico = async (ordem: any, cliente: any, servicos: a
 
 export const gerarPdfLoteOrdemServico = async (ordens: any[]): Promise<Buffer> => {
     const templateHtml = await getTemplateHtml('ordem_servico.html');
-    
+
+    // Pré-buscar escalas para todas as OS do lote
+    const codigos = ordens.map(o => o.codigo).filter(Boolean);
+    let escalasMap: Record<string, any> = {};
+    try {
+        const escalas = await (prisma as any).escala.findMany({
+            where: { codigoOS: { in: codigos } },
+            include: { veiculo: true },
+            orderBy: { createdAt: 'desc' }
+        });
+        for (const esc of escalas) {
+            if (esc.codigoOS && !escalasMap[esc.codigoOS]) {
+                escalasMap[esc.codigoOS] = esc;
+            }
+        }
+    } catch (e) { /* sem escalas — campos ficam vazios */ }
+
     const renderedPages = ordens.map(os => {
+        const escala = escalasMap[os.codigo];
+        const funcs = escala && Array.isArray(escala.funcionarios) ? escala.funcionarios as any[] : [];
+
         const view = {
             NumeroOS:   os.codigo || 'S/N',
-            Data:       moment(os.dataInicial).format('DD/MM/YYYY'),
+            Data:       formatDateBR(os.dataInicial),
             Cliente: {
                 RazaoSocial: os.cliente?.razaoSocial || os.cliente?.nome || '',
                 Endereco:    os.cliente?.endereco || '',
@@ -301,7 +356,10 @@ export const gerarPdfLoteOrdemServico = async (ordens: any[]): Promise<Buffer> =
                 Equipamento:  s.equipamento || os.equipamento || '-',
                 Discriminacao: s.descricao || '-'
             })),
-            Observacao: os.observacoes || ''
+            Observacao: os.observacoes || '',
+            Motorista: funcs[0]?.nome || '',
+            Ajudante:  funcs[1]?.nome || '',
+            Veiculo:   escala?.veiculo?.placa || ''
         };
         return mustache.render(templateHtml, view);
     });
@@ -315,7 +373,7 @@ export const gerarPdfLoteOrdemServico = async (ordens: any[]): Promise<Buffer> =
 // ==========================================
 export const gerarPdfProposta = async (proposta: any, cliente: any, itens: any[], empresa: any): Promise<Buffer> => {
 
-    const dataValidade = proposta.dataValidade ? moment(proposta.dataValidade).format('DD/MM/YYYY') : moment().add(30, 'days').format('DD/MM/YYYY');
+    const dataValidade = proposta.dataValidade ? formatDateBR(proposta.dataValidade) : formatDateBR(new Date(Date.now() + 30 * 86400000));
     const validadeTexto = proposta.validadeDias ? `${proposta.validadeDias} dias corridos` : `Válida até ${dataValidade}`;
 
     // Remove equipamentos duplicados p/ visualização legada
@@ -409,22 +467,16 @@ export const gerarPdfProposta = async (proposta: any, cliente: any, itens: any[]
     let rendered = mustache.render(templateHtml, view);
     // Replace script tags with div so they render in Puppeteer
     rendered = rendered.replace(/<script id="template" type="x-tmpl-mustache">/g, '<div>').replace(/<\/script><!--remove-->/g, '</div>');
-    
-    // Inject header template for Puppeteer
-    const headerHtml = `
-      <div style="width: 100%; display: flex; justify-content: center; align-items: center; padding-top: 10px;">
-        <img style="width: 100%; max-width: 90%; margin: 0 auto; display: block;" src="https://prodnhidro.blob.core.windows.net/storage/proposta.png"/>
-      </div>
-    `;
 
-    return generatePdfFromHtml(rendered, headerHtml);
+    // GAP 2: Banner inline (sem headerTemplate) — posição idêntica ao legado
+    return generatePdfFromHtml(rendered);
 };
 
 // ==========================================
 // FICHA DE REGISTRO DE EMPREGADO (RH)
 // ==========================================
 export const gerarPdfFichaRegistro = async (admissao: any): Promise<Buffer> => {
-    const formatDate = (date: any) => date ? moment(date).format('DD/MM/YYYY') : '---';
+    const formatDate = (date: any) => date ? formatDateBR(date) : '---';
     const formatCurrency = (val: any) => val ? `R$ ${formatNumberReal(val)}` : 'R$ 0,00';
 
     const checklistPadrao = [
@@ -480,7 +532,7 @@ export const gerarPdfFichaRegistro = async (admissao: any): Promise<Buffer> => {
         OptanteAdiantamento: admissao.optanteAdiantamentoSalarial ? 'SIM' : 'NÃO',
         OptanteVT:         admissao.optanteValeTransporte === 'SIM' ? 'OPTANTE' : 'NÃO OPTANTE',
         IsOptanteVT:       admissao.optanteValeTransporte === 'SIM',
-        DataHoje:          moment().format('DD/MM/YYYY'),
+        DataHoje:          formatDateBR(new Date()),
         Checklist:         checklistMapped,
         Observacoes:       admissao.observacoes || ''
     };
@@ -494,7 +546,21 @@ export const gerarPdfFichaRegistro = async (admissao: any): Promise<Buffer> => {
 // GUIA DE ENCAMINHAMENTO ASO (RH)
 // ==========================================
 export const gerarPdfGuiaASO = async (admissao: any): Promise<Buffer> => {
-    const formatDate = (date: any) => date ? moment(date).format('DD/MM/YYYY') : '---';
+    const formatDate = (date: any) => date ? formatDateBR(date) : '---';
+
+    const razaoSocial = admissao.razaoSocial || 'NACIONAL HIDROMECÂNICA E SANEAMENTO LTDA';
+
+    // GAP 3: Busca real do CNPJ no banco em vez de hardcoded
+    let cnpj = '';
+    try {
+        const empresa = await (prisma as any).empresaCNPJ.findFirst({
+            where: { razaoSocial: { contains: razaoSocial, mode: 'insensitive' } },
+            select: { cnpj: true }
+        });
+        cnpj = empresa?.cnpj || '';
+    } catch (e) {
+        console.error('[Guia ASO] Erro ao buscar CNPJ da empresa:', e);
+    }
 
     const view = {
         Nome:              admissao.nome?.toLocaleUpperCase(),
@@ -503,9 +569,9 @@ export const gerarPdfGuiaASO = async (admissao: any): Promise<Buffer> => {
         TipoExame:         admissao.tipoAso || 'Admissional',
         Clinica:           admissao.clinicaASO || 'Vida Saúde Integrada',
         DataAgendamento:   formatDate(admissao.dataAgendamentoExame),
-        RazaoSocial:       admissao.razaoSocial || 'NACIONAL HIDROMECÂNICA E SANEAMENTO LTDA',
-        CNPJ:              admissao.razaoSocial === 'Nacional Locação' ? '12.345.678/0001-99' : '98.765.432/0001-11', // Ideamente viria de config
-        DataHoje:          moment().format('DD/MM/YYYY')
+        RazaoSocial:       razaoSocial,
+        CNPJ:              cnpj,
+        DataHoje:          formatDateBR(new Date())
     };
 
     const templateHtml = await getTemplateHtml('guia_aso.html');

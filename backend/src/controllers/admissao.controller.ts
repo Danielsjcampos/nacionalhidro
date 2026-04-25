@@ -235,6 +235,9 @@ export const updateAdmissao = async (req: AuthRequest, res: Response) => {
             validadeAso,
             dataAdmissaoRegistrada,
             prazoRetornoContabilidade,
+            dataVencimentoCnh,
+            dataVencimentoMopp,
+            dataHoraAssinatura,
             salarioBase,
             candidato,
             funcionario,
@@ -255,6 +258,9 @@ export const updateAdmissao = async (req: AuthRequest, res: Response) => {
                 validadeAso: validadeAso ? new Date(validadeAso) : undefined,
                 dataAdmissaoRegistrada: dataAdmissaoRegistrada ? new Date(dataAdmissaoRegistrada) : undefined,
                 prazoRetornoContabilidade: prazoRetornoContabilidade ? new Date(prazoRetornoContabilidade) : undefined,
+                dataVencimentoCnh: dataVencimentoCnh ? new Date(dataVencimentoCnh) : undefined,
+                dataVencimentoMopp: dataVencimentoMopp ? new Date(dataVencimentoMopp) : undefined,
+                dataHoraAssinatura: dataHoraAssinatura ? new Date(dataHoraAssinatura) : undefined,
                 salarioBase: salarioBase !== undefined && salarioBase !== null ? parseFloat(salarioBase) : undefined,
             },
             include: { candidato: true },
@@ -366,6 +372,28 @@ export const moverEtapaAdmissao = async (req: AuthRequest, res: Response) => {
             data,
             include: { candidato: true, funcionario: true },
         });
+
+        // ─── GAP 2: AUTO-CREATE ASO ADMISSIONAL ─────────────────
+        if (etapa === 'CONTRATADO' && admissao.funcionarioId) {
+            try {
+                const asoData: any = {
+                    funcionarioId: admissao.funcionarioId,
+                    tipo: 'ADMISSIONAL',
+                    dataExame: admissaoAtual.dataAso ? new Date(admissaoAtual.dataAso) : null,
+                    dataVencimento: admissaoAtual.dataValidadeAso ? new Date(admissaoAtual.dataValidadeAso) : null,
+                    resultado: admissaoAtual.foiAprovadoExame === true ? 'APTO'
+                        : admissaoAtual.foiAprovadoExame === false ? 'INAPTO'
+                        : null,
+                    clinica: admissaoAtual.clinicaASO || null,
+                    observacoes: `Criado automaticamente via Admissão #${id}`,
+                };
+                const aso = await (prisma as any).aSOControle.create({ data: asoData });
+                console.log(`[ADMISSAO] ASO Admissional criado: ${aso.id} para funcionário ${admissao.funcionarioId}`);
+            } catch (asoErr: any) {
+                console.error(`[ADMISSAO] Falha ao criar ASO para funcionário ${admissao.funcionarioId}:`, asoErr?.code || asoErr?.message || asoErr);
+                // Non-blocking: ASO creation failure (e.g. FK constraint) should not break admission flow
+            }
+        }
 
         // ─── WHATSAPP AUTO-NOTIFICATION ──────────────────────────
         // Fire-and-forget: never blocks the main flow

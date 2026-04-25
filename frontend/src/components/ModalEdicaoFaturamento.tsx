@@ -84,7 +84,7 @@ export default function ModalEdicaoFaturamento({ faturamento, onClose, onSave, o
                 servico: {
                     iss_retido: 1, aliquota: 2,
                     aliquota_pis: 0.65, aliquota_cofins: 3,
-                    aliquota_ir: 1, aliquota_csll: 1,
+                    aliquota_ir: 1.5, aliquota_csll: 1,
                     aliquota_inss: 3.5,
                     base_calculo: f.valorBruto,
                     item_lista_servico: '0710',

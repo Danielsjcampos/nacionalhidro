@@ -16,9 +16,10 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export const listVagas = async (req: AuthRequest, res: Response) => {
     try {
-        const { status } = req.query;
+        const { status, pipelineStatus } = req.query;
         const where: any = {};
         if (status) where.status = status as string;
+        if (pipelineStatus) where.pipelineStatus = pipelineStatus as string;
 
         const vagas = await (prisma as any).vaga.findMany({
             where,

@@ -86,6 +86,10 @@ export const getMedicao = async (req: AuthRequest, res: Response) => {
                         proposta: true,
                     }
                 },
+                faturamentos: {
+                    orderBy: { createdAt: 'desc' as any },
+                    include: { cliente: { select: { id: true, nome: true } } }
+                },
                 cobrancasEmail: { orderBy: { dataEnvio: 'desc' as any }, take: 20 }
             }
         });
@@ -321,45 +325,35 @@ export const updateMedicaoStatus = async (req: AuthRequest, res: Response) => {
 
         const empresa = await prisma.configuracao.findFirst() || {} as any;
 
-        // ─── REVISÃO: REPROVADA cria nova medição ───────────────
+        // ─── REPROVADA: reabrir para edição (sem clonar) ─────────
         if (status === 'REPROVADA') {
-            const novaRevisao = await prisma.medicao.create({
-                data: {
-                    codigo: currentMedicao.codigo,
-                    revisao: currentMedicao.revisao + 1,
-                    clienteId:    currentMedicao.clienteId,
-                    vendedorId:   currentMedicao.vendedorId,
-                    solicitante:  currentMedicao.solicitante,
-                    periodo:      currentMedicao.periodo,
-                    valorTotal:   currentMedicao.valorTotal,
-                    valorRL:      currentMedicao.valorRL,
-                    valorNFSe:    currentMedicao.valorNFSe,
-                    totalServico: currentMedicao.totalServico,
-                    totalHora:    currentMedicao.totalHora,
-                    adicional:    currentMedicao.adicional,
-                    desconto:     currentMedicao.desconto,
-                    porcentagemRL: currentMedicao.porcentagemRL,
-                    cte:     currentMedicao.cte,
-                    status:  'EM_ABERTO',
-                    observacoes: `Revisão gerada a partir da contestação: ${motivoContestacao || ''}`,
-                    subitens: (currentMedicao.subitens || {}) as any,
-                    ordensServico: {
-                        connect: currentMedicao.ordensServico.map(os => ({ id: os.id }))
-                    }
-                }
-            });
-
-            await prisma.medicao.update({
+            const medicaoReaberta = await prisma.medicao.update({
                 where: { id },
                 data: {
-                    status: 'CONTESTADA',
-                    motivoContestacao: motivoContestacao || 'Reprovada pelo cliente',
-                    contestadaEm: new Date(),
-                    medicaoContestadaId: novaRevisao.id
+                    status: 'EM_ABERTO',
+                    motivoReprovacao: motivoContestacao || justificativaCancelamento || 'Reprovada pelo cliente',
+                    reprovadaEm: new Date(),
+                    aprovadaEm: null,
+                    aprovadaPor: null,
+                    valorAprovado: null,
+                    percentualAprovado: null,
+                },
+                include: {
+                    cliente: { select: { id: true, nome: true } },
+                    ordensServico: { select: { id: true, codigo: true } }
                 }
             });
 
-            return res.json({ message: 'Nova revisão criada com sucesso', medicao: novaRevisao });
+            // Reverter as OS para PRECIFICADA (disponíveis para edição)
+            const osIds = medicaoReaberta.ordensServico.map((os: any) => os.id);
+            if (osIds.length > 0) {
+                await prisma.ordemServico.updateMany({
+                    where: { id: { in: osIds } },
+                    data: { status: 'PRECIFICADA' }
+                });
+            }
+
+            return res.json({ message: 'Medição reaberta para edição', medicao: medicaoReaberta });
         }
 
         const updateData: any = { status };

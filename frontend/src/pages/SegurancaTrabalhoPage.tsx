@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { HardHat, Trash2, Plus, X, FileText, CheckCircle, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { HardHat, Trash2, Plus, X, FileText, CheckCircle, AlertTriangle, ShieldCheck, Edit3 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 
@@ -32,6 +32,11 @@ export default function SegurancaTrabalhoPage() {
 
     const [complianceData, setComplianceData] = useState<{compliant: boolean, errors: string[], warnings: string[]} | null>(null);
     const [checkingCompliance, setCheckingCompliance] = useState(false);
+
+    // GAP 3: Edit state for treinamento realizado
+    const [showEditRealizacaoModal, setShowEditRealizacaoModal] = useState(false);
+    const [editRealizacaoId, setEditRealizacaoId] = useState<string | null>(null);
+    const [editRealizacaoForm, setEditRealizacaoForm] = useState({ dataRealizacao: '', dataVencimento: '', certificadoUrl: '', observacoes: '' });
 
     useEffect(() => { loadData(); }, [tab]);
 
@@ -124,6 +129,36 @@ export default function SegurancaTrabalhoPage() {
         setShowRealizacaoModal(false);
         setRealizacaoForm({ funcionarioId: '', treinamentoId: '', dataRealizacao: new Date().toISOString().substring(0, 10), certificadoUrl: '' });
         loadData();
+    };
+
+    // GAP 3: Edit treinamento realizado
+    const openEditRealizacao = (r: TreinamentoRealizado) => {
+        setEditRealizacaoId(r.id);
+        setEditRealizacaoForm({
+            dataRealizacao: r.dataRealizacao ? new Date(r.dataRealizacao).toISOString().substring(0, 10) : '',
+            dataVencimento: r.dataVencimento ? new Date(r.dataVencimento).toISOString().substring(0, 10) : '',
+            certificadoUrl: r.certificadoUrl || '',
+            observacoes: '',
+        });
+        setShowEditRealizacaoModal(true);
+    };
+
+    const handleUpdateRealizacao = async () => {
+        if (!editRealizacaoId) return;
+        try {
+            await api.put(`/treinamentos/realizados/${editRealizacaoId}`, {
+                dataRealizacao: editRealizacaoForm.dataRealizacao || undefined,
+                dataVencimento: editRealizacaoForm.dataVencimento || null,
+                certificadoUrl: editRealizacaoForm.certificadoUrl || null,
+                observacoes: editRealizacaoForm.observacoes || null,
+            });
+            setShowEditRealizacaoModal(false);
+            showToast('Treinamento atualizado com sucesso', 'success');
+            loadData();
+        } catch (err) {
+            console.error(err);
+            showToast('Erro ao atualizar treinamento', 'error');
+        }
     };
 
     return (
@@ -269,11 +304,16 @@ export default function SegurancaTrabalhoPage() {
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-3 text-right">
-                                                        {r.certificadoUrl ? (
-                                                            <a href={r.certificadoUrl} target="_blank" className="text-blue-600 flex items-center justify-end gap-1 hover:underline">
-                                                                <FileText className="w-3.5 h-3.5" /> <span className="text-[10px] font-bold uppercase">Ver</span>
-                                                            </a>
-                                                        ) : <span className="text-slate-300">—</span>}
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            {r.certificadoUrl ? (
+                                                                <a href={r.certificadoUrl} target="_blank" className="text-blue-600 flex items-center gap-1 hover:underline">
+                                                                    <FileText className="w-3.5 h-3.5" /> <span className="text-[10px] font-bold uppercase">Ver</span>
+                                                                </a>
+                                                            ) : <span className="text-slate-300">—</span>}
+                                                            <button onClick={() => openEditRealizacao(r)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Editar">
+                                                                <Edit3 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             );
@@ -449,6 +489,51 @@ export default function SegurancaTrabalhoPage() {
                         </div>
                         <button onClick={handleRealizarTreinamento} disabled={!realizacaoForm.funcionarioId || !realizacaoForm.treinamentoId} 
                             className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">Registrar Certificado</button>
+                    </div>
+                </div>
+            )}
+
+            {/* GAP 3: Modal Editar Treinamento Realizado */}
+            {showEditRealizacaoModal && (
+                <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4 animate-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center">
+                            <h2 className="text-xl font-bold text-slate-800">Editar Treinamento</h2>
+                            <button onClick={() => setShowEditRealizacaoModal(false)}><X className="w-5 h-5 text-slate-400" /></button>
+                        </div>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Data Realização</label>
+                                <input type="date" value={editRealizacaoForm.dataRealizacao}
+                                    onChange={e => setEditRealizacaoForm({ ...editRealizacaoForm, dataRealizacao: e.target.value })}
+                                    className="w-full border border-slate-200 rounded-lg p-3 text-sm" />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Vencimento</label>
+                                <input type="date" value={editRealizacaoForm.dataVencimento}
+                                    onChange={e => setEditRealizacaoForm({ ...editRealizacaoForm, dataVencimento: e.target.value })}
+                                    className="w-full border border-slate-200 rounded-lg p-3 text-sm" />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">URL Certificado</label>
+                                <input value={editRealizacaoForm.certificadoUrl}
+                                    onChange={e => setEditRealizacaoForm({ ...editRealizacaoForm, certificadoUrl: e.target.value })}
+                                    placeholder="URL ou Link do Certificado/PDF"
+                                    className="w-full border border-slate-200 rounded-lg p-3 text-sm" />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Observações</label>
+                                <textarea value={editRealizacaoForm.observacoes}
+                                    onChange={e => setEditRealizacaoForm({ ...editRealizacaoForm, observacoes: e.target.value })}
+                                    placeholder="Anotações adicionais..."
+                                    rows={2}
+                                    className="w-full border border-slate-200 rounded-lg p-3 text-sm resize-none" />
+                            </div>
+                        </div>
+                        <button onClick={handleUpdateRealizacao}
+                            className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all">
+                            Salvar Alterações
+                        </button>
                     </div>
                 </div>
             )}

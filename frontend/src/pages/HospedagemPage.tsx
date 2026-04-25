@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '../services/api';
 import {
     Loader2, X, Bed, MapPin, Calendar, Plane,
-    CheckCircle2, Bus, Car
+    CheckCircle2, Bus, Car, Edit3, Download, AlertTriangle
 } from 'lucide-react';
 
 const TIPO_PASSAGEM: Record<string, { label: string; icon: any; color: string }> = {
@@ -29,16 +29,16 @@ export default function HospedagemPage() {
     const [tab, setTab] = useState<'hospedagem' | 'passagens'>('hospedagem');
     const [osList, setOsList] = useState<any[]>([]);
     const [filterOS, setFilterOS] = useState('');
+    const [filterStatusH, setFilterStatusH] = useState('');
+    const [filterStatusP, setFilterStatusP] = useState('');
 
     // Hospedagem
     const [hospedagens, setHospedagens] = useState<any[]>([]);
     const [loadingH, setLoadingH] = useState(true);
     const [showFormH, setShowFormH] = useState(false);
-    const [formH, setFormH] = useState({
-        hotel: '', cidade: '', dataCheckin: '', dataCheckout: '', diarias: '1',
-        valorDiaria: '', funcionarioId: '', osId: '', observacoes: '',
-        tipoAcomodacao: 'INDIVIDUAL', cafeDaManha: true, almoco: false, lavanderia: false, fornecedorId: ''
-    });
+    const [editingHId, setEditingHId] = useState<string | null>(null);
+    const emptyFormH = { hotel: '', cidade: '', dataCheckin: '', dataCheckout: '', diarias: '1', valorDiaria: '', funcionarioId: '', osId: '', observacoes: '', tipoAcomodacao: 'INDIVIDUAL', cafeDaManha: true, almoco: false, lavanderia: false, fornecedorId: '' };
+    const [formH, setFormH] = useState({ ...emptyFormH });
     
     // Fornecedores
     const [fornecedores, setFornecedores] = useState<any[]>([]);
@@ -52,10 +52,9 @@ export default function HospedagemPage() {
     const [passagens, setPassagens] = useState<any[]>([]);
     const [loadingP, setLoadingP] = useState(true);
     const [showFormP, setShowFormP] = useState(false);
-    const [formP, setFormP] = useState({
-        tipo: 'AEREA', origem: '', destino: '', dataIda: '', dataVolta: '',
-        companhia: '', localizador: '', valor: '', funcionarioId: '', osId: '', observacoes: ''
-    });
+    const [editingPId, setEditingPId] = useState<string | null>(null);
+    const emptyFormP = { tipo: 'AEREA', origem: '', destino: '', dataIda: '', dataVolta: '', companhia: '', localizador: '', valor: '', funcionarioId: '', osId: '', observacoes: '' };
+    const [formP, setFormP] = useState({ ...emptyFormP });
 
     // Resumo
     const [resumo, setResumo] = useState<any>(null);
@@ -69,12 +68,14 @@ export default function HospedagemPage() {
     const fetchHospedagens = () => {
         const params: any = {};
         if (filterOS) params.osId = filterOS;
+        if (filterStatusH) params.status = filterStatusH;
         api.get('/hospedagens', { params }).then(r => { setHospedagens(r.data || []); setLoadingH(false); }).catch(() => setLoadingH(false));
     };
 
     const fetchPassagens = () => {
         const params: any = {};
         if (filterOS) params.osId = filterOS;
+        if (filterStatusP) params.status = filterStatusP;
         api.get('/hospedagens/passagens', { params }).then(r => { setPassagens(r.data || []); setLoadingP(false); }).catch(() => setLoadingP(false));
     };
 
@@ -83,13 +84,31 @@ export default function HospedagemPage() {
         api.get(`/hospedagens/resumo/${filterOS}`).then(r => setResumo(r.data.resumo)).catch(() => { });
     };
 
-    useEffect(() => { fetchHospedagens(); fetchPassagens(); fetchResumo(); }, [filterOS]);
+    useEffect(() => { fetchHospedagens(); fetchPassagens(); fetchResumo(); }, [filterOS, filterStatusH, filterStatusP]);
 
-    const handleCreateH = async () => {
-        await api.post('/hospedagens', formH);
-        setShowFormH(false);
-        setFormH({ hotel: '', cidade: '', dataCheckin: '', dataCheckout: '', diarias: '1', valorDiaria: '', funcionarioId: '', osId: '', observacoes: '', tipoAcomodacao: 'INDIVIDUAL', cafeDaManha: true, almoco: false, lavanderia: false, fornecedorId: '' });
+    const handleSaveH = async () => {
+        if (editingHId) {
+            await api.patch(`/hospedagens/${editingHId}`, formH);
+        } else {
+            await api.post('/hospedagens', formH);
+        }
+        setShowFormH(false); setEditingHId(null); setFormH({ ...emptyFormH });
         fetchHospedagens(); fetchResumo();
+    };
+
+    const openEditH = (h: any) => {
+        setEditingHId(h.id);
+        setFormH({
+            hotel: h.hotel || '', cidade: h.cidade || '',
+            dataCheckin: h.dataCheckin ? new Date(h.dataCheckin).toISOString().substring(0, 10) : '',
+            dataCheckout: h.dataCheckout ? new Date(h.dataCheckout).toISOString().substring(0, 10) : '',
+            diarias: String(h.diarias || 1), valorDiaria: String(h.valorDiaria || ''),
+            funcionarioId: h.funcionarioId || '', osId: h.osId || '',
+            observacoes: h.observacoes || '', tipoAcomodacao: h.tipoAcomodacao || 'INDIVIDUAL',
+            cafeDaManha: h.cafeDaManha ?? true, almoco: h.almoco ?? false,
+            lavanderia: h.lavanderia ?? false, fornecedorId: h.fornecedorId || ''
+        });
+        setShowFormH(true);
     };
 
     const handleDeleteH = async (id: string) => {
@@ -103,17 +122,46 @@ export default function HospedagemPage() {
         fetchHospedagens();
     };
 
-    const handleCreateP = async () => {
-        await api.post('/hospedagens/passagens', formP);
-        setShowFormP(false);
-        setFormP({ tipo: 'AEREA', origem: '', destino: '', dataIda: '', dataVolta: '', companhia: '', localizador: '', valor: '', funcionarioId: '', osId: '', observacoes: '' });
+    const handleSaveP = async () => {
+        if (editingPId) {
+            await api.patch(`/hospedagens/passagens/${editingPId}`, formP);
+        } else {
+            await api.post('/hospedagens/passagens', formP);
+        }
+        setShowFormP(false); setEditingPId(null); setFormP({ ...emptyFormP });
         fetchPassagens(); fetchResumo();
+    };
+
+    const openEditP = (p: any) => {
+        setEditingPId(p.id);
+        setFormP({
+            tipo: p.tipo || 'AEREA', origem: p.origem || '', destino: p.destino || '',
+            dataIda: p.dataIda ? new Date(p.dataIda).toISOString().substring(0, 10) : '',
+            dataVolta: p.dataVolta ? new Date(p.dataVolta).toISOString().substring(0, 10) : '',
+            companhia: p.companhia || '', localizador: p.localizador || '',
+            valor: String(p.valor || ''), funcionarioId: p.funcionarioId || '',
+            osId: p.osId || '', observacoes: p.observacoes || ''
+        });
+        setShowFormP(true);
     };
 
     const handleDeleteP = async (id: string) => {
         if (!window.confirm('Excluir passagem?')) return;
         await api.delete(`/hospedagens/passagens/${id}`);
         fetchPassagens(); fetchResumo();
+    };
+
+    const exportCSV = (type: 'hospedagem' | 'passagem') => {
+        const params: any = { formato: 'csv' };
+        if (filterOS) params.osId = filterOS;
+        if (type === 'hospedagem' && filterStatusH) params.status = filterStatusH;
+        if (type === 'passagem' && filterStatusP) params.status = filterStatusP;
+        const url = type === 'hospedagem' ? '/hospedagens' : '/hospedagens/passagens';
+        api.get(url, { params, responseType: 'blob' }).then(r => {
+            const blob = new Blob([r.data], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
+            link.download = `${type === 'hospedagem' ? 'hospedagens' : 'passagens'}.csv`; link.click();
+        }).catch(console.error);
     };
 
     const handleStatusP = async (id: string, status: string) => {
@@ -149,13 +197,17 @@ export default function HospedagemPage() {
                     <p className="text-sm text-slate-500">Controle de hospedagem e passagens vinculadas às OS</p>
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={() => { setFormH({ ...formH, osId: filterOS }); setShowFormH(true); }}
+                    <button onClick={() => { setEditingHId(null); setFormH({ ...emptyFormH, osId: filterOS }); setShowFormH(true); }}
                         className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
                         <Bed className="w-4 h-4" /> Nova Hospedagem
                     </button>
-                    <button onClick={() => { setFormP({ ...formP, osId: filterOS }); setShowFormP(true); }}
+                    <button onClick={() => { setEditingPId(null); setFormP({ ...emptyFormP, osId: filterOS }); setShowFormP(true); }}
                         className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
                         <Plane className="w-4 h-4" /> Nova Passagem
+                    </button>
+                    <button onClick={() => exportCSV(tab === 'hospedagem' ? 'hospedagem' : 'passagem')}
+                        className="bg-emerald-600 text-white px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1">
+                        <Download className="w-4 h-4" /> CSV
                     </button>
                 </div>
             </div>
@@ -179,6 +231,22 @@ export default function HospedagemPage() {
                         <Plane className="w-3.5 h-3.5 inline mr-1" /> Passagens
                     </button>
                 </div>
+                {tab === 'hospedagem' && (
+                    <select value={filterStatusH} onChange={e => setFilterStatusH(e.target.value)}
+                        className="border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold">
+                        <option value="">Todos Status</option>
+                        <option value="RESERVADO">Reservado</option><option value="HOSPEDADO">Hospedado</option>
+                        <option value="CHECKOUT">Check-out</option><option value="CANCELADO">Cancelado</option>
+                    </select>
+                )}
+                {tab === 'passagens' && (
+                    <select value={filterStatusP} onChange={e => setFilterStatusP(e.target.value)}
+                        className="border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold">
+                        <option value="">Todos Status</option>
+                        <option value="RESERVADA">Reservada</option><option value="EMITIDA">Emitida</option>
+                        <option value="UTILIZADA">Utilizada</option><option value="CANCELADA">Cancelada</option>
+                    </select>
+                )}
             </div>
 
             {/* Resumo per OS */}
@@ -215,6 +283,7 @@ export default function HospedagemPage() {
                             <th className="p-3 font-black text-[10px] text-slate-400 uppercase">Hotel</th>
                             <th className="p-3 font-black text-[10px] text-slate-400 uppercase">Cidade</th>
                             <th className="p-3 font-black text-[10px] text-slate-400 uppercase">OS</th>
+                            <th className="p-3 font-black text-[10px] text-slate-400 uppercase">Funcionário</th>
                             <th className="p-3 font-black text-[10px] text-slate-400 uppercase">Check-in</th>
                             <th className="p-3 font-black text-[10px] text-slate-400 uppercase">Diárias</th>
                             <th className="p-3 font-black text-[10px] text-slate-400 uppercase text-right">Total</th>
@@ -223,26 +292,29 @@ export default function HospedagemPage() {
                         </tr></thead>
                         <tbody>
                             {hospedagens.map(h => {
-                                const osMatch = osList.find(o => o.id === h.osId);
                                 return (
                                     <tr key={h.id} className="border-t border-slate-100 hover:bg-slate-50">
                                         <td className="p-3 font-bold text-slate-700"><Bed className="w-3 h-3 inline text-slate-400 mr-1" />{h.hotel}</td>
                                         <td className="p-3 text-slate-500"><MapPin className="w-3 h-3 inline" /> {h.cidade || '—'}</td>
-                                        <td className="p-3">{osMatch ? <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">OS {osMatch.codigo}</span> : <span className="text-slate-300">—</span>}</td>
+                                        <td className="p-3">{h.os ? <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">OS {h.os.codigo}</span> : <span className="text-slate-300">—</span>}</td>
+                                        <td className="p-3 text-slate-600 font-medium">{h.funcionario?.nome || '—'}</td>
                                         <td className="p-3 text-slate-500"><Calendar className="w-3 h-3 inline" /> {fmtDate(h.dataCheckin)}</td>
                                         <td className="p-3 text-slate-500">{h.diarias || 1}</td>
                                         <td className="p-3 text-right font-bold text-slate-700">{fmt(Number(h.valorTotal))}</td>
                                         <td className="p-3"><span className={`text-[10px] font-black px-2 py-1 rounded ${STATUS_HOSP[h.status] || ''}`}>{h.status}</span></td>
-                                        <td className="p-3 flex gap-1">
-                                            {h.status === 'RESERVADO' && (
-                                                <button onClick={() => handleCheckout(h.id)} className="text-[10px] text-emerald-600 font-bold hover:underline">Check-out</button>
-                                            )}
-                                            <button onClick={() => handleDeleteH(h.id)} className="text-[10px] text-red-500 font-bold hover:underline">×</button>
+                                        <td className="p-3">
+                                            <div className="flex gap-1">
+                                                <button onClick={() => openEditH(h)} className="p-1 text-slate-400 hover:text-blue-600 rounded" title="Editar"><Edit3 className="w-3.5 h-3.5" /></button>
+                                                {h.status === 'RESERVADO' && (
+                                                    <button onClick={() => handleCheckout(h.id)} className="text-[10px] text-emerald-600 font-bold hover:underline">Check-out</button>
+                                                )}
+                                                <button onClick={() => handleDeleteH(h.id)} className="text-[10px] text-red-500 font-bold hover:underline">×</button>
+                                            </div>
                                         </td>
                                     </tr>
                                 );
                             })}
-                            {hospedagens.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-400">Nenhuma hospedagem encontrada</td></tr>}
+                            {hospedagens.length === 0 && <tr><td colSpan={9} className="p-8 text-center text-slate-400">Nenhuma hospedagem encontrada</td></tr>}
                         </tbody>
                     </table>
                 </div>
@@ -256,6 +328,7 @@ export default function HospedagemPage() {
                             <th className="p-3 font-black text-[10px] text-slate-400 uppercase">Tipo</th>
                             <th className="p-3 font-black text-[10px] text-slate-400 uppercase">Trecho</th>
                             <th className="p-3 font-black text-[10px] text-slate-400 uppercase">OS</th>
+                            <th className="p-3 font-black text-[10px] text-slate-400 uppercase">Funcionário</th>
                             <th className="p-3 font-black text-[10px] text-slate-400 uppercase">Ida</th>
                             <th className="p-3 font-black text-[10px] text-slate-400 uppercase">Volta</th>
                             <th className="p-3 font-black text-[10px] text-slate-400 uppercase">Cia / Loc.</th>
@@ -265,14 +338,14 @@ export default function HospedagemPage() {
                         </tr></thead>
                         <tbody>
                             {passagens.map(p => {
-                                const osMatch = osList.find(o => o.id === p.osId);
                                 const tipoInfo = TIPO_PASSAGEM[p.tipo] || TIPO_PASSAGEM.AEREA;
                                 const TipoIcon = tipoInfo.icon;
                                 return (
                                     <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50">
                                         <td className="p-3"><span className={`text-[9px] font-black px-1.5 py-0.5 rounded inline-flex items-center gap-1 ${tipoInfo.color}`}><TipoIcon className="w-3 h-3" />{tipoInfo.label}</span></td>
                                         <td className="p-3 font-bold text-slate-700">{p.origem} → {p.destino}</td>
-                                        <td className="p-3">{osMatch ? <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">OS {osMatch.codigo}</span> : <span className="text-slate-300">—</span>}</td>
+                                        <td className="p-3">{p.os ? <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">OS {p.os.codigo}</span> : <span className="text-slate-300">—</span>}</td>
+                                        <td className="p-3 text-slate-600 font-medium">{p.funcionario?.nome || '—'}</td>
                                         <td className="p-3 text-slate-500">{fmtDate(p.dataIda)}</td>
                                         <td className="p-3 text-slate-500">{fmtDate(p.dataVolta)}</td>
                                         <td className="p-3 text-slate-500">
@@ -283,6 +356,7 @@ export default function HospedagemPage() {
                                         <td className="p-3"><span className={`text-[10px] font-black px-2 py-1 rounded ${STATUS_PASSAGEM[p.status] || ''}`}>{p.status}</span></td>
                                         <td className="p-3">
                                             <div className="flex gap-1">
+                                                <button onClick={() => openEditP(p)} className="p-1 text-slate-400 hover:text-blue-600 rounded" title="Editar"><Edit3 className="w-3.5 h-3.5" /></button>
                                                 {p.status === 'RESERVADA' && (
                                                     <button onClick={() => handleStatusP(p.id, 'EMITIDA')} className="text-[10px] text-blue-600 font-bold hover:underline">Emitir</button>
                                                 )}
@@ -295,7 +369,7 @@ export default function HospedagemPage() {
                                     </tr>
                                 );
                             })}
-                            {passagens.length === 0 && <tr><td colSpan={9} className="p-8 text-center text-slate-400">Nenhuma passagem encontrada</td></tr>}
+                            {passagens.length === 0 && <tr><td colSpan={10} className="p-8 text-center text-slate-400">Nenhuma passagem encontrada</td></tr>}
                         </tbody>
                     </table>
                 </div>
@@ -306,8 +380,8 @@ export default function HospedagemPage() {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-3">
                         <div className="flex items-center justify-between">
-                            <h2 className="text-lg font-bold text-slate-800">Nova Hospedagem</h2>
-                            <button onClick={() => setShowFormH(false)}><X className="w-5 h-5 text-slate-400" /></button>
+                            <h2 className="text-lg font-bold text-slate-800">{editingHId ? 'Editar Hospedagem' : 'Nova Hospedagem'}</h2>
+                            <button onClick={() => { setShowFormH(false); setEditingHId(null); }}><X className="w-5 h-5 text-slate-400" /></button>
                         </div>
                         <select value={formH.osId} onChange={e => setFormH({ ...formH, osId: e.target.value })}
                             className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-bold appearance-none">
@@ -396,9 +470,9 @@ export default function HospedagemPage() {
                         )}
                         <textarea value={formH.observacoes} onChange={e => setFormH({ ...formH, observacoes: e.target.value })}
                             placeholder="Observações" rows={2} className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" />
-                        <button onClick={handleCreateH} disabled={!formH.hotel || !formH.dataCheckin || !formH.funcionarioId || (complianceData && !complianceData.compliant)}
+                        <button onClick={handleSaveH} disabled={!formH.hotel || !formH.dataCheckin || (!editingHId && !formH.funcionarioId) || (complianceData && !complianceData.compliant)}
                             className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold text-sm disabled:opacity-50">
-                            {checkingCompliance ? 'Verificando Compliance...' : 'Registrar Hospedagem'}
+                            {checkingCompliance ? 'Verificando Compliance...' : editingHId ? 'Salvar Alterações' : 'Registrar Hospedagem'}
                         </button>
                     </div>
                 </div>
@@ -409,8 +483,8 @@ export default function HospedagemPage() {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-3">
                         <div className="flex items-center justify-between">
-                            <h2 className="text-lg font-bold text-indigo-700">Nova Passagem</h2>
-                            <button onClick={() => setShowFormP(false)}><X className="w-5 h-5 text-slate-400" /></button>
+                            <h2 className="text-lg font-bold text-indigo-700">{editingPId ? 'Editar Passagem' : 'Nova Passagem'}</h2>
+                            <button onClick={() => { setShowFormP(false); setEditingPId(null); }}><X className="w-5 h-5 text-slate-400" /></button>
                         </div>
                         <select value={formP.osId} onChange={e => setFormP({ ...formP, osId: e.target.value })}
                             className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-bold appearance-none">
@@ -474,9 +548,9 @@ export default function HospedagemPage() {
                         </div>
                         <textarea value={formP.observacoes} onChange={e => setFormP({ ...formP, observacoes: e.target.value })}
                             placeholder="Observações" rows={2} className="w-full border border-slate-200 rounded-lg p-2.5 text-sm" />
-                        <button onClick={handleCreateP} disabled={!formP.origem || !formP.destino || !formP.dataIda || !formP.funcionarioId || (complianceData && !complianceData.compliant)}
+                        <button onClick={handleSaveP} disabled={!formP.origem || !formP.destino || !formP.dataIda || (!editingPId && !formP.funcionarioId) || (complianceData && !complianceData.compliant)}
                             className="w-full bg-indigo-600 text-white py-2.5 rounded-xl font-bold text-sm disabled:opacity-50">
-                            {checkingCompliance ? 'Verificando Compliance...' : 'Registrar Passagem'}
+                            {checkingCompliance ? 'Verificando Compliance...' : editingPId ? 'Salvar Alterações' : 'Registrar Passagem'}
                         </button>
                     </div>
                 </div>

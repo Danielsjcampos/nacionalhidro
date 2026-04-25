@@ -42,7 +42,8 @@ class FiscalWebhookController {
                 data: {
                     focusStatus: data.status.toUpperCase(),
                     status: novoStatus,
-                    nota: data.numero || faturamento.nota,
+                    numero: data.numero ? String(data.numero) : faturamento.numero,
+                    nfseCodVerificacao: data.codigo_verificacao || faturamento.nfseCodVerificacao,
                     urlArquivoNota: data.url || faturamento.urlArquivoNota,
                     urlArquivoXml: urlXml,
                     dadosWebHook: data,
@@ -113,7 +114,7 @@ class FiscalWebhookController {
                 data: {
                     focusStatus: data.status.toUpperCase(),
                     status: novoStatus,
-                    nota: data.numero || faturamento.nota,
+                    numero: data.numero ? String(data.numero) : faturamento.numero,
                     urlArquivoNota: data.caminho_dacte || faturamento.urlArquivoNota,
                     urlArquivoXml: urlXml,
                     dadosWebHook: data,
@@ -176,7 +177,7 @@ class FiscalWebhookController {
                 data: {
                     focusStatus: data.status.toUpperCase(),
                     status: novoStatus,
-                    nota: data.numero || faturamento.nota,
+                    numero: data.numero ? String(data.numero) : faturamento.numero,
                     urlArquivoNota: data.url || faturamento.urlArquivoNota,
                     urlArquivoXml: urlXml,
                     dadosWebHook: data,

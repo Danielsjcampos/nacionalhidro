@@ -55,6 +55,8 @@ const menuGroups: MenuGroup[] = [
     icon: ShieldCheck, label: 'Segurança',
     children: [
       { label: 'Segurança do Trab.', path: '/seguranca-trabalho' },
+      { label: 'Central de Vencimentos', path: '/vencimentos' },
+      { label: 'Documentos Corporativos', path: '/documentos-seguranca' },
     ]
   },
   {
@@ -178,12 +180,12 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
     if (current) setOpenGroup(current.label);
   }, [location.pathname]);
 
-  const userJson = localStorage.getItem('user');
+  const userJson = localStorage.getItem('userData');
   const user = userJson ? JSON.parse(userJson) : null;
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('userData');
     navigate('/login');
   };
 
@@ -212,7 +214,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
     
     const perms = user?.permissoes;
     // If no permissions object (legacy admin or role=admin), show everything
-    if (!perms || user?.role === 'admin') return true;
+    if (!perms || user?.role?.name === 'admin' || user?.role === 'admin') return true;
 
     // Map sidebar groups to permission keys
     const groupPermMap: Record<string, (keyof typeof perms)[]> = {

@@ -9,7 +9,7 @@ const api = axios.create({
 
 // Interceptor de Requisição para injetar token
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('accessToken');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -23,7 +23,8 @@ api.interceptors.response.use(
     if (error.response) {
       // 401 Unauthorized - Sessão Expirada ou Token Inválido
       if (error.response.status === 401) {
-        localStorage.removeItem('token');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('userData');
         if (!window.location.pathname.includes('/login')) {
           window.location.href = '/login';
         }

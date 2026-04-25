@@ -185,6 +185,37 @@ export default function AdmissaoPage() {
             nacionalidade: adm.nacionalidade || '',
             telefone: adm.telefone || '',
             email: adm.email || '',
+            // === Módulo 8 — Documentos individuais (Fase 1) ===
+            ctpsDigitalUrl: adm.ctpsDigitalUrl || '', rgCpfUrl: adm.rgCpfUrl || '',
+            comprovanteEnderecoUrl: adm.comprovanteEnderecoUrl || '', tituloEleitorUrl: adm.tituloEleitorUrl || '',
+            cnhUrl: adm.cnhUrl || '', categoriaCnh: adm.categoriaCnh || '',
+            dataVencimentoCnh: adm.dataVencimentoCnh ? adm.dataVencimentoCnh.split('T')[0] : '',
+            fotos3x4Url: adm.fotos3x4Url || '', antecedenteCriminalUrl: adm.antecedenteCriminalUrl || '',
+            certificadoReservistaUrl: adm.certificadoReservistaUrl || '', historicoEscolarUrl: adm.historicoEscolarUrl || '',
+            cursoMoppUrl: adm.cursoMoppUrl || '',
+            dataVencimentoMopp: adm.dataVencimentoMopp ? adm.dataVencimentoMopp.split('T')[0] : '',
+            vacinaCovidUrl: adm.vacinaCovidUrl || '', cartaoVacinaColaboradorUrl: adm.cartaoVacinaColaboradorUrl || '',
+            cartaoVacinaFilhoUrl: adm.cartaoVacinaFilhoUrl || '', freqEscolarFilhoUrl: adm.freqEscolarFilhoUrl || '',
+            certNascimentoFilhoUrl: adm.certNascimentoFilhoUrl || '', cpfFilhoUrl: adm.cpfFilhoUrl || '',
+            certCasamentoUrl: adm.certCasamentoUrl || '', rgCpfConjugeUrl: adm.rgCpfConjugeUrl || '',
+            registroProfissionalUrl: adm.registroProfissionalUrl || '',
+            autodeclaracaoEtnica: adm.autodeclaracaoEtnica || '', contaItau: adm.contaItau || '',
+            // === Módulo 8 — Conferência docs (Fase 2) ===
+            confCtpsDigital: adm.confCtpsDigital || '', confRgCpf: adm.confRgCpf || '',
+            confComprovante: adm.confComprovante || '', confTituloEleitor: adm.confTituloEleitor || '',
+            confCnh: adm.confCnh || '', confFotos: adm.confFotos || '',
+            confAntecedente: adm.confAntecedente || '', confReservista: adm.confReservista || '',
+            confHistorico: adm.confHistorico || '', confMopp: adm.confMopp || '',
+            confVacinaCovid: adm.confVacinaCovid || '', confCartaoVacina: adm.confCartaoVacina || '',
+            confCertNascFilho: adm.confCertNascFilho || '', confCpfFilho: adm.confCpfFilho || '',
+            confFreqEscolar: adm.confFreqEscolar || '', confCertCasamento: adm.confCertCasamento || '',
+            confRgCpfConjuge: adm.confRgCpfConjuge || '', confRegistroProfissional: adm.confRegistroProfissional || '',
+            // === Módulo 8 — Vacinas (Fase 2) ===
+            vacinaFebreAmarela: adm.vacinaFebreAmarela || '', vacinaDuploAdulto: adm.vacinaDuploAdulto || '',
+            vacinaHepatiteB: adm.vacinaHepatiteB || '', vacinaSarampo: adm.vacinaSarampo || '',
+            vacinaCovidConf: adm.vacinaCovidConf || '',
+            vacinaPendentePosAdmissao: adm.vacinaPendentePosAdmissao || false,
+            possuiDependentes: adm.possuiDependentes || false,
         });
         setShowDetail(adm);
     };
@@ -478,6 +509,41 @@ export default function AdmissaoPage() {
                         </div>
                         <div className="flex-1 overflow-y-auto bg-slate-50 p-6 space-y-6 custom-scrollbar">
 
+                            {/* Section: Envio Documentação (Fase 1) — Módulo 8 */}
+                            {['ENVIO_DOCUMENTACAO'].includes(showDetail.etapa) && (
+                                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                                    <h3 className="text-sm font-black text-slate-800 border-b pb-2 flex items-center gap-2"><FileCheck className="w-4 h-4 text-blue-400" /> Documentos Individuais</h3>
+                                    <p className="text-[10px] text-slate-400">Cole o link/URL de cada documento enviado pelo candidato.</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        {[
+                                            { k: 'ctpsDigitalUrl', l: 'CTPS Digital' }, { k: 'rgCpfUrl', l: 'RG e CPF' },
+                                            { k: 'comprovanteEnderecoUrl', l: 'Comprovante Endereço' }, { k: 'tituloEleitorUrl', l: 'Título de Eleitor' },
+                                            { k: 'cnhUrl', l: 'CNH' }, { k: 'fotos3x4Url', l: '02 Fotos 3x4' },
+                                            { k: 'antecedenteCriminalUrl', l: 'Antecedente Criminal' }, { k: 'certificadoReservistaUrl', l: 'Cert. Reservista' },
+                                            { k: 'historicoEscolarUrl', l: 'Histórico Escolar' }, { k: 'cursoMoppUrl', l: 'Curso MOPP' },
+                                            { k: 'vacinaCovidUrl', l: 'Vacina COVID' }, { k: 'cartaoVacinaColaboradorUrl', l: 'Cartão Vacina Colaborador' },
+                                            { k: 'cartaoVacinaFilhoUrl', l: 'Cartão Vacina Filho' }, { k: 'freqEscolarFilhoUrl', l: 'Freq. Escolar Filho' },
+                                            { k: 'certNascimentoFilhoUrl', l: 'Cert. Nascimento Filho' }, { k: 'cpfFilhoUrl', l: 'CPF Filho' },
+                                            { k: 'certCasamentoUrl', l: 'Cert. Casamento' }, { k: 'rgCpfConjugeUrl', l: 'RG/CPF Cônjuge' },
+                                            { k: 'registroProfissionalUrl', l: 'Registro Profissional' },
+                                        ].map(f => (
+                                            <div key={f.k}>
+                                                <label className="text-[10px] font-bold text-slate-500 uppercase">{f.l}</label>
+                                                <input className="w-full mt-1 border border-slate-200 rounded p-2 text-sm" placeholder="URL do documento..." value={drawerForm[f.k] || ''} onChange={e => setDrawerForm({...drawerForm, [f.k]: e.target.value})} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3 mt-3 border-t pt-3">
+                                        <div><label className="text-[10px] font-bold text-slate-500 uppercase">Categoria CNH</label><input className="w-full mt-1 border border-slate-200 rounded p-2 text-sm" value={drawerForm.categoriaCnh || ''} onChange={e => setDrawerForm({...drawerForm, categoriaCnh: e.target.value})} /></div>
+                                        <div><label className="text-[10px] font-bold text-slate-500 uppercase">Venc. CNH</label><input type="date" className="w-full mt-1 border border-slate-200 rounded p-2 text-sm" value={drawerForm.dataVencimentoCnh || ''} onChange={e => setDrawerForm({...drawerForm, dataVencimentoCnh: e.target.value})} /></div>
+                                        <div><label className="text-[10px] font-bold text-slate-500 uppercase">Venc. MOPP</label><input type="date" className="w-full mt-1 border border-slate-200 rounded p-2 text-sm" value={drawerForm.dataVencimentoMopp || ''} onChange={e => setDrawerForm({...drawerForm, dataVencimentoMopp: e.target.value})} /></div>
+                                        <div><label className="text-[10px] font-bold text-slate-500 uppercase">Autodeclaração Étnica</label><input className="w-full mt-1 border border-slate-200 rounded p-2 text-sm" value={drawerForm.autodeclaracaoEtnica || ''} onChange={e => setDrawerForm({...drawerForm, autodeclaracaoEtnica: e.target.value})} /></div>
+                                        <div><label className="text-[10px] font-bold text-slate-500 uppercase">Conta Itaú</label><input className="w-full mt-1 border border-slate-200 rounded p-2 text-sm" value={drawerForm.contaItau || ''} onChange={e => setDrawerForm({...drawerForm, contaItau: e.target.value})} /></div>
+                                        <div><label className="text-[10px] font-bold text-slate-500 uppercase">Chave Pix</label><input className="w-full mt-1 border border-slate-200 rounded p-2 text-sm" value={drawerForm.chavePix || ''} onChange={e => setDrawerForm({...drawerForm, chavePix: e.target.value})} /></div>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Section: Conferência */}
                             {['CONFERENCIA', 'EXAME_ASO', 'CONTABILIDADE'].includes(showDetail.etapa) && (
                                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
@@ -497,15 +563,73 @@ export default function AdmissaoPage() {
                                     
                                     {showDetail.etapa === 'CONFERENCIA' && (
                                         <>
-                                            <h4 className="text-xs font-bold text-slate-600 mt-4 border-t pt-3">📋 Checklist Documentação</h4>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                                {CHECKLIST_DOCS.map(doc => (
-                                                    <label key={doc.key} className="flex items-start gap-2 cursor-pointer p-2 rounded hover:bg-slate-50 border border-transparent hover:border-slate-200">
-                                                        <input type="checkbox" className="w-4 h-4 text-sky-600 rounded" checked={!!checklist[doc.key]} onChange={(e) => setChecklist({ ...checklist, [doc.key]: e.target.checked })} />
-                                                        <span className="text-xs font-semibold text-slate-700 leading-tight">{doc.label}</span>
-                                                    </label>
+                                            {/* Módulo 8: Conferência individual por documento */}
+                                            <h4 className="text-xs font-bold text-slate-600 mt-4 border-t pt-3">📋 Conferência Individual de Documentos</h4>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                {[
+                                                    { k: 'confCtpsDigital', l: 'CTPS Digital' }, { k: 'confRgCpf', l: 'RG/CPF' },
+                                                    { k: 'confComprovante', l: 'Comprovante Endereço' }, { k: 'confTituloEleitor', l: 'Título Eleitor' },
+                                                    { k: 'confCnh', l: 'CNH' }, { k: 'confFotos', l: 'Fotos 3x4' },
+                                                    { k: 'confAntecedente', l: 'Antecedente Criminal' }, { k: 'confReservista', l: 'Cert. Reservista' },
+                                                    { k: 'confHistorico', l: 'Histórico Escolar' }, { k: 'confMopp', l: 'Curso MOPP' },
+                                                    { k: 'confVacinaCovid', l: 'Vacina COVID' }, { k: 'confCartaoVacina', l: 'Cartão Vacina' },
+                                                    { k: 'confCertNascFilho', l: 'Cert. Nasc. Filho' }, { k: 'confCpfFilho', l: 'CPF Filho' },
+                                                    { k: 'confFreqEscolar', l: 'Freq. Escolar' }, { k: 'confCertCasamento', l: 'Cert. Casamento' },
+                                                    { k: 'confRgCpfConjuge', l: 'RG/CPF Cônjuge' }, { k: 'confRegistroProfissional', l: 'Registro Profissional' },
+                                                ].map(f => (
+                                                    <div key={f.k} className="flex items-center gap-3 p-2 rounded hover:bg-slate-50 border border-transparent hover:border-slate-200">
+                                                        <span className="text-xs font-semibold text-slate-700 flex-1">{f.l}</span>
+                                                        <div className="flex gap-2">
+                                                            {['Entregue', 'Pendente', 'N/A'].map(v => (
+                                                                <label key={v} className="flex items-center gap-1 cursor-pointer">
+                                                                    <input type="radio" name={f.k} className="w-3 h-3" checked={drawerForm[f.k] === v} onChange={() => setDrawerForm({...drawerForm, [f.k]: v})} />
+                                                                    <span className={`text-[10px] font-bold ${v === 'Entregue' ? 'text-emerald-600' : v === 'Pendente' ? 'text-amber-600' : 'text-slate-400'}`}>{v}</span>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    </div>
                                                 ))}
                                             </div>
+
+                                            {/* Módulo 8: Vacinas individuais */}
+                                            <h4 className="text-xs font-bold text-slate-600 mt-4 border-t pt-3">💉 Vacinas Individuais</h4>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                {[
+                                                    { k: 'vacinaFebreAmarela', l: 'Febre Amarela' }, { k: 'vacinaDuploAdulto', l: 'Duplo Adulto (dT)' },
+                                                    { k: 'vacinaHepatiteB', l: 'Hepatite B' }, { k: 'vacinaSarampo', l: 'Sarampo/Caxumba/Rubéola' },
+                                                    { k: 'vacinaCovidConf', l: 'COVID-19' },
+                                                ].map(f => (
+                                                    <div key={f.k} className="flex items-center gap-3 p-2 rounded hover:bg-slate-50 border border-transparent hover:border-slate-200">
+                                                        <span className="text-xs font-semibold text-slate-700 flex-1">{f.l}</span>
+                                                        <div className="flex gap-2">
+                                                            {['Completa', 'Incompleta', 'N/A'].map(v => (
+                                                                <label key={v} className="flex items-center gap-1 cursor-pointer">
+                                                                    <input type="radio" name={f.k} className="w-3 h-3" checked={drawerForm[f.k] === v} onChange={() => setDrawerForm({...drawerForm, [f.k]: v})} />
+                                                                    <span className={`text-[10px] font-bold ${v === 'Completa' ? 'text-emerald-600' : v === 'Incompleta' ? 'text-amber-600' : 'text-slate-400'}`}>{v}</span>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {/* Módulo 8: Dependentes + vacina pendente */}
+                                            <div className="mt-3 border-t pt-3 grid grid-cols-2 gap-4">
+                                                <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-slate-50">
+                                                    <input type="checkbox" className="w-4 h-4 text-sky-600 rounded" checked={!!drawerForm.possuiDependentes} onChange={e => setDrawerForm({...drawerForm, possuiDependentes: e.target.checked})} />
+                                                    <span className="text-xs font-semibold text-slate-700">Possui Dependentes?</span>
+                                                </label>
+                                                <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-slate-50">
+                                                    <input type="checkbox" className="w-4 h-4 text-amber-600 rounded" checked={!!drawerForm.vacinaPendentePosAdmissao} onChange={e => setDrawerForm({...drawerForm, vacinaPendentePosAdmissao: e.target.checked})} />
+                                                    <span className="text-xs font-semibold text-slate-700">Vacina pendente pós admissão?</span>
+                                                </label>
+                                            </div>
+                                            {drawerForm.possuiDependentes && (
+                                                <div className="bg-blue-50 p-3 rounded-lg border border-blue-200 mt-2">
+                                                    <p className="text-[10px] font-bold text-blue-700 uppercase mb-2">📎 Docs do Dependente (conferir acima)</p>
+                                                    <p className="text-[10px] text-blue-600">Verifique: Cert. Nascimento Filho, CPF Filho, Freq. Escolar Filho, Cartão Vacina Filho</p>
+                                                </div>
+                                            )}
 
                                             <h4 className="text-xs font-bold text-slate-600 mt-4 border-t pt-3">👤 Dados Pessoais / e-Social</h4>
                                             <div className="grid grid-cols-2 gap-3">

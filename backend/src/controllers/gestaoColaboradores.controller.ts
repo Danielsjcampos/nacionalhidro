@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { sendFeedbackExperiencia } from '../services/emailService';
+import { sendFeedbackExperiencia } from '../services/email.service';
 import prisma from '../lib/prisma';
 
 // ──────────────────────────────────────────────────────────

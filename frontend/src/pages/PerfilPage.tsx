@@ -18,7 +18,7 @@ export default function PerfilPage() {
         setLoading(true);
         // Em um sistema real, teríamos /auth/me. 
         // Aqui vamos pegar do localStorage e atualizar se necessário
-        const userStored = JSON.parse(localStorage.getItem('user') || '{}');
+        const userStored = JSON.parse(localStorage.getItem('userData') || '{}');
         const res = await api.get(`/equipe/members/${userStored.id}`);
         setUser(res.data);
       } catch (err) {
@@ -43,7 +43,7 @@ export default function PerfilPage() {
       });
       
       setUser(res.data);
-      localStorage.setItem('user', JSON.stringify(res.data));
+      localStorage.setItem('userData', JSON.stringify(res.data));
       setFeedback({ type: 'success', msg: 'Perfil atualizado com sucesso!' });
     } catch (err) {
       console.error('Error saving profile', err);

@@ -1,17 +1,24 @@
 import axios from 'axios';
 import prisma from '../lib/prisma';
+import { sendEmail } from './email.service';
 
-// A Focus NFe tem dois ambientes: Homologação e Produção
-const FOCUS_HOMOLOGACAO_URL = 'https://homologacao.focusnfe.com.br/v2';
-const FOCUS_PRODUCAO_URL = 'https://api.focusnfe.com.br/v2';
+// ATENÇÃO: sem a variável FOCUS_NFE_AMBIENTE, emissões vão para HOMOLOGAÇÃO
+const ambiente = process.env.FOCUS_NFE_AMBIENTE === 'PRODUCAO'
+    ? 'api.focusnfe.com.br'
+    : 'homologacao.focusnfe.com.br';
+
+const EMAILS = {
+    CONTASAPAGAR: 'contasapagar@nacionalhidro.com.br',
+};
 
 /**
  * Cria uma instância do axios com o token específico da empresa.
+ * Timeout de 30s para evitar travamento em chamadas à API.
  */
 function getApiClient(token: string) {
-    const ambient = process.env.FOCUS_NFE_AMBIENTE === 'PRODUCAO' ? FOCUS_PRODUCAO_URL : FOCUS_HOMOLOGACAO_URL;
     return axios.create({
-        baseURL: ambient,
+        timeout: 30000, // 30s
+        baseURL: `https://${ambiente}/v2`,
         auth: {
             username: token,
             password: ''
@@ -71,7 +78,7 @@ export const focusNfeService = {
                 servico: {
                     aliquota: Number(empresa.aliquotaIss || 2.0),
                     iss_retido: faturamento.cliente.codigoMunicipio === empresa.codigoMunicipio ? 1 : 2,
-                    item_lista_servico: '0710',
+                    item_lista_servico: empresa.itemListaServico || '0710',
                     codigo_cnae: empresa.cnae || '8129000',
                     valor_servicos: Number(faturamento.valorBruto),
                     valor_pis: Number(faturamento.valorPIS || 0),
@@ -139,11 +146,11 @@ export const focusNfeService = {
             // Mapeamento CTE (Baseado em ModalEdicaoFaturamento.js legado)
             const payload: any = {
                 data_emissao: faturamento.dataEmissao.toISOString(),
-                tipo_documento: "0", // Normal
+                tipo_documento: empresa.cteTipoDoc || "0", // Normal
                 regime_tributario_emitente: "1", // Simples Nacional
-                modal: "01", // Rodoviário
+                modal: empresa.cteModal || "01", // Rodoviário
                 tipo_servico: "0", // Normal
-                cfop: "5351", // Operação de transporte
+                cfop: empresa.cteCfop || "5351", // Operação de transporte
                 natureza_operacao: "PRESTACAO DE SERVICO DE TRANSPORTE",
                 valor_total: Number(faturamento.valorBruto),
                 valor_receber: Number(faturamento.valorBruto),
@@ -373,13 +380,41 @@ export const focusNfeService = {
 
         const endpoint = `/${prefix}/${fat.focusRef}`;
         
-        // CTe requires POST to /cte/ref/cancelar, NFE /nfe/ref. JSON with justificativa.
+        // CTe requires POST to /cte/ref/cancelar, NFE /nfe/ref. JSON com justificativa.
         // NFSe is usually DELETE /nfse/ref
         let response;
-        if (fat.tipo === 'NFSE') {
-            response = await api.delete(endpoint, { data: { justificativa } });
-        } else {
-            response = await api.post(`${endpoint}/cancelar`, { justificativa });
+        try {
+            if (fat.tipo === 'NFSE') {
+                response = await api.delete(endpoint, { data: { justificativa } });
+            } else {
+                response = await api.post(`${endpoint}/cancelar`, { justificativa });
+            }
+        } catch (cancelError: any) {
+            // RISCO 6: Notificar Contas a Pagar sobre falha no cancelamento
+            const errMsg = cancelError?.response?.data?.mensagem || cancelError?.message || 'Erro desconhecido';
+            console.error(`[FocusNFe] Falha no cancelamento do faturamento ${faturamentoId}:`, errMsg);
+
+            await sendEmail({
+                to: EMAILS.CONTASAPAGAR,
+                subject: `⚠️ FALHA no cancelamento fiscal — Fat. ${fat.numero || fat.focusRef}`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: #dc2626;">Falha no Cancelamento Fiscal</h2>
+                        <p>Não foi possível cancelar o documento fiscal abaixo via Focus NFe.</p>
+                        <table style="border-collapse: collapse; width: 100%; margin: 16px 0;">
+                            <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Faturamento</td><td style="padding: 8px; border: 1px solid #ddd;">${fat.numero || fat.focusRef}</td></tr>
+                            <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Tipo</td><td style="padding: 8px; border: 1px solid #ddd;">${fat.tipo}</td></tr>
+                            <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">CNPJ</td><td style="padding: 8px; border: 1px solid #ddd;">${fat.cnpjFaturamento}</td></tr>
+                            <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Justificativa</td><td style="padding: 8px; border: 1px solid #ddd;">${justificativa}</td></tr>
+                            <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; color: #dc2626;">Erro</td><td style="padding: 8px; border: 1px solid #ddd;">${errMsg}</td></tr>
+                        </table>
+                        <p style="color: #666;">É necessário cancelar manualmente no painel da Focus NFe ou junto à prefeitura.</p>
+                    </div>
+                `,
+                fromName: 'Sistema Nacional Hidro',
+            }).catch(emailErr => console.error('[FocusNFe] Falha ao enviar email de cancelamento:', emailErr));
+
+            throw cancelError;
         }
 
         if (response.data.status === 'cancelado' || response.data.status === 'sucesso') {

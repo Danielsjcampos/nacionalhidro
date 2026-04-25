@@ -877,3 +877,95 @@ export const sendPropostaComercial = async (data: {
     await logNotification(data.to, 'Envio Proposta', data.codigoProposta, res.success, `proposta:${data.codigoProposta}`);
     return res;
 };
+
+
+// ═══════════════════════════════════════════════════════════════
+// GAP 4: MIGRADOS de emailService.ts (legado)
+// ═══════════════════════════════════════════════════════════════
+
+/** Inclusão no Seguro de Vida (migrado do emailService.ts legado) */
+export const sendInclusaoSeguroVida = async (colaborador: {
+    nome: string; cargo?: string; cpf?: string; dataAdmissao?: string;
+}) => {
+    const html = wrapHtml(`
+        <h3 style="color: #1e293b;">📋 Solicitação de Inclusão — Seguro de Vida</h3>
+        <p>Solicitamos a <strong>inclusão</strong> do colaborador abaixo no seguro de vida da empresa:</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+            <tr><td style="padding: 8px 12px; background: #f1f5f9; font-weight: bold; width: 40%;">Nome</td><td style="padding: 8px 12px;">${colaborador.nome}</td></tr>
+            <tr><td style="padding: 8px 12px; background: #f1f5f9; font-weight: bold;">Cargo</td><td style="padding: 8px 12px;">${colaborador.cargo || '—'}</td></tr>
+            <tr><td style="padding: 8px 12px; background: #f1f5f9; font-weight: bold;">CPF</td><td style="padding: 8px 12px;">${colaborador.cpf || '—'}</td></tr>
+            <tr><td style="padding: 8px 12px; background: #f1f5f9; font-weight: bold;">Data de Admissão</td><td style="padding: 8px 12px;">${colaborador.dataAdmissao || '—'}</td></tr>
+        </table>
+        <p style="color: #64748b; font-size: 12px;">Em caso de dúvidas, entre em contato com o setor de RH.</p>
+    `);
+
+    const res = await sendEmail({
+        to: [EMAILS.SEGURADORA_1, EMAILS.SEGURADORA_2],
+        subject: `[Nacional Hidro] Inclusão Seguro de Vida — ${colaborador.nome}`,
+        html,
+        fromName: 'Edilamar Oliveira',
+        from: EMAILS.RH_ADM,
+        cc: [EMAILS.GESTAO, EMAILS.RH_ADM],
+    });
+    await logNotification(EMAILS.SEGURADORA_1, 'Inclusão Seguro Vida', colaborador.nome, res.success, `seguro`);
+    return res;
+};
+
+/** Exclusão do Seguro de Vida (migrado do emailService.ts legado) */
+export const sendExclusaoSeguroVida = async (colaborador: {
+    nome: string; cargo?: string; cpf?: string;
+}) => {
+    const html = wrapHtml(`
+        <h3 style="color: #1e293b;">🔴 Solicitação de Exclusão — Seguro de Vida</h3>
+        <p>Solicitamos a <strong>exclusão</strong> do colaborador abaixo do seguro de vida:</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+            <tr><td style="padding: 8px 12px; background: #f1f5f9; font-weight: bold; width: 40%;">Nome</td><td style="padding: 8px 12px;">${colaborador.nome}</td></tr>
+            <tr><td style="padding: 8px 12px; background: #f1f5f9; font-weight: bold;">CPF</td><td style="padding: 8px 12px;">${colaborador.cpf || '—'}</td></tr>
+            <tr><td style="padding: 8px 12px; background: #f1f5f9; font-weight: bold;">Cargo</td><td style="padding: 8px 12px;">${colaborador.cargo || '—'}</td></tr>
+        </table>
+        <p style="color: #64748b; font-size: 12px;">Em caso de dúvidas, entre em contato com o setor de RH.</p>
+    `);
+
+    const res = await sendEmail({
+        to: [EMAILS.SEGURADORA_1, EMAILS.SEGURADORA_2],
+        subject: `[Nacional Hidro] Exclusão Seguro de Vida — ${colaborador.nome}`,
+        html,
+        fromName: 'Edilamar Oliveira',
+        from: EMAILS.RH_ADM,
+        cc: [EMAILS.GESTAO, EMAILS.RH, EMAILS.RH_ADM],
+    });
+    await logNotification(EMAILS.SEGURADORA_1, 'Exclusão Seguro Vida', colaborador.nome, res.success, `seguro`);
+    return res;
+};
+
+/** Feedback de Experiência 45/90 dias (migrado do emailService.ts legado) */
+export const sendFeedbackExperiencia = async (
+    colaborador: { nome: string; cargo?: string; cpf?: string },
+    gestorEmail: string,
+    tipo: '45' | '90',
+    diasRestantes: number
+) => {
+    const html = wrapHtml(`
+        <h3 style="color: #d97706;">⏰ Avaliação de Experiência — ${tipo} dias</h3>
+        <p>O colaborador abaixo está com <strong>${diasRestantes} dias restantes</strong> para o término do período de experiência de <strong>${tipo} dias</strong>.</p>
+        <div style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 16px; margin: 16px 0;">
+            <p style="color: #92400e; margin: 0;"><strong>Ação necessária:</strong> Favor avaliar o desempenho do colaborador e registrar o feedback no sistema.</p>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+            <tr><td style="padding: 8px 12px; background: #f1f5f9; font-weight: bold; width: 40%;">Nome</td><td style="padding: 8px 12px;">${colaborador.nome}</td></tr>
+            <tr><td style="padding: 8px 12px; background: #f1f5f9; font-weight: bold;">Cargo</td><td style="padding: 8px 12px;">${colaborador.cargo || '—'}</td></tr>
+            <tr><td style="padding: 8px 12px; background: #f1f5f9; font-weight: bold;">Dias Restantes</td><td style="padding: 8px 12px; font-weight: bold; color: #dc2626;">${diasRestantes} dias</td></tr>
+        </table>
+        <p style="color: #64748b; font-size: 12px;">Acesse o sistema para registrar a avaliação: Aprovado, Em Observação, ou Reprovado.</p>
+    `);
+
+    const res = await sendEmail({
+        to: gestorEmail,
+        subject: `[Ação Necessária] Avaliação de Experiência ${tipo}d — ${colaborador.nome}`,
+        html,
+        fromName: 'RH Nacional Hidro',
+        from: EMAILS.RH,
+    });
+    await logNotification(gestorEmail, `Feedback Experiência ${tipo}d`, colaborador.nome, res.success, `experiencia`);
+    return res;
+};
