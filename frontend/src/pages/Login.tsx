@@ -104,9 +104,9 @@ export default function Login() {
     api.get(jwtConfig.getRoleEndpoint(data.user.id)).then((roleRes) => {
       const updated = { ...data.user, role: { name: roleRes.data.name } };
       auth.setUserInfo(updated);
-      window.location.reload();
+      window.location.href = '/dashboard';
     }).catch(() => {
-      window.location.reload();
+      window.location.href = '/dashboard';
     });
   };
 
