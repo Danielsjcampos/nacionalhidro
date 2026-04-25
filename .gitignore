@@ -37,3 +37,11 @@ AUTOMACOES EMAIL/
 Logistica RH/
 REUNIAO DAYANNE CONTAS PAGAR E RECEBER/
 2time_chat.zip
+node-v22.14.0-darwin-arm64/
+node-v22.14.0-darwin-arm64.tar.gz
+audit_*.py
+check_cycles.py
+deep_audit.py
+final_audit*.py
+find_*.py
+full_audit.py

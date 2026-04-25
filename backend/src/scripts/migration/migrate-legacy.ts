@@ -421,9 +421,9 @@ async function migrateFuncionarios(db: mysql.Connection) {
           status:            row.bloqueado === 1 ? 'DESLIGADO' : 'ATIVO',
           feriasInicio:      row.inicio_afastamento || null,
           feriasFim:         row.fim_afastamento || null,
-          motivoAfastamento: row.motivo_afastamento
+          motivoAfastamento: (row.motivo_afastamento
             ? motivoAfastamentoMap[row.motivo_afastamento] || `Código ${row.motivo_afastamento}`
-            : null,
+            : null) as any,
           createdAt:         row.created_at || new Date(),
           updatedAt:         row.updated_at || new Date(),
         },

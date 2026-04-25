@@ -153,7 +153,7 @@ export const getQuadroFuncionarios = async (
 
     if (statusCriticos.includes(func.status)) {
       status = func.status === 'FERIAS' ? 'FERIAS' : 'AFASTADO';
-      motivo = func.motivoAfastamento || func.status;
+      motivo = String(func.motivoAfastamento || func.status);
       // Map to detailed category
       const tipoMap: Record<string, FuncionarioQuadro['categoriaIndisponibilidade']> = {
         'FERIAS': 'FERIAS',
