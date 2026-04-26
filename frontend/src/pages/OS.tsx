@@ -9,6 +9,7 @@ import {
 import { ImprimirOS } from '../components/ImprimirOS';
 import ModalBaixaLoteOS, { BaixaLoteData } from '../components/ModalBaixaLoteOS';
 import ModalQuadroFuncionarios from '../components/ModalQuadroFuncionarios';
+import ModalQuadroVeiculos from '../components/ModalQuadroVeiculos';
 
 const EQUIPAMENTOS = [
   'Combinado', 'Alto Vácuo / Sucção', 'Alta Pressão (AP)',
@@ -20,9 +21,9 @@ const EMPRESAS = [
   'NACIONAL HIDRO LOCAÇÃO DE EQUIPAMENTOS EIRELI',
 ];
 
-const TIPOS_COBRANCA = ['Cobrança', 'Cortesia', 'Garantia'];
+const TIPOS_COBRANCA = ['Hora', 'Diária', 'Frete', 'Fechada'];
 
-const DIAS_SEMANA = ['DIAS', 'Segunda a Sexta', 'Segunda a Sábado', 'Todos os dias'];
+const DIAS_SEMANA_OPTIONS = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo'];
 
 type OsTab = 'abrir' | 'em_aberto' | 'executadas' | 'canceladas';
 
@@ -77,6 +78,7 @@ export default function OS() {
   const [produtos, setProdutos] = useState<any[]>([]);
   const [materiaisUtilizados, setMateriaisUtilizados] = useState<any[]>([]);
   const [veiculos, setVeiculos] = useState<any[]>([]);
+  const [clienteContatos, setClienteContatos] = useState<any[]>([]);
 
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelJustification, setCancelJustification] = useState('');
@@ -86,6 +88,7 @@ export default function OS() {
   const [printingLote, setPrintingLote] = useState(false);
   const [baixaLoteOpen, setBaixaLoteOpen] = useState(false);
   const [quadroFuncOpen, setQuadroFuncOpen] = useState(false);
+  const [quadroVeicOpen, setQuadroVeicOpen] = useState(false);
 
   // ── Equipe Sugerida (from Proposta.equipe → OS) ──
   const [equipeSugerida, setEquipeSugerida] = useState<any[]>([]);
@@ -114,9 +117,9 @@ export default function OS() {
     codigo: '',
     dataInicial: new Date().toISOString().split('T')[0],
     horaInicial: '',
-    tipoCobranca: 'Cobrança',
+    tipoCobranca: 'Fechada',
     empresa: EMPRESAS[0],
-    diasFornada: 'DIAS',
+    diasSemana: [] as string[],
     quantidadeDia: '',
     clienteNome: '',
     contato: '',
@@ -442,9 +445,9 @@ export default function OS() {
       codigo: '',
       dataInicial: new Date().toISOString().split('T')[0],
       horaInicial: '',
-      tipoCobranca: 'Cobrança',
+      tipoCobranca: 'Fechada',
       empresa: prop?.empresa || EMPRESAS[0],
-      diasFornada: 'DIAS',
+      diasSemana: [] as string[],
       quantidadeDia: '',
       clienteNome: prop?.cliente?.nome || '',
       contato: prop?.contato || '',
@@ -497,6 +500,7 @@ export default function OS() {
         almoco: d.almoco ? new Date(d.almoco).toISOString().slice(0, 16) : '',
         servicos: d.servicos?.length ? d.servicos : [{ equipamento: '', descricao: '' }],
         clienteNome: d.cliente?.nome || '',
+        diasSemana: d.diasSemana ? (typeof d.diasSemana === 'string' ? d.diasSemana.split(',').filter(Boolean) : d.diasSemana) : [],
         veiculosEscala: d.veiculosEscala || [],
         observacoesEscala: d.observacoesEscala || '',
       });
@@ -521,6 +525,14 @@ export default function OS() {
           ? prop.itens.map((i: any) => ({ equipamento: i.equipamento || '', descricao: i.descricao || '' }))
           : [{ equipamento: '', descricao: '' }],
       }));
+      // Load client contacts
+      if (prop.clienteId) {
+        api.get(`/clientes/${prop.clienteId}`).then(res => {
+          const c = res.data;
+          const contatos = c.contatosList || (Array.isArray(c.contatos) ? c.contatos : []);
+          setClienteContatos(contatos);
+        }).catch(() => setClienteContatos([]));
+      }
       // FIX 5: Populate equipe sugerida
       if (prop.equipe?.length) {
         const sugerida = prop.equipe.map((e: any) => ({
@@ -539,6 +551,7 @@ export default function OS() {
     } else {
       setForm((f: any) => ({ ...f, propostaId: '', clienteNome: '', contato: '', servicos: [{ equipamento: '', descricao: '' }] }));
       setEquipeSugerida([]);
+      setClienteContatos([]);
     }
   };
 
@@ -577,6 +590,7 @@ export default function OS() {
       const payload: any = { 
         ...form, 
         status,
+        diasSemana: Array.isArray(form.diasSemana) ? form.diasSemana.join(',') : (form.diasSemana || ''),
         horasTotais: horas.diffRaw > 0 ? Number(horas.diffRaw.toFixed(2)) : undefined,
         horasAdicionais: horas.adicRaw > 0 ? Number(horas.adicRaw.toFixed(2)) : undefined,
         veiculosEscala: form.veiculosEscala?.length > 0 ? form.veiculosEscala : undefined,
@@ -974,26 +988,49 @@ export default function OS() {
                   </FormField>
                 </div>
 
-                {/* Row 2: Dias de Fornada | Quantidade d/Dia */}
-                <div className="grid grid-cols-4 gap-3">
-                  <FormField label="Dias de Fornada">
-                    <div className="relative">
-                      <select
-                        value={form.diasFornada}
-                        onChange={e => setForm((f: any) => ({ ...f, diasFornada: e.target.value }))}
-                        className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400 appearance-none"
-                      >
-                        {DIAS_SEMANA.map(d => <option key={d} value={d}>{d}</option>)}
-                      </select>
-                      <ChevronDown className="absolute right-2 top-2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                {/* Row 2: Dias da Semana (chips) | Quantidade p/ dia */}
+                <div className="grid grid-cols-[2fr_1fr] gap-3">
+                  <FormField label="Dias da Semana">
+                    <div className="flex items-center gap-1.5 flex-wrap min-h-[34px] border border-slate-300 rounded px-2 py-1.5 bg-white">
+                      {(form.diasSemana || []).map((d: string) => (
+                        <span key={d} className="inline-flex items-center gap-1 bg-[#1e3a5f] text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                          {d}
+                          <button type="button" onClick={() => setForm((f: any) => ({ ...f, diasSemana: (f.diasSemana || []).filter((x: string) => x !== d) }))} className="hover:text-red-300 transition-colors">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                      {(form.diasSemana || []).length > 0 && (
+                        <button type="button" onClick={() => setForm((f: any) => ({ ...f, diasSemana: [] }))} className="p-0.5 text-slate-400 hover:text-red-500 ml-auto">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <div className="relative ml-auto">
+                        <select
+                          value=""
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (val && !(form.diasSemana || []).includes(val)) {
+                              setForm((f: any) => ({ ...f, diasSemana: [...(f.diasSemana || []), val] }));
+                            }
+                          }}
+                          className="text-[10px] text-slate-400 border-none outline-none bg-transparent cursor-pointer appearance-none pr-4"
+                        >
+                          <option value="">+</option>
+                          {DIAS_SEMANA_OPTIONS.filter(d => !(form.diasSemana || []).includes(d)).map(d => (
+                            <option key={d} value={d}>{d}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-0 top-0.5 w-3 h-3 text-slate-400 pointer-events-none" />
+                      </div>
                     </div>
                   </FormField>
-                  <FormField label="Quantidade d/Dia">
+                  <FormField label="Quantidade p/ dia">
                     <input
                       type="text"
                       value={form.quantidadeDia}
                       onChange={e => setForm((f: any) => ({ ...f, quantidadeDia: e.target.value }))}
-                      placeholder="Quantidade p/dia"
+                      placeholder="Quantidade p/ dia"
                       className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400"
                     />
                   </FormField>
@@ -1018,7 +1055,12 @@ export default function OS() {
                         className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400 appearance-none"
                       >
                         <option value="">Selecione...</option>
-                        {form.contato && <option value={form.contato}>{form.contato}</option>}
+                        {clienteContatos.map((c: any, i: number) => (
+                          <option key={c.id || i} value={c.nome}>{c.nome}{c.setor ? ` — ${c.setor}` : ''}</option>
+                        ))}
+                        {form.contato && !clienteContatos.find((c: any) => c.nome === form.contato) && (
+                          <option value={form.contato}>{form.contato}</option>
+                        )}
                       </select>
                       <ChevronDown className="absolute right-2 top-2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                     </div>
@@ -1101,6 +1143,32 @@ export default function OS() {
 
                     {modalTab === 'escala' && (
                       <div className="space-y-4">
+                        {/* ── Equipamento (igual sistema antigo) ── */}
+                        <div>
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1">
+                            <ChevronDown className="w-3 h-3 text-blue-500" /> Escala
+                          </p>
+                          <FormField label="Equipamento">
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={form.equipamentoEscala || ''}
+                                onChange={e => setForm((f: any) => ({ ...f, equipamentoEscala: e.target.value }))}
+                                className="flex-1 border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400 appearance-none"
+                              >
+                                <option value="">Selecione...</option>
+                                {equipamentosFiltrados.map(eq => <option key={eq} value={eq}>{eq}</option>)}
+                                {EQUIPAMENTOS.filter(e => !equipamentosFiltrados.includes(e)).map(eq => <option key={eq} value={eq}>{eq}</option>)}
+                              </select>
+                              {form.equipamentoEscala && (
+                                <button type="button" onClick={() => setForm((f: any) => ({ ...f, equipamentoEscala: '' }))} className="p-1 text-slate-400 hover:text-red-500">
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              <ChevronDown className="w-3.5 h-3.5 text-slate-400 pointer-events-none -ml-7" />
+                            </div>
+                          </FormField>
+                        </div>
+
                         {/* ── FIX 5: Equipe Sugerida (from Proposta) ── */}
                         {equipeSugerida.length > 0 && (
                           <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-2">
@@ -1134,14 +1202,80 @@ export default function OS() {
                           </div>
                         )}
 
-                        {/* ── Funcionários (Equipe) ── */}
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest flex items-center gap-1">
-                            <ChevronRight className="w-3 h-3 text-blue-500" /> Funcionários
-                          </label>
-                          <button type="button" onClick={addFuncionarioRow} className="text-[9px] font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 hover:bg-blue-100 transition-all uppercase tracking-wider">
-                            + Adicionar
-                          </button>
+                        {/* ── Veículos (igual sistema antigo) ── */}
+                        <div>
+                          <p className="text-sm font-bold text-slate-700 mb-1">Veículos</p>
+                          <div className="space-y-1">
+                            <button type="button" onClick={() => setQuadroVeicOpen(true)} className="text-blue-600 text-xs font-bold hover:underline">
+                              Ver Quadro de Veículos
+                            </button>
+                            <br />
+                            <button type="button" onClick={() => setForm((f: any) => ({ ...f, veiculosEscala: [...(f.veiculosEscala || []), { veiculoId: '', manutencao: false }] }))} className="text-blue-600 text-xs hover:underline">
+                              Adicionar veículo
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Veículos adicionados */}
+                        {(form.veiculosEscala || []).length > 0 && (
+                          <div className="space-y-2">
+                            {(form.veiculosEscala || []).map((v: any, idx: number) => (
+                              <div key={idx} className="grid grid-cols-[2fr_1fr_auto] gap-2 items-end">
+                                <FormField label={idx === 0 ? 'Placa / Veículo' : ''}>
+                                  <select
+                                    value={v.veiculoId || ''}
+                                    onChange={e => setForm((f: any) => {
+                                      const arr = [...(f.veiculosEscala || [])];
+                                      arr[idx] = { ...arr[idx], veiculoId: e.target.value };
+                                      return { ...f, veiculosEscala: arr };
+                                    })}
+                                    className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400"
+                                  >
+                                    <option value="">Selecione...</option>
+                                    {veiculos.map((vc: any) => (
+                                      <option key={vc.id} value={vc.id}>
+                                        {vc.placa} — {vc.modelo} {vc.status === 'MANUTENCAO' ? '🔧' : ''}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </FormField>
+                                <FormField label={idx === 0 ? 'Manutenção' : ''}>
+                                  <select
+                                    value={String(v.manutencao || false)}
+                                    onChange={e => setForm((f: any) => {
+                                      const arr = [...(f.veiculosEscala || [])];
+                                      arr[idx] = { ...arr[idx], manutencao: e.target.value === 'true' };
+                                      return { ...f, veiculosEscala: arr };
+                                    })}
+                                    className={`w-full border rounded px-2 py-2 text-xs outline-none focus:border-blue-400 ${v.manutencao ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-slate-300'}`}
+                                  >
+                                    <option value="false">Não</option>
+                                    <option value="true">Sim</option>
+                                  </select>
+                                </FormField>
+                                <button
+                                  onClick={() => setForm((f: any) => ({ ...f, veiculosEscala: f.veiculosEscala.filter((_: any, i: number) => i !== idx) }))}
+                                  className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* ── Funcionários (igual sistema antigo) ── */}
+                        <div>
+                          <p className="text-sm font-bold text-slate-700 mb-1">Funcionários</p>
+                          <div className="space-y-1">
+                            <button type="button" onClick={() => setQuadroFuncOpen(true)} className="text-blue-600 text-xs font-bold hover:underline">
+                              Ver Quadro de Funcionários
+                            </button>
+                            <br />
+                            <button type="button" onClick={addFuncionarioRow} className="text-blue-600 text-xs hover:underline">
+                              Adicionar funcionário
+                            </button>
+                          </div>
                         </div>
 
                         {Array.isArray(form.escala) && form.escala.length > 0 ? (
@@ -1207,72 +1341,6 @@ export default function OS() {
                             Nenhum funcionário adicionado. Clique em "+ Adicionar".
                           </div>
                         )}
-
-                        {/* ── Veículos (Escala) — Gap #1 Legacy Parity ── */}
-                        <div className="pt-4 border-t border-slate-200">
-                          <div className="flex items-center justify-between mb-3">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                              <ChevronRight className="w-3 h-3 text-blue-500" /> Veículos
-                            </p>
-                          </div>
-                          {(form.veiculosEscala || []).map((v: any, idx: number) => {
-                            const veic = veiculos.find((x: any) => x.id === v.veiculoId);
-                            return (
-                              <div key={idx} className="grid grid-cols-[2fr_1fr_auto] gap-2 mb-2 items-end">
-                                <FormField label={idx === 0 ? 'Placa / Veículo' : ''}>
-                                  <select
-                                    value={v.veiculoId || ''}
-                                    onChange={e => setForm((f: any) => {
-                                      const arr = [...(f.veiculosEscala || [])];
-                                      arr[idx] = { ...arr[idx], veiculoId: e.target.value };
-                                      return { ...f, veiculosEscala: arr };
-                                    })}
-                                    className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400"
-                                  >
-                                    <option value="">Selecione...</option>
-                                    {veiculos.map((vc: any) => (
-                                      <option key={vc.id} value={vc.id}>
-                                        {vc.placa} — {vc.modelo} {vc.status === 'MANUTENCAO' ? '🔧' : ''}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </FormField>
-                                <FormField label={idx === 0 ? 'Manutenção' : ''}>
-                                  <select
-                                    value={String(v.manutencao || false)}
-                                    onChange={e => setForm((f: any) => {
-                                      const arr = [...(f.veiculosEscala || [])];
-                                      arr[idx] = { ...arr[idx], manutencao: e.target.value === 'true' };
-                                      return { ...f, veiculosEscala: arr };
-                                    })}
-                                    className={`w-full border rounded px-2 py-2 text-xs outline-none focus:border-blue-400 ${
-                                      v.manutencao ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-slate-300'
-                                    }`}
-                                  >
-                                    <option value="false">Não</option>
-                                    <option value="true">Sim</option>
-                                  </select>
-                                </FormField>
-                                <button
-                                  onClick={() => setForm((f: any) => ({
-                                    ...f, veiculosEscala: f.veiculosEscala.filter((_: any, i: number) => i !== idx)
-                                  }))}
-                                  className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
-                              </div>
-                            );
-                          })}
-                          <button
-                            onClick={() => setForm((f: any) => ({
-                              ...f, veiculosEscala: [...(f.veiculosEscala || []), { veiculoId: '', manutencao: false }]
-                            }))}
-                            className="text-[11px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 mt-1"
-                          >
-                            <Plus className="w-3.5 h-3.5" /> Adicionar veículo
-                          </button>
-                        </div>
 
                         {/* ── Observações da Escala — Gap #4 Legacy Parity ── */}
                         <div className="pt-4 border-t border-slate-200">
@@ -1577,6 +1645,18 @@ export default function OS() {
         data={form.dataInicial || new Date().toISOString().split('T')[0]}
         clienteId={form.clienteId}
         selectedIds={form.escala || []}
+      />
+
+      {/* Quadro Veiculos Modal (for Escala tab in OS creation) */}
+      <ModalQuadroVeiculos
+        isOpen={quadroVeicOpen}
+        onClose={() => setQuadroVeicOpen(false)}
+        onConfirm={(selected) => {
+          const veicIds = selected.map((v: any) => ({ veiculoId: v.id, manutencao: v.status === 'MANUTENCAO' }));
+          setForm((prev: any) => ({ ...prev, veiculosEscala: veicIds }));
+        }}
+        data={form.dataInicial || new Date().toISOString().split('T')[0]}
+        selectedIds={(form.veiculosEscala || []).map((v: any) => v.veiculoId)}
       />
     </>
   );
