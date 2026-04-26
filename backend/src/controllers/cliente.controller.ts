@@ -200,7 +200,7 @@ export const getHierarquia = async (req: AuthRequest, res: Response) => {
 };
 export const createClienteContato = async (req: Request, res: Response) => {
   try {
-    const { id: clienteId } = req.params;
+    const clienteId = req.params.id as string;
     const { nome, email, telefone, celular, setor, tipo } = req.body;
 
     if (!nome) {
