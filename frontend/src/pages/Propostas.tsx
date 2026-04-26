@@ -38,6 +38,7 @@ export default function Propostas() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages]   = useState(1);
   const [saving, setSaving]           = useState(false);
+  const [viewingPdf, setViewingPdf]   = useState<any | null>(null);
 
   // Options for modal
   const [clientes,           setClientes]           = useState<any[]>([]);
@@ -183,12 +184,7 @@ export default function Propostas() {
   };
 
   const handleVerPDF = async (prop: any) => {
-    setPdfLoading(prop.id);
-    try {
-      const res = await api.get(`/propostas/${prop.id}/gerar-pdf`, { responseType:'blob' });
-      window.open(URL.createObjectURL(res.data), '_blank');
-    } catch(e:any) { showToast('Erro ao gerar PDF'); }
-    finally { setPdfLoading(null); }
+    setViewingPdf(prop);
   };
 
   const isVencida = (p: any) => p.dataValidade && moment(p.dataValidade).isBefore(moment(),'day');
@@ -401,6 +397,40 @@ export default function Propostas() {
           </div>
         )}
       </div>
+
+      {/* PDF Side Viewer (Drawer) */}
+      {viewingPdf && (
+        <div className="fixed inset-0 z-[60] flex justify-end animate-in fade-in duration-300">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setViewingPdf(null)} />
+          <div className="relative w-full max-w-4xl bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+            <div className="flex items-center justify-between p-4 border-b bg-slate-50">
+              <div>
+                <h3 className="text-lg font-black text-slate-800 uppercase">Visualizar Proposta</h3>
+                <p className="text-xs text-slate-500">{viewingPdf.codigo} — Rev. {viewingPdf.revisao}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => window.open(`${api.defaults.baseURL}/propostas/${viewingPdf.id}/gerar-pdf?token=${localStorage.getItem('accessToken')}`, '_blank')}
+                  className="p-2 hover:bg-slate-200 rounded-lg text-slate-600 transition-colors"
+                  title="Abrir em nova aba"
+                >
+                  <Power className="w-5 h-5 rotate-90" />
+                </button>
+                <button onClick={() => setViewingPdf(null)} className="p-2 hover:bg-red-50 rounded-lg text-red-500 transition-colors">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 bg-slate-100 relative">
+              <iframe 
+                src={`${api.defaults.baseURL}/propostas/${viewingPdf.id}/gerar-pdf?token=${localStorage.getItem('accessToken')}`}
+                className="w-full h-full border-none"
+                title="PDF Viewer"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
