@@ -39,25 +39,7 @@ services:
         - "traefik.http.routers.nh-frontend.tls.certresolver=letsencryptresolver"
         - "traefik.http.services.nh-frontend.loadbalancer.server.port=80"
 
-  # ── Job: Migração Equipamento Relations (one-shot) ──
-  # Descomente quando for rodar. Remove após concluído.
-  # migrate_equip_relations:
-  #   image: ghcr.io/danielsjcampos/nacionalhidro-backend:latest
-  #   environment:
-  #     - DATABASE_URL=postgresql://neondb_owner:npg_fRoHJYqn1jk5@ep-ancient-union-acm8qdvg-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
-  #     - LEGACY_DB_HOST=<IP_DO_MYSQL_LEGACY>
-  #     - LEGACY_DB_PORT=3306
-  #     - LEGACY_DB_NAME=nhidro
-  #     - LEGACY_DB_USER=root
-  #     - LEGACY_DB_PASS=<SENHA_MYSQL>
-  #   command: >
-  #     sh -c "npx ts-node src/scripts/migration/migrate-equipamento-relations.ts --commit"
-  #   networks:
-  #     - hidro
-  #   deploy:
-  #     restart_policy:
-  #       condition: on-failure
-  #       max_attempts: 1
+
 
 networks:
   hidro:
