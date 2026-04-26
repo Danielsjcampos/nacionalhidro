@@ -198,3 +198,30 @@ export const getHierarquia = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch hierarchy' });
   }
 };
+export const createClienteContato = async (req: Request, res: Response) => {
+  try {
+    const { id: clienteId } = req.params;
+    const { nome, email, telefone, celular, setor, tipo } = req.body;
+
+    if (!nome) {
+      return res.status(400).json({ error: 'Nome é obrigatório' });
+    }
+
+    const contato = await prisma.clienteContato.create({
+      data: {
+        clienteId,
+        nome,
+        email: email || null,
+        telefone: telefone || null,
+        celular: celular || null,
+        setor: setor || 'Comercial',
+        tipo: tipo || 'Principal',
+      },
+    });
+
+    res.status(201).json(contato);
+  } catch (error) {
+    console.error('createClienteContato Error:', error);
+    res.status(500).json({ error: 'Failed to create contact' });
+  }
+};
