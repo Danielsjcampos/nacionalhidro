@@ -205,11 +205,6 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
   const [error, setError] = useState('');
   const [internalClientes, setInternalClientes] = useState(options.clientes);
 
-  // Quick contact state
-  const [isAddingContact, setIsAddingContact] = useState(false);
-  const [newContact, setNewContact] = useState({ nome: '', email: '', telefone: '' });
-  const [creatingContact, setCreatingContact] = useState(false);
-
   useEffect(() => {
     setInternalClientes(options.clientes);
   }, [options.clientes]);
@@ -297,6 +292,11 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
   };
 
   const set = useCallback(<K extends keyof FormState>(k: K, v: FormState[K]) => setForm(p => ({ ...p, [k]: v })), []);
+
+  // Quick contact state
+  const [isAddingContact, setIsAddingContact] = useState(false);
+  const [newContact, setNewContact] = useState({ nome: '', email: '', telefone: '' });
+  const [creatingContact, setCreatingContact] = useState(false);
 
   // ── Item helpers ──
   const recalcItem = (item: PropostaItem): PropostaItem => {
