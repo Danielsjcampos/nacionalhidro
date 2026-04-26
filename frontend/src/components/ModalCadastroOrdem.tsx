@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { X, ChevronDown, ChevronUp, Plus, ArrowDownToLine, Save, Clock, Users, Truck } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, Plus, ArrowDownToLine, Save, Clock, Users, Truck, Info, ExternalLink, AlertTriangle, Copy } from 'lucide-react';
 import {
   TIPO_COBRANCA, STATUS_OPERACIONAL, DIAS_SEMANA_OPTIONS,
-  calcularTempoTotal, horaParaMinutos
+  calcularTempoTotal, horaParaMinutos, formatarHoraParaTime
 } from '../utils/logistica';
+import ModalQuadroVeiculosLogistica from './ModalQuadroVeiculosLogistica';
+import ModalQuadroFuncionariosLogistica from './ModalQuadroFuncionariosLogistica';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -17,6 +19,7 @@ interface Props {
   escalas?: any[];
   empresas?: any[];
   onlyView?: boolean;
+  onOpenLote?: (ordemBase: any) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -35,13 +38,15 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
 
 export default function ModalCadastroOrdem({
   data, modal, handleClose, save,
-  veiculos = [], funcionarios = [], escalas = [], empresas = [], onlyView = false,
+  veiculos = [], funcionarios = [], escalas = [], empresas = [], onlyView = false, onOpenLote,
 }: Props) {
   const [ordem, setOrdem] = useState<any>({});
   const [tab, setTab] = useState<'servicos' | 'escala'>('servicos');
   const [collapsedServicos, setCollapsedServicos] = useState(false);
   const [collapsedEscala, setCollapsedEscala] = useState(false);
   const [showBaixaConfirm, setShowBaixaConfirm] = useState(false);
+  const [quadroVeiculosOpen, setQuadroVeiculosOpen] = useState(false);
+  const [quadroFuncionariosOpen, setQuadroFuncionariosOpen] = useState(false);
 
   useEffect(() => {
     if (!modal) return;
@@ -120,6 +125,8 @@ export default function ModalCadastroOrdem({
   const fullData = (baixa = false) => {
     if (!ordem.TipoCobranca || !ordem.DataInicial || !ordem.HoraInicial) return false;
     if (!(ordem.Servicos || []).every(isServicoValido)) return false;
+    // P1: Validar equipamento se proposta tem itens
+    if ((ordem._propostaItens?.length > 0 || ordem.Proposta?.itens?.length > 0) && !ordem.EquipamentoId && !ordem.equipamentoId) return false;
     if (baixa) {
       if (!(ordem.EscalaFuncionarios || []).length) return false;
       if (!(ordem.EscalaVeiculos || []).length) return false;
@@ -127,6 +134,27 @@ export default function ModalCadastroOrdem({
     }
     return true;
   };
+
+  // P1: Travas de validação — avisos de manutenção/afastamento
+  const validationWarnings = React.useMemo(() => {
+    const warnings: string[] = [];
+    // Veículos em manutenção na escala
+    (ordem.EscalaVeiculos || []).forEach((ev: any) => {
+      const v = veiculos.find((vei: any) => vei.id === ev.veiculoId);
+      if (v && (v.status === 'MANUTENCAO' || v.manutencao === true)) {
+        warnings.push(`⚠️ Veículo "${v.descricao || v.modelo || v.placa}" está em MANUTENÇÃO`);
+      }
+    });
+    // Funcionários afastados na escala
+    (ordem.EscalaFuncionarios || []).forEach((ef: any) => {
+      const f = funcionarios.find((func: any) => func.id === ef.funcionarioId);
+      if (f && (f.motivoAfastamento > 0 || f.statusComputado === 'AFASTADO' || f.statusComputado === 'FERIAS')) {
+        const motivo = f.statusComputado === 'FERIAS' ? 'Férias' : 'Afastado';
+        warnings.push(`⚠️ Funcionário "${f.nome}" está ${motivo}`);
+      }
+    });
+    return warnings;
+  }, [ordem.EscalaVeiculos, ordem.EscalaFuncionarios, veiculos, funcionarios]);
 
   const codigoOS = ordem.Codigo
     ? `${ordem.Codigo}/${ordem.Numero || ''}`
@@ -154,7 +182,7 @@ export default function ModalCadastroOrdem({
           {/* ── Linha 1: Cabeçalho ── */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Field label="Nº Proposta">
-              <input disabled className={inpDis} value={ordem.Proposta?.Codigo || ''} />
+              <input disabled className={inpDis} value={ordem.Proposta?.Codigo || ordem.Proposta?.codigo || ordem.Codigo || ''} />
             </Field>
             <Field label="Código OS">
               <input disabled className={inpDis} value={codigoOS} />
@@ -245,18 +273,18 @@ export default function ModalCadastroOrdem({
           {/* ── Linha 3: Cliente / Contato ── */}
           <div className="grid grid-cols-3 gap-3">
             <Field label="Cliente">
-              <input disabled className={inpDis} value={ordem.Cliente?.nome || ordem.Cliente?.RazaoSocial || ''} />
+              <input disabled className={inpDis} value={ordem.Cliente?.nome || ordem.Cliente?.razaoSocial || ordem.Cliente?.RazaoSocial || ''} />
             </Field>
             <Field label="Contato *">
               <select
-                className={!ordem.ContatoId ? inpErr : inp}
-                value={ordem.ContatoId || ''}
+                className={!ordem.ContatoId && !ordem.contatoId ? inpErr : inp}
+                value={ordem.ContatoId || ordem.contatoId || ''}
                 disabled={onlyView}
-                onChange={e => set('ContatoId', e.target.value)}
+                onChange={e => { set('ContatoId', e.target.value); set('contatoId', e.target.value); }}
               >
                 <option value="">Selecione...</option>
                 {(ordem.Cliente?.contatos || ordem.Cliente?.contatosList || []).map((c: any) => (
-                  <option key={c.id} value={c.id}>{c.nome}</option>
+                  <option key={c.id} value={c.id}>{c.nome}{c.telefone ? ` — ${c.telefone}` : ''}</option>
                 ))}
               </select>
             </Field>
@@ -269,6 +297,56 @@ export default function ModalCadastroOrdem({
               />
             </Field>
           </div>
+
+          {/* ── P0-2: Seletor de Equipamento da Proposta ── */}
+          {(ordem._propostaItens?.length > 0 || ordem.Proposta?.itens?.length > 0) && (
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Equipamento (da Proposta) *">
+                <select
+                  className={!ordem.EquipamentoId && !ordem.equipamentoId ? inpErr : inp}
+                  value={ordem.EquipamentoId || ordem.equipamentoId || ''}
+                  disabled={onlyView}
+                  onChange={e => {
+                    const itemId = e.target.value;
+                    const itens = ordem._propostaItens || ordem.Proposta?.itens || [];
+                    const item = itens.find((i: any) => (i.id || i.equipamento) === itemId);
+                    setOrdem((p: any) => ({
+                      ...p,
+                      EquipamentoId: itemId,
+                      equipamentoId: itemId,
+                      // P0-3: Auto-preencher TipoCobranca e HoraPadrao
+                      TipoCobranca: item?.tipoCobrancaInt ?? item?.tipoCobranca ?? p.TipoCobranca,
+                      tipoCobranca: item?.tipoCobrancaInt ?? item?.tipoCobranca ?? p.tipoCobranca,
+                      HoraPadrao: item?.horasPorDia ? formatarHoraParaTime(item.horasPorDia) : p.HoraPadrao,
+                    }));
+                  }}
+                >
+                  <option value="">Selecione o equipamento...</option>
+                  {(ordem._propostaItens || ordem.Proposta?.itens || []).map((item: any, idx: number) => {
+                    const tipoLabel = ['', 'Hora', 'Diária', 'Frete', 'Fechada'][item.tipoCobrancaInt] ?? item.tipoCobranca ?? '';
+                    return (
+                      <option key={item.id || idx} value={item.id || item.equipamento}>
+                        {item.equipamento}{tipoLabel ? ` — ${tipoLabel}` : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+              </Field>
+            </div>
+          )}
+
+          {/* ── P0: Info de equipes da proposta ── */}
+          {(ordem._propostaEquipe?.length > 0 || ordem.Proposta?.equipe?.length > 0) && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
+              <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+              <div className="text-xs text-blue-700">
+                <span className="font-bold">Equipe da Proposta: </span>
+                {(ordem._propostaEquipe || ordem.Proposta?.equipe || []).map((e: any, i: number) =>
+                  <span key={i}>{e.cargo || e.funcao} ({e.quantidade || 1}){i < (ordem._propostaEquipe || ordem.Proposta?.equipe || []).length - 1 ? ', ' : ''}</span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* ── Tabs ── */}
           <div className="flex border-b border-slate-200">
@@ -341,6 +419,14 @@ export default function ModalCadastroOrdem({
                     <div className="flex items-center gap-2">
                       <Truck className="w-4 h-4 text-slate-500" />
                       <span className="text-xs font-black text-slate-600 uppercase tracking-wide">Veículos</span>
+                      {!onlyView && (
+                        <button
+                          onClick={() => setQuadroVeiculosOpen(true)}
+                          className="text-[10px] text-blue-600 font-bold hover:underline flex items-center gap-1 ml-2"
+                        >
+                          <ExternalLink className="w-3 h-3" /> Ver Quadro de Veículos
+                        </button>
+                      )}
                     </div>
                     {(ordem.EscalaVeiculos || []).map((v: any, i: number) => (
                       <div key={i} className="flex gap-2 items-center">
@@ -388,6 +474,14 @@ export default function ModalCadastroOrdem({
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-slate-500" />
                       <span className="text-xs font-black text-slate-600 uppercase tracking-wide">Funcionários</span>
+                      {!onlyView && (
+                        <button
+                          onClick={() => setQuadroFuncionariosOpen(true)}
+                          className="text-[10px] text-blue-600 font-bold hover:underline flex items-center gap-1 ml-2"
+                        >
+                          <ExternalLink className="w-3 h-3" /> Ver Quadro de Funcionários
+                        </button>
+                      )}
                     </div>
                     {(ordem.EscalaFuncionarios || []).map((f: any, i: number) => (
                       <div key={i} className="flex gap-2 items-center">
@@ -491,6 +585,18 @@ export default function ModalCadastroOrdem({
               </div>
             )}
           </div>
+
+          {/* P1: Avisos de validação */}
+          {validationWarnings.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
+              <div className="flex items-center gap-2 text-xs font-black text-amber-700">
+                <AlertTriangle className="w-4 h-4" /> Atenção — Possíveis conflitos:
+              </div>
+              {validationWarnings.map((w, i) => (
+                <p key={i} className="text-[11px] text-amber-600 ml-6">{w}</p>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ── Footer ── */}
@@ -505,9 +611,20 @@ export default function ModalCadastroOrdem({
               <button onClick={handleClose} className="px-4 py-2.5 text-xs font-bold text-slate-500 hover:text-slate-700 uppercase tracking-wide transition-colors">
                 Cancelar
               </button>
+              {onOpenLote && !ordem.id && (
+                <button
+                  disabled={!fullData(false)}
+                  onClick={() => onOpenLote(ordem)}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-black uppercase tracking-wide rounded-xl flex items-center gap-2 transition-colors shadow-md"
+                >
+                  <Copy className="w-4 h-4" />
+                  Criar em Lote
+                </button>
+              )}
               <button
                 disabled={!fullData(true)}
                 onClick={() => {
+                  if (validationWarnings.length > 0 && !window.confirm(`Existem ${validationWarnings.length} aviso(s) de conflito. Deseja prosseguir mesmo assim?`)) return;
                   if (window.confirm('Antes de prosseguir, confira a escala!')) {
                     save(ordem, true);
                   }
@@ -519,7 +636,10 @@ export default function ModalCadastroOrdem({
               </button>
               <button
                 disabled={!fullData(false)}
-                onClick={() => save(ordem, false)}
+                onClick={() => {
+                  if (validationWarnings.length > 0 && !window.confirm(`Existem ${validationWarnings.length} aviso(s) de conflito. Deseja prosseguir mesmo assim?`)) return;
+                  save(ordem, false);
+                }}
                 className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-black uppercase tracking-wide rounded-xl flex items-center gap-2 transition-colors shadow-md"
               >
                 <Save className="w-4 h-4" />
@@ -536,6 +656,39 @@ export default function ModalCadastroOrdem({
           </div>
         )}
       </div>
+
+      {/* ── P0-4: Modais de Quadro ── */}
+      <ModalQuadroVeiculosLogistica
+        modal={quadroVeiculosOpen}
+        handleClose={() => setQuadroVeiculosOpen(false)}
+        veiculos={veiculos}
+        escalas={escalas}
+        data={ordem.DataInicial || ordem.dataInicial || ''}
+        updateVeiculos={(selecionados) => {
+          const novos = selecionados.map((v: any) => ({
+            veiculoId: v.id,
+            manutencao: v._manutencao ?? false,
+          }));
+          setOrdem((p: any) => ({ ...p, EscalaVeiculos: [...(p.EscalaVeiculos || []), ...novos] }));
+        }}
+      />
+
+      <ModalQuadroFuncionariosLogistica
+        modal={quadroFuncionariosOpen}
+        handleClose={() => setQuadroFuncionariosOpen(false)}
+        funcionarios={funcionarios}
+        escalas={escalas}
+        cliente={ordem.Cliente}
+        data={ordem.DataInicial || ordem.dataInicial || ''}
+        updateFuncionarios={(integrados, naoIntegrados) => {
+          const todos = [...integrados, ...naoIntegrados].map((f: any) => ({
+            funcionarioId: f.id,
+            statusOperacao: f._statusOperacao ?? 0,
+            ausente: false,
+          }));
+          setOrdem((p: any) => ({ ...p, EscalaFuncionarios: [...(p.EscalaFuncionarios || []), ...todos] }));
+        }}
+      />
     </div>
   );
 }

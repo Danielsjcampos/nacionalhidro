@@ -171,6 +171,29 @@ export async function updateOSLogistica(req: Request, res: Response) {
       }
     }
 
+    // P2: Audit trail — track changed fields
+    const existing = await prisma.oSLogistica.findUnique({ where: { id } });
+    if (existing) {
+      const changes: Record<string, { antes: any; depois: any }> = {};
+      Object.keys(data).forEach(k => {
+        const antes = (existing as any)[k];
+        const depois = data[k];
+        if (JSON.stringify(antes) !== JSON.stringify(depois)) {
+          changes[k] = { antes, depois };
+        }
+      });
+      if (Object.keys(changes).length > 0) {
+        const historico = Array.isArray(existing.historicoAlteracoes) ? [...(existing.historicoAlteracoes as any[])] : [];
+        historico.push({ data: new Date().toISOString(), acao: 'ALTERACAO', campos: changes });
+        data.historicoAlteracoes = historico;
+        data.ultimaAlteracao = new Date();
+      }
+    }
+    // Cancelamento: gravar data
+    if (data.status === 0 && !data.dataCancelamento) {
+      data.dataCancelamento = new Date();
+    }
+
     const os = await prisma.oSLogistica.update({ where: { id }, data, include: { servicos: true } });
 
     // Upsert escala
@@ -220,6 +243,7 @@ export async function baixarLoteOSLogistica(req: Request, res: Response) {
       where: { id: { in: ids.map(Number) } },
       data: {
         status: 2,
+        dataBaixa: new Date(),
         horaEntrada: horaEntrada ?? undefined,
         horaSaida: horaSaida ?? undefined,
         horaAlmoco: horaAlmoco ?? undefined,
@@ -239,4 +263,292 @@ export async function deleteOSLogistica(req: Request, res: Response) {
     await prisma.oSLogistica.delete({ where: { id } });
     ok(res, { success: true });
   } catch (e) { err(res, e, 'deleteOSLogistica'); }
+}
+
+// ─── P1: CRIAR EM LOTE (date range) ──────────────────────────────────────────
+export async function createLoteOSLogistica(req: Request, res: Response) {
+  try {
+    const { dataInicio, dataFim, diasSemana, ...osData } = req.body;
+    if (!dataInicio || !dataFim) return res.status(400).json({ error: 'dataInicio e dataFim obrigatórios.' });
+
+    const inicio = new Date(dataInicio);
+    const fim = new Date(dataFim);
+    if (fim < inicio) return res.status(400).json({ error: 'dataFim deve ser >= dataInicio.' });
+
+    const diffDays = Math.ceil((fim.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    if (diffDays > 62) return res.status(400).json({ error: 'Máximo 62 dias por lote.' });
+
+    // Parse diasSemana filter (0=Dom..6=Sab)
+    const diasPermitidos: number[] | null = Array.isArray(diasSemana) && diasSemana.length > 0 ? diasSemana.map(Number) : null;
+
+    const created: any[] = [];
+    const errors: string[] = [];
+
+    for (let d = new Date(inicio); d <= fim; d.setDate(d.getDate() + 1)) {
+      // Skip days not in diasSemana filter
+      if (diasPermitidos && !diasPermitidos.includes(d.getDay())) continue;
+
+      try {
+        const { Servicos, EscalaFuncionarios, EscalaVeiculos, ...rest } = osData;
+        const numero = (rest.numero ?? 0) + created.length + 1;
+
+        const os = await prisma.oSLogistica.create({
+          data: {
+            codigo: rest.codigo,
+            numero,
+            status: 1,
+            propostaId: rest.propostaId,
+            clienteId: rest.clienteId,
+            contatoId: rest.contatoId,
+            equipamentoId: rest.equipamentoId,
+            empresaId: rest.empresaId,
+            tipoCobranca: rest.tipoCobranca ? Number(rest.tipoCobranca) : undefined,
+            dataInicial: new Date(d),
+            horaInicial: rest.horaInicial,
+            diasSemana: diasSemana,
+            quantidadeDia: rest.quantidadeDia ? Number(rest.quantidadeDia) : undefined,
+            acompanhante: rest.acompanhante,
+            horaPadrao: rest.horaPadrao,
+            descontarAlmoco: Boolean(rest.descontarAlmoco),
+            observacoes: rest.observacoes,
+            criadoPorId: rest.criadoPorId,
+            dataCriacao: new Date(),
+            servicos: Servicos?.length
+              ? { create: Servicos.map((s: any) => ({ discriminacao: s.Discriminacao ?? s.discriminacao ?? '' })) }
+              : undefined,
+            escala: (EscalaFuncionarios?.length || EscalaVeiculos?.length)
+              ? {
+                create: {
+                  status: 1,
+                  clienteId: rest.clienteId,
+                  equipamentoId: rest.equipamentoId,
+                  empresaId: rest.empresaId,
+                  data: new Date(d),
+                  hora: rest.horaInicial,
+                  funcionarios: EscalaFuncionarios?.length
+                    ? { create: EscalaFuncionarios.map((f: any) => ({ funcionarioId: f.funcionarioId, statusOperacao: f.statusOperacao ?? 0, ausente: false })) }
+                    : undefined,
+                  veiculos: EscalaVeiculos?.length
+                    ? { create: EscalaVeiculos.map((v: any) => ({ veiculoId: v.veiculoId, manutencao: v.manutencao ?? false })) }
+                    : undefined,
+                },
+              }
+              : undefined,
+          },
+          include: { servicos: true },
+        });
+        created.push(os);
+      } catch (e: any) {
+        errors.push(`${d.toLocaleDateString('pt-BR')}: ${e.message}`);
+      }
+    }
+
+    ok(res, { criadas: created.length, erros: errors.length, ordensServico: created, detalhesErros: errors }, 201);
+  } catch (e) { err(res, e, 'createLoteOSLogistica'); }
+}
+
+// ─── P1: DADOS PARA IMPRESSÃO EM LOTE ────────────────────────────────────────
+export async function imprimirLoteOSLogistica(req: Request, res: Response) {
+  try {
+    const { ids } = req.query as any;
+    if (!ids) return res.status(400).json({ error: 'Parâmetro ids obrigatório (comma-separated).' });
+
+    const idList = String(ids).split(',').map(Number).filter(n => !isNaN(n));
+    if (!idList.length) return res.status(400).json({ error: 'Nenhum id válido.' });
+
+    const ordens = await prisma.oSLogistica.findMany({
+      where: { id: { in: idList } },
+      include: {
+        servicos: true,
+        escala: { include: { funcionarios: true, veiculos: true } },
+      },
+      orderBy: { dataInicial: 'asc' },
+    });
+
+    ok(res, { osList: ordens, total: ordens.length, printedAt: new Date().toISOString() });
+  } catch (e) { err(res, e, 'imprimirLoteOSLogistica'); }
+}
+
+// ─── P2: PRECIFICAR OS ───────────────────────────────────────────────────────
+export async function precificarOSLogistica(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    const {
+      precificacaoTotalServico = 0,
+      precificacaoTotalHora = 0,
+      precificacaoValorExtra = 0,
+      precificacaoDesconto = 0,
+      precificacaoObservacao,
+      servicosHorasAdicionais, // [{servicoId, horas, valor}]
+    } = req.body;
+
+    const os = await prisma.oSLogistica.findUnique({ where: { id }, include: { servicos: true } });
+    if (!os) return res.status(404).json({ error: 'OS não encontrada.' });
+    if (os.status !== 2) return res.status(400).json({ error: 'Apenas OS executadas podem ser precificadas.' });
+
+    // Calculate totals
+    const totalServico = Number(precificacaoTotalServico) || 0;
+    const totalHora = Number(precificacaoTotalHora) || 0;
+    const valorExtra = Number(precificacaoValorExtra) || 0;
+    const desconto = Number(precificacaoDesconto) || 0;
+    const valorTotal = totalServico + totalHora + valorExtra - desconto;
+
+    // Build audit entry
+    const auditEntry = {
+      data: new Date().toISOString(),
+      acao: 'PRECIFICACAO',
+      campos: { totalServico, totalHora, valorExtra, desconto, valorTotal },
+    };
+    const historico = Array.isArray(os.historicoAlteracoes) ? [...(os.historicoAlteracoes as any[])] : [];
+    historico.push(auditEntry);
+
+    const updated = await prisma.oSLogistica.update({
+      where: { id },
+      data: {
+        statusPrecificacao: 'PRECIFICADO',
+        dataPrecificacao: new Date(),
+        precificacaoTotalServico: totalServico,
+        precificacaoTotalHora: totalHora,
+        precificacaoValorExtra: valorExtra,
+        precificacaoDesconto: desconto,
+        precificacaoValorTotal: valorTotal,
+        precificacaoObservacao: precificacaoObservacao || null,
+        ultimaAlteracao: new Date(),
+        historicoAlteracoes: historico,
+      },
+      include: { servicos: true },
+    });
+
+    ok(res, updated);
+  } catch (e) { err(res, e, 'precificarOSLogistica'); }
+}
+
+// ─── P2: DASHBOARD CONSOLIDADO ───────────────────────────────────────────────
+export async function dashboardOSLogistica(req: Request, res: Response) {
+  try {
+    const { dataInicio, dataFim } = req.query;
+    const where: any = {};
+    if (dataInicio && dataFim) {
+      where.dataInicial = {
+        gte: new Date(dataInicio as string),
+        lte: new Date(dataFim as string),
+      };
+    }
+
+    const [total, abertas, executadas, canceladas, precificadas] = await Promise.all([
+      prisma.oSLogistica.count({ where }),
+      prisma.oSLogistica.count({ where: { ...where, status: 1 } }),
+      prisma.oSLogistica.count({ where: { ...where, status: 2 } }),
+      prisma.oSLogistica.count({ where: { ...where, status: 0 } }),
+      prisma.oSLogistica.count({ where: { ...where, statusPrecificacao: 'PRECIFICADO' } }),
+    ]);
+
+    // Totais financeiros
+    const financeiro = await prisma.oSLogistica.aggregate({
+      where: { ...where, statusPrecificacao: 'PRECIFICADO' },
+      _sum: {
+        precificacaoValorTotal: true,
+        precificacaoDesconto: true,
+        precificacaoValorExtra: true,
+        precificacaoTotalServico: true,
+        precificacaoTotalHora: true,
+      },
+    });
+
+    // OS em atraso (abertas com dataInicial passada)
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const emAtraso = await prisma.oSLogistica.count({
+      where: { ...where, status: 1, dataInicial: { lt: hoje } },
+    });
+
+    // Top clientes por volume
+    const osPorCliente = await prisma.oSLogistica.groupBy({
+      by: ['clienteId'],
+      where,
+      _count: true,
+      orderBy: { _count: { clienteId: 'desc' } },
+      take: 10,
+    });
+
+    // OS por tipo de cobrança
+    const osPorTipo = await prisma.oSLogistica.groupBy({
+      by: ['tipoCobranca'],
+      where,
+      _count: true,
+    });
+
+    ok(res, {
+      periodo: { dataInicio, dataFim },
+      contagem: { total, abertas, executadas, canceladas, precificadas, emAtraso },
+      financeiro: {
+        valorTotal: financeiro._sum.precificacaoValorTotal ?? 0,
+        desconto: financeiro._sum.precificacaoDesconto ?? 0,
+        valorExtra: financeiro._sum.precificacaoValorExtra ?? 0,
+        totalServico: financeiro._sum.precificacaoTotalServico ?? 0,
+        totalHora: financeiro._sum.precificacaoTotalHora ?? 0,
+      },
+      distribuicao: {
+        porCliente: osPorCliente,
+        porTipoCobranca: osPorTipo.map((t: any) => ({
+          tipo: t.tipoCobranca,
+          label: ['Cancelado', 'Hora', 'Diária', 'Frete', 'Fechada'][t.tipoCobranca] ?? 'Outro',
+          count: t._count,
+        })),
+      },
+    });
+  } catch (e) { err(res, e, 'dashboardOSLogistica'); }
+}
+
+// ─── P2: VERIFICAR PENDÊNCIAS (OS em atraso) ─────────────────────────────────
+export async function verificarPendenciasOSLogistica(req: Request, res: Response) {
+  try {
+    const { propostaId, dataMin, dataMax } = req.query;
+    const where: any = { status: 1 }; // Abertas
+
+    if (propostaId) where.propostaId = propostaId as string;
+    if (dataMin && dataMax) {
+      where.dataInicial = {
+        gte: new Date(dataMin as string),
+        lte: new Date(dataMax as string),
+      };
+    }
+
+    const pendentes = await prisma.oSLogistica.findMany({
+      where,
+      select: { id: true, codigo: true, numero: true, dataInicial: true, clienteId: true },
+      orderBy: { dataInicial: 'asc' },
+    });
+
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const emAtraso = pendentes.filter(os => os.dataInicial && new Date(os.dataInicial) < hoje);
+
+    ok(res, {
+      total: pendentes.length,
+      emAtraso: emAtraso.length,
+      ordensTexto: emAtraso.map(os => `${os.codigo || ''}/${os.numero || ''}`).join('; '),
+      ordens: pendentes,
+    });
+  } catch (e) { err(res, e, 'verificarPendenciasOSLogistica'); }
+}
+
+// ─── P2: HISTÓRICO DE ALTERAÇÕES ─────────────────────────────────────────────
+export async function historicoOSLogistica(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    const os = await prisma.oSLogistica.findUnique({
+      where: { id },
+      select: { id: true, codigo: true, numero: true, historicoAlteracoes: true, createdAt: true, updatedAt: true },
+    });
+    if (!os) return res.status(404).json({ error: 'OS não encontrada.' });
+
+    ok(res, {
+      id: os.id,
+      codigo: `${os.codigo || ''}/${os.numero || ''}`,
+      historico: Array.isArray(os.historicoAlteracoes) ? os.historicoAlteracoes : [],
+      createdAt: os.createdAt,
+      updatedAt: os.updatedAt,
+    });
+  } catch (e) { err(res, e, 'historicoOSLogistica'); }
 }

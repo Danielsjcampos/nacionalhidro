@@ -2259,9 +2259,23 @@ model OSLogistica {
   observacoes        String?
   motivoCancelamento String?
   dataCancelamento   DateTime?
+  dataBaixa          DateTime?
   urlArquivo         String?
   criadoPorId        String?
   dataCriacao        DateTime?
+  // P2: Campos de precificação (portados do legado)
+  statusPrecificacao        String?  // NAO_PRECIFICADO, PRECIFICADO, EM_MEDICAO
+  dataPrecificacao          DateTime?
+  precificacaoTotalServico  Float?   @default(0)
+  precificacaoTotalHora     Float?   @default(0)
+  precificacaoValorExtra    Float?   @default(0)
+  precificacaoDesconto      Float?   @default(0)
+  precificacaoValorTotal    Float?   @default(0)
+  precificacaoObservacao    String?
+  // P2: Audit trail
+  ultimaAlteracao           DateTime?
+  alteradoPorId             String?
+  historicoAlteracoes       Json?    // [{data, usuario, campo, antes, depois}]
   servicos           OSLogisticaServico[]
   escala             EscalaLogistica?
   createdAt          DateTime               @default(now())
