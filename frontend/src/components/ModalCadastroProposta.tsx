@@ -132,27 +132,69 @@ function gerarDescricaoGarantia(itens: PropostaItem[], configuracoes: any[]): st
   };
 
   let text = '';
-  const hasHora = itens.some(it => it.tipoCobrancaInt === 1);
-  const hasDiaria = itens.some(it => it.tipoCobrancaInt === 2);
-  const hasFrete = itens.some(it => it.tipoCobrancaInt === 3);
-  const hasFechado = itens.some(it => it.tipoCobrancaInt === 4);
+  
+  const validItems = itens.filter(it => it.equipamento);
+  
+  const horaItems = validItems.filter(it => it.tipoCobrancaInt === 1);
+  const diariaItems = validItems.filter(it => it.tipoCobrancaInt === 2);
+  const fechadoItems = validItems.filter(it => it.tipoCobrancaInt === 4);
 
-  itens.forEach(it => {
-    let template = '';
-    if (it.tipoCobrancaInt === 1) template = cfg('ModalidadeHora') || 'Garantia de faturamento de {{HorasDiaria}} horas diárias para o equipamento {{Equipamento}}.';
-    else if (it.tipoCobrancaInt === 2) template = cfg('ModalidadeDiaria') || 'Garantia de faturamento mínimo de 01 diária por chamado para o equipamento {{Equipamento}}.';
-    else if (it.tipoCobrancaInt === 4) template = cfg('ModalidadeFechado') || 'Garantia de faturamento conforme valor fechado para o equipamento {{Equipamento}}.';
-    if (template) {
-      text += template
-        .replace(/\{\{HorasDiaria\}\}/g, String(it.horasDiaria || 10))
-        .replace(/\{\{Equipamento\}\}/g, it.equipamento || '') + '\n';
-    }
-  });
+  if (horaItems.length > 0) {
+    const groups: Record<number, string[]> = {};
+    horaItems.forEach(it => {
+      const h = it.horasDiaria || 10;
+      if (!groups[h]) groups[h] = [];
+      groups[h].push(it.equipamento);
+    });
+    
+    Object.entries(groups).forEach(([h, equips]) => {
+      const eqText = equips.length > 1 
+        ? 'os equipamentos ' + equips.slice(0, -1).join(', ') + ' e ' + equips[equips.length - 1]
+        : 'o equipamento ' + equips[0];
+      
+      let tpl = cfg('ModalidadeHora');
+      if (tpl) {
+        text += tpl.replace(/\{\{HorasDiaria\}\}/g, String(h)).replace(/\{\{Equipamento\}\}/g, eqText) + '\n';
+      } else {
+        text += `Garantia de faturamento de ${h} horas diárias para ${eqText}.\n`;
+      }
+    });
+  }
 
-  if (hasHora) text += '\n' + (cfg('DescricaoGarantiaHora') || '') + '\n';
-  if (hasDiaria) text += '\n' + (cfg('DescricaoGarantiaDiaria') || '') + '\n';
-  if (hasFrete) text += '\n' + (cfg('DescricaoGarantiaFrete') || '') + '\n';
-  if (hasFechado) text += '\n' + (cfg('DescricaoGarantiaFechado') || '') + '\n';
+  if (diariaItems.length > 0) {
+    const equips = diariaItems.map(i => i.equipamento);
+    const eqText = equips.length > 1 
+      ? 'os equipamentos ' + equips.slice(0, -1).join(', ') + ' e ' + equips[equips.length - 1]
+      : 'o equipamento ' + equips[0];
+      
+    let tpl = cfg('ModalidadeDiaria');
+    if (tpl) text += tpl.replace(/\{\{Equipamento\}\}/g, eqText) + '\n';
+    else text += `Garantia de faturamento mínimo de 01 diária por chamado para ${eqText}.\n`;
+  }
+
+  if (fechadoItems.length > 0) {
+    const equips = fechadoItems.map(i => i.equipamento);
+    const eqText = equips.length > 1 
+      ? 'os equipamentos ' + equips.slice(0, -1).join(', ') + ' e ' + equips[equips.length - 1]
+      : 'o equipamento ' + equips[0];
+      
+    let tpl = cfg('ModalidadeFechado');
+    if (tpl) text += tpl.replace(/\{\{Equipamento\}\}/g, eqText) + '\n';
+    else text += `Garantia de faturamento conforme valor fechado para ${eqText}.\n`;
+  }
+
+  // Fallback for empty item
+  if (!text && itens.length > 0) {
+    const it = itens[0];
+    if (it.tipoCobrancaInt === 1) text += `Garantia de faturamento de ${it.horasDiaria || 10} horas diárias para o equipamento .\n`;
+    else if (it.tipoCobrancaInt === 2) text += `Garantia de faturamento mínimo de 01 diária por chamado para o equipamento .\n`;
+    else if (it.tipoCobrancaInt === 4) text += `Garantia de faturamento conforme valor fechado para o equipamento .\n`;
+  }
+
+  if (horaItems.length > 0) text += '\n' + (cfg('DescricaoGarantiaHora') || '') + '\n';
+  if (diariaItems.length > 0) text += '\n' + (cfg('DescricaoGarantiaDiaria') || '') + '\n';
+  if (validItems.some(it => it.tipoCobrancaInt === 3)) text += '\n' + (cfg('DescricaoGarantiaFrete') || '') + '\n';
+  if (fechadoItems.length > 0) text += '\n' + (cfg('DescricaoGarantiaFechado') || '') + '\n';
 
   return text.trim();
 }
@@ -421,7 +463,14 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
   };
 
   const cliente = internalClientes.find((c: any) => c.id === form.clienteId);
-  const contatos = cliente?.contatosList || (typeof cliente?.contatos === 'string' ? JSON.parse(cliente.contatos || '[]') : (cliente?.contatos || []));
+  const contatosList = cliente?.contatosList || [];
+  const contatosLegado = typeof cliente?.contatos === 'string' 
+    ? JSON.parse(cliente.contatos || '[]') 
+    : (Array.isArray(cliente?.contatos) ? cliente.contatos : []);
+  
+  // Combine contacts from database relation and legacy JSON, removing duplicates by name
+  const allContatos = [...contatosList, ...contatosLegado];
+  const contatos = allContatos.filter((v, i, a) => a.findIndex(t => (t.nome === v.nome)) === i);
   const isEnviada = initialData?.enviada || initialData?.status === 'ENVIADA';
   const isGerRev = isEnviada;
   const validationErr = validate();

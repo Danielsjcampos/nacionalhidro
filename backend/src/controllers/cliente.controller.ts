@@ -75,16 +75,26 @@ export const getCliente = async (req: AuthRequest, res: Response) => {
 
 export const createCliente = async (req: AuthRequest, res: Response) => {
   try {
-    const data = req.body;
+    const {
+      propostas,
+      ordensServico,
+      matriz,
+      filiais,
+      contatosList,
+      documentosList,
+      _count,
+      novo,
+      ...cleanData
+    } = req.body;
 
     // Ensure numeric/date types are converted if necessary
-    if (data.aniversarioReajuste) data.aniversarioReajuste = new Date(data.aniversarioReajuste);
-    if (data.porcentagemRL) data.porcentagemRL = parseFloat(data.porcentagemRL);
-    if (data.diasVencimentoRL) data.diasVencimentoRL = parseInt(data.diasVencimentoRL);
+    if (cleanData.aniversarioReajuste) cleanData.aniversarioReajuste = new Date(cleanData.aniversarioReajuste);
+    if (cleanData.porcentagemRL) cleanData.porcentagemRL = parseFloat(cleanData.porcentagemRL);
+    if (cleanData.diasVencimentoRL) cleanData.diasVencimentoRL = parseInt(cleanData.diasVencimentoRL);
 
     const cliente = await prisma.cliente.create({
       data: {
-        ...data,
+        ...cleanData,
         // Documento is unique, should handle errors
       }
     });
@@ -102,15 +112,25 @@ export const createCliente = async (req: AuthRequest, res: Response) => {
 export const updateCliente = async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
-    const data = req.body;
+    const {
+      propostas,
+      ordensServico,
+      matriz,
+      filiais,
+      contatosList,
+      documentosList,
+      _count,
+      novo,
+      ...cleanData
+    } = req.body;
 
-    if (data.aniversarioReajuste) data.aniversarioReajuste = new Date(data.aniversarioReajuste);
-    if (data.porcentagemRL) data.porcentagemRL = parseFloat(data.porcentagemRL);
-    if (data.diasVencimentoRL) data.diasVencimentoRL = parseInt(data.diasVencimentoRL);
+    if (cleanData.aniversarioReajuste) cleanData.aniversarioReajuste = new Date(cleanData.aniversarioReajuste);
+    if (cleanData.porcentagemRL) cleanData.porcentagemRL = parseFloat(cleanData.porcentagemRL);
+    if (cleanData.diasVencimentoRL) cleanData.diasVencimentoRL = parseInt(cleanData.diasVencimentoRL);
 
     const cliente = await prisma.cliente.update({
       where: { id },
-      data
+      data: cleanData
     });
 
     res.json(cliente);
