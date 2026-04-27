@@ -57,7 +57,7 @@ export const decimalToTime = (decimalValue: number): string => {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 };
 
-export const generatePdfFromHtml = async (html: string, headerTemplate?: string): Promise<Buffer> => {
+export const generatePdfFromHtml = async (html: string, headerTemplate?: string, marginTop: string = '50mm'): Promise<Buffer> => {
     let browser;
     try {
         browser = await puppeteer.launch({
@@ -93,7 +93,7 @@ export const generatePdfFromHtml = async (html: string, headerTemplate?: string)
                 </div>
             `;
             // We need a top margin large enough to fit the header
-            pdfOptions.margin = { top: '45mm', right: '10mm', bottom: '20mm', left: '10mm' };
+            pdfOptions.margin = { top: marginTop, right: '10mm', bottom: '20mm', left: '10mm' };
         } else {
             // Default margins even without header/footer to avoid text touching edges
             pdfOptions.margin = { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' };
@@ -548,7 +548,8 @@ export const gerarPdfProposta = async (proposta: any, cliente: any, itens: any[]
     // Replace script tags with div so they render in Puppeteer
     rendered = rendered.replace(/<script id="template" type="x-tmpl-mustache">/g, '<div>').replace(/<\/script><!--remove-->/g, '</div>');
 
-    return generatePdfFromHtml(rendered, headerTemplate);
+    // A proposta tem um banner muito alto, então aumentamos a margem para 75mm
+    return generatePdfFromHtml(rendered, headerTemplate, '75mm');
 };
 
 // ==========================================
