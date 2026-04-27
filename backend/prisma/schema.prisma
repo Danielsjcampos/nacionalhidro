@@ -476,7 +476,8 @@ model TransacaoFinanceira {
 model Funcionario {
   id                             String                 @id @default(uuid())
   nome                           String
-  cargo                          String
+  cargoId                        String?
+  cargoRef                       Cargo?                 @relation(fields: [cargoId], references: [id])
   departamento                   String
   salario                        Decimal                @db.Decimal(10, 2)
   dataAdmissao                   DateTime
@@ -1752,11 +1753,14 @@ model Cargo {
   updatedAt        DateTime         @updatedAt
   unicoEquipamento Boolean          @default(false)
   propostaEquipes  PropostaEquipe[]
+  funcionarios     Funcionario[]
+  admissoes        Admissao[]
 }
 
 model Admissao {
   id                          String       @id @default(uuid())
-  cargo                       String?
+  cargoId                     String?
+  cargoRef                    Cargo?       @relation(fields: [cargoId], references: [id])
   observacoes                 String?
   createdAt                   DateTime     @default(now())
   updatedAt                   DateTime     @updatedAt

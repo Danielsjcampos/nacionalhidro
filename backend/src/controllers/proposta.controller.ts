@@ -200,6 +200,8 @@ export const createProposta = async (req: AuthRequest, res: Response) => {
           },
           equipe: {
             create: equipe?.map((e: any) => ({
+              cargoId: e.cargoId || null,
+              equipamentoId: e.equipamentoId || null,
               funcao: e.funcao ? String(e.funcao) : null,
               equipamento: e.equipamento ? String(e.equipamento) : null,
               quantidade: parseInt(e.quantidade) || 1,
@@ -415,6 +417,8 @@ export const updateProposta = async (req: AuthRequest, res: Response) => {
           },
           equipe: {
             create: equipe?.map((e: any) => ({
+              cargoId: e.cargoId || null,
+              equipamentoId: e.equipamentoId || null,
               funcao: e.funcao ? String(e.funcao) : null,
               equipamento: e.equipamento ? String(e.equipamento) : null,
               quantidade: parseInt(e.quantidade) || 1,

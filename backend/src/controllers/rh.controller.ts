@@ -55,6 +55,7 @@ export const listFuncionarios = async (req: AuthRequest, res: Response) => {
     const list = await (prisma as any).funcionario.findMany({
       where,
       include: {
+        cargoRef: true,
         afastamentos: {
           orderBy: { dataInicio: 'desc' as any },
           take: 5
@@ -105,6 +106,7 @@ export const getFuncionario = async (req: AuthRequest, res: Response) => {
     const func = await (prisma as any).funcionario.findUnique({
       where: { id },
       include: {
+        cargoRef: true,
         afastamentos: { orderBy: { dataInicio: 'desc' as any } },
         integracoes: {
           include: { cliente: { select: { id: true, nome: true } } },
@@ -323,6 +325,7 @@ export const getDisponibilidade = async (req: AuthRequest, res: Response) => {
     const funcionarios = await (prisma as any).funcionario.findMany({
       where: { ativo: true },
       include: {
+        cargoRef: true,
         afastamentos: true,
         asosControle: true,
         integracoes: clienteId ? {
@@ -452,7 +455,9 @@ export const getDisponibilidade = async (req: AuthRequest, res: Response) => {
       return {
         id: f.id,
         nome: f.nome,
-        cargo: f.cargo,
+        cargo: f.cargoRef?.nome || f.cargo,
+        cargoId: f.cargoId,
+        cargoRef: f.cargoRef,
         departamento: f.departamento,
         disponibilidade,
         motivo,

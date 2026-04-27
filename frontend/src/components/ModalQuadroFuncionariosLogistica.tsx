@@ -11,6 +11,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const STATUS_FILTER_OPTIONS = ['Todos', 'Afastado', 'Escalado', 'Disponível', 'Integrado', 'Int. Vencida'];
+const CARGO_FILTER_OPTIONS = ['Todos', 'Operador de Hidrojato', 'Ajudante de Hidrojato', 'Motorista Operador', 'Ajudante de Vácuo', 'Técnico de Vídeo Inspeção'];
 
 const STATUS_OPERACIONAL = [
   { value: 0, label: 'Nenhum' },
@@ -93,6 +94,7 @@ export default function ModalQuadroFuncionariosLogistica({
 }: Props) {
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('Todos');
+  const [filtroCargo, setFiltroCargo] = useState('Todos');
   const [lista, setLista] = useState<any[]>([]);
   const [iniciado, setIniciado] = useState(false);
 
@@ -104,6 +106,7 @@ export default function ModalQuadroFuncionariosLogistica({
     setIniciado(true);
     setBusca('');
     setFiltroStatus('Todos');
+    setFiltroCargo('Todos');
   }, [modal, funcionarios, escalas, cliente, data]);
 
   const filtrados = useMemo(() => {
@@ -117,9 +120,10 @@ export default function ModalQuadroFuncionariosLogistica({
         'Integrado': 'Integrado', 'Int. Vencida': 'Vencido',
       };
       const filtroOk = filtroStatus === 'Todos' || f._status === (statusMap[filtroStatus] ?? filtroStatus);
-      return buscaOk && filtroOk;
+      const cargoOk = filtroCargo === 'Todos' || f.cargo === filtroCargo;
+      return buscaOk && filtroOk && cargoOk;
     });
-  }, [lista, busca, filtroStatus]);
+  }, [lista, busca, filtroStatus, filtroCargo]);
 
   const disponiveis = filtrados.filter(f => f._status === 'Disponivel' || f._status === 'Integrado' || f._status === 'Vencido');
   const indisponiveis = filtrados.filter(f => f._status === 'Afastado' || f._status === 'Escalado');
@@ -214,6 +218,14 @@ export default function ModalQuadroFuncionariosLogistica({
             onChange={e => setFiltroStatus(e.target.value)}
           >
             {STATUS_FILTER_OPTIONS.map(o => <option key={o}>{o}</option>)}
+          </select>
+          <select
+            className="text-xs border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-blue-500 max-w-[150px]"
+            value={filtroCargo}
+            onChange={e => setFiltroCargo(e.target.value)}
+          >
+            <option value="Todos">Todos os Cargos</option>
+            {CARGO_FILTER_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
           </select>
         </div>
 

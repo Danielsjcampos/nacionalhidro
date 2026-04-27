@@ -38,6 +38,8 @@ export const getAdmissaoPortal = async (req: AuthRequest, res: Response) => {
                 id: true,
                 nome: true,
                 cargo: true,
+                cargoId: true,
+                cargoRef: true,
                 departamento: true,
                 etapa: true
             }
@@ -148,6 +150,7 @@ export const listAdmissoes = async (req: AuthRequest, res: Response) => {
             include: {
                 candidato: { select: { id: true, nome: true, vaga: { select: { cargo: true } } } },
                 funcionario: { select: { id: true, nome: true } },
+                cargoRef: true,
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -166,7 +169,7 @@ export const getAdmissao = async (req: AuthRequest, res: Response) => {
         const id = req.params.id as string;
         const admissao = await (prisma as any).admissao.findUnique({
             where: { id },
-            include: { candidato: true, funcionario: true },
+            include: { candidato: true, funcionario: true, cargoRef: true },
         });
 
         if (!admissao) {
@@ -316,6 +319,7 @@ export const moverEtapaAdmissao = async (req: AuthRequest, res: Response) => {
                 const novoFuncionario = await (prisma as any).funcionario.create({
                     data: {
                         nome: admissaoAtual.nome,
+                        cargoId: admissaoAtual.cargoId,
                         cargo: admissaoAtual.cargo || 'A definir',
                         departamento: admissaoAtual.departamento || 'Operacional',
                         cpf: admissaoAtual.cpf || `TEMP-${Date.now()}`,

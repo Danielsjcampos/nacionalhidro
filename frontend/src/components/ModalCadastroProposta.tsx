@@ -708,7 +708,43 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
                       ))}
                     </tbody>
                   </table>
-                  <button onClick={() => setForm(p => ({ ...p, equipes: [...p.equipes, newEquipe()] }))} className="flex items-center gap-1.5 text-blue-600 font-black text-[10px] uppercase tracking-wider hover:text-blue-700"><Plus className="w-4 h-4" />Adicionar à Equipe</button>
+                  <div className="flex items-center gap-4">
+                    <button onClick={() => setForm(p => ({ ...p, equipes: [...p.equipes, newEquipe()] }))} className="flex items-center gap-1.5 text-blue-600 font-black text-[10px] uppercase tracking-wider hover:text-blue-700">
+                      <Plus className="w-4 h-4" />Adicionar Cargo
+                    </button>
+                    
+                    <div className="h-4 w-px bg-slate-200" />
+                    
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Modelos Rápidos:</span>
+                      {[
+                        { label: 'Hidrojato', roles: ['Operador de Hidrojato', 'Ajudante de Hidrojato', 'Ajudante de Hidrojato'] },
+                        { label: 'Vácuo', roles: ['Motorista Operador', 'Ajudante de Vácuo'] },
+                        { label: 'Pipa', roles: ['Motorista Operador'] },
+                        { label: 'Vídeo', roles: ['Técnico de Vídeo Inspeção', 'Ajudante de Hidrojato'] }
+                      ].map(m => (
+                        <button 
+                          key={m.label}
+                          onClick={() => {
+                            const newRows = m.roles.map(roleName => {
+                              const found = options.cargos.find((c: any) => c.nome === roleName);
+                              return {
+                                _uid: uid(),
+                                cargoId: found?.id || '',
+                                cargo: found || null,
+                                equipamentoId: form.itens[0]?.equipamentoId || '',
+                                quantidade: 1
+                              };
+                            });
+                            setForm(p => ({ ...p, equipes: [...p.equipes, ...newRows] }));
+                          }}
+                          className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[9px] font-bold rounded uppercase transition-colors"
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
