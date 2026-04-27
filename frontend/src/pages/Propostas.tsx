@@ -303,6 +303,11 @@ export default function Propostas() {
                       {/* Actions */}
                       <td className="px-2 py-2">
                         <div className="flex items-center gap-0.5 flex-wrap">
+                          {/* Visualizar PDF - sempre */}
+                          <button title="Visualizar PDF" onClick={()=>handleVerPDF(p)}
+                            className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
                           {/* Cancelar - sempre */}
                           {selectedTipo !== 'Canceladas' && (
                             <button title="Cancelar" onClick={()=>handleStatusChange(p.id,'CANCELADA')}
