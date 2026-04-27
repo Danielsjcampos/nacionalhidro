@@ -21,7 +21,7 @@ export const listClientes = async (req: AuthRequest, res: Response) => {
 
     const clientes = await prisma.cliente.findMany({
       where,
-      take: 100, // Limite de segurança mantido para performance
+      take: 2000, // Aumentado para suportar listas completas (A-Z) conforme solicitado
       include: {
         matriz: { select: { id: true, nome: true } },
         contatosList: { orderBy: { nome: 'asc' } },

@@ -3,6 +3,7 @@ import { X, Save, Plus, Trash2, ArrowRight, ArrowLeft, ChevronDown, ChevronUp, A
 import { numeroExtenso } from '../utils/numeroExtenso';
 import moment from 'moment';
 import api from '../services/api';
+import SearchableSelect from './SearchableSelect';
 
 // ─── Enums ──────────────────────────────────────────────────────
 export const TIPO_COBRANCA = { HORA: 1, DIARIA: 2, FRETE: 3, FECHADA: 4 } as const;
@@ -495,24 +496,34 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
             <div className="col-span-2"><label className={lbl}>Data Proposta</label><input type="date" value={form.dataProposta} onChange={e => set('dataProposta', e.target.value as any)} className={inp} /></div>
             <div className="col-span-2"><label className={lbl}>Validade</label><input type="date" value={form.dataValidade} onChange={e => setForm(p => { const v = e.target.value; return { ...p, dataValidade: v, validadeProposta: `Essa proposta possui validade até o dia: ${moment(v).format('DD/MM/YYYY')}` }; })} className={inp} /></div>
             <div className="col-span-2"><label className={lbl}>Vendedor</label>
-              <select value={form.vendedorId} onChange={e => set('vendedorId', e.target.value as any)} className={inp}>
-                <option value="">Selecione...</option>
-                {options.vendedores.map((v: any) => <option key={v.id} value={v.id}>{v.name || v.nome || v.email}</option>)}
-              </select>
+              <SearchableSelect 
+                value={form.vendedorId} 
+                onChange={v => set('vendedorId', v as any)}
+                options={options.vendedores.map((v: any) => ({ id: v.id, label: v.name || v.nome || v.email }))}
+                placeholder="Selecione..."
+              />
             </div>
             <div className="col-span-3"><label className={lbl}>Empresa</label>
-              <select value={form.empresaId} onChange={e => set('empresaId', e.target.value as any)} className={inp}>
-                <option value="">Selecione...</option>
-                {options.empresas.map((e: any) => <option key={e.id} value={e.id}>{e.nome || e.razaoSocial}</option>)}
-              </select>
+              <SearchableSelect 
+                value={form.empresaId} 
+                onChange={v => set('empresaId', v as any)}
+                options={options.empresas.map((e: any) => ({ id: e.id, label: e.nome || e.razaoSocial }))}
+                placeholder="Selecione..."
+              />
             </div>
           </div>
           <div className="grid grid-cols-12 gap-3">
             <div className="col-span-4"><label className={lbl}>Cliente</label>
-              <select value={form.clienteId} onChange={e => set('clienteId', e.target.value as any)} className={inp}>
-                <option value="">Selecione o cliente...</option>
-                {options.clientes.map((c: any) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-              </select>
+              <SearchableSelect 
+                value={form.clienteId} 
+                onChange={v => set('clienteId', v as any)}
+                options={options.clientes.map((c: any) => ({ 
+                  id: c.id, 
+                  label: c.nome || c.razaoSocial,
+                  sublabel: c.documento || c.cnpj
+                }))}
+                placeholder="Selecione o cliente..."
+              />
             </div>
             <div className="col-span-3">
               <div className="flex items-center justify-between mb-1">
@@ -527,14 +538,16 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
                   </button>
                 )}
               </div>
-              <select value={form.contatoId} onChange={e => set('contatoId', e.target.value as any)} className={inp}>
-                <option value="">Selecione...</option>
-                {contatos.map((c: any, i: number) => (
-                  <option key={c.id || i} value={c.id || c.nome}>
-                    {c.nome}{c.setor ? ` — ${c.setor}` : c.cargo ? ` — ${c.cargo}` : ''}
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect 
+                value={form.contatoId} 
+                onChange={v => set('contatoId', v as any)}
+                options={contatos.map((c: any, i: number) => ({ 
+                  id: c.id || c.nome, 
+                  label: c.nome,
+                  sublabel: c.setor || c.cargo || ''
+                }))}
+                placeholder="Selecione..."
+              />
             </div>
             <div className="col-span-4"><label className={lbl}>CC (Cópia E-mail)</label>
               <input value={form.emailCopia} onChange={e => set('emailCopia', e.target.value as any)} placeholder="separar com ';'" className={inp} />
@@ -577,11 +590,14 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
                     <tbody>
                       {form.itens.map(it => (
                         <tr key={it._uid} className="border-b border-slate-100 hover:bg-slate-50/50">
-                          <td className="px-1 py-1">
-                            <select value={it.equipamentoId} onChange={e => handleEquipamentoChange(it._uid, e.target.value)} className={cel}>
-                              <option value="">Selecione...</option>
-                              {options.equipamentos.map((e: any) => <option key={e.id} value={e.id}>{e.nome}</option>)}
-                            </select>
+                          <td className="px-1 py-1 min-w-[250px]">
+                            <SearchableSelect 
+                              value={it.equipamentoId} 
+                              onChange={v => handleEquipamentoChange(it._uid, v)}
+                              options={options.equipamentos.map((e: any) => ({ id: e.id, label: e.nome, sublabel: e.codigo }))}
+                              placeholder="Equipamento..."
+                              className="!h-auto"
+                            />
                           </td>
                           <td className="px-1 py-1"><input type="number" value={it.quantidade} min={1} onChange={e => updateItem(it._uid, { quantidade: +e.target.value })} className={`${cel} text-center`} /></td>
                           <td className="px-1 py-1"><input value={it.area} onChange={e => updateItem(it._uid, { area: e.target.value })} className={cel} /></td>

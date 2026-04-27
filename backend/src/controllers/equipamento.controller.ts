@@ -5,7 +5,7 @@ import prisma from '../lib/prisma';
 export const getEquipamentos = async (req: AuthRequest, res: Response) => {
   try {
     const equipamentos = await prisma.equipamento.findMany({
-      take: 200,
+      take: 1000,
       orderBy: { createdAt: 'desc' },
       include: {
         acessoriosVinculados: { include: { acessorio: true } },
