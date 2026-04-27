@@ -319,22 +319,20 @@ export default function Propostas() {
                               <Ban className="w-3.5 h-3.5" />
                             </button>
                           )}
-                          {/* Copiar - se enviada (Em Aberto) ou Aprovadas */}
-                          {(selectedTipo==='Em Aberto'&&enviada||selectedTipo==='Aprovadas') && (
-                            <button title="Copiar" onClick={()=>handleCopiar(p)}
-                              className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
-                              <Copy className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          {/* Reprovar - se enviada */}
-                          {selectedTipo==='Em Aberto'&&enviada && (
+                          {/* Copiar - sempre (exceto se você quiser limitar por tipo, mas vamos liberar para todas) */}
+                          <button title="Copiar" onClick={()=>handleCopiar(p)}
+                            className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+                          {/* Reprovar - se Em Aberto */}
+                          {selectedTipo==='Em Aberto' && (
                             <button title="Reprovar" onClick={()=>handleStatusChange(p.id,'RECUSADA')}
                               className="p-1.5 rounded hover:bg-rose-50 text-rose-400 hover:text-rose-600 transition-colors">
                               <ThumbsDown className="w-3.5 h-3.5" />
                             </button>
                           )}
-                          {/* Aprovar - se enviada */}
-                          {selectedTipo==='Em Aberto'&&enviada && (
+                          {/* Aprovar - se Em Aberto */}
+                          {selectedTipo==='Em Aberto' && (
                             <button title="Aprovar" onClick={()=>handleStatusChange(p.id,'ACEITA')}
                               className="p-1.5 rounded hover:bg-emerald-50 text-emerald-400 hover:text-emerald-600 transition-colors">
                               <ThumbsUp className="w-3.5 h-3.5" />
