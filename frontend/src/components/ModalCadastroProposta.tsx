@@ -97,6 +97,7 @@ interface Props {
     responsabilidades: any[];
     cargos: any[];
     configuracoes: any[];
+    veiculos: any[];
   };
 }
 
@@ -742,6 +743,7 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
                       <tr>
                         <th className="px-2 py-2 text-left">Cargo</th>
                         <th className="px-2 py-2 text-left">Equipamento</th>
+                        <th className="px-2 py-2 text-left">Veículo</th>
                         <th className="px-2 py-2 w-20 text-center">Qtd</th>
                         <th className="w-8" />
                       </tr>
@@ -757,12 +759,33 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
                           </td>
                           <td className="px-1 py-1">
                             {!e.cargo?.unicoEquipamento && (
-                              <select value={e.equipamentoId} onChange={ev => setForm(p => ({ ...p, equipes: p.equipes.map((eq, j) => j === i ? { ...eq, equipamentoId: ev.target.value } : eq) }))} className={cel}>
+                              <select value={e.equipamentoId} onChange={ev => setForm(p => ({ ...p, equipes: p.equipes.map((eq, j) => j === i ? { ...eq, equipamentoId: ev.target.value, veiculoId: '' } : eq) }))} className={cel}>
                                 <option value="">Selecione...</option>
                                 {form.itens.map(it => <option key={it._uid} value={it.equipamentoId}>{it.equipamento}</option>)}
                                 <option value="VARIOS">VÁRIOS</option>
                               </select>
                             )}
+                          </td>
+                          <td className="px-1 py-1">
+                            <select 
+                              value={e.veiculoId || ''} 
+                              onChange={ev => setForm(p => ({ ...p, equipes: p.equipes.map((eq, j) => j === i ? { ...eq, veiculoId: ev.target.value } : eq) }))} 
+                              className={cel}
+                            >
+                              <option value="">Selecione...</option>
+                              {(options.veiculos || [])
+                                .filter(v => {
+                                  if (!e.equipamentoId || e.equipamentoId === 'VARIOS') return true;
+                                  const eq = options.equipamentos.find((eq: any) => eq.id === e.equipamentoId);
+                                  // Se o equipamento tem veículos vinculados no JSON, filtra por eles
+                                  if (eq?.veiculos && Array.isArray(eq.veiculos) && eq.veiculos.length > 0) {
+                                    return eq.veiculos.includes(v.id);
+                                  }
+                                  return true;
+                                })
+                                .map((v: any) => <option key={v.id} value={v.id}>{v.modelo} {v.placa ? `(${v.placa})` : ''}</option>)
+                              }
+                            </select>
                           </td>
                           <td className="px-1 py-1"><input type="number" min={1} value={e.quantidade} onChange={ev => setForm(p => ({ ...p, equipes: p.equipes.map((eq, j) => j === i ? { ...eq, quantidade: +ev.target.value } : eq) }))} className={`${cel} text-center`} /></td>
                           <td className="px-1 py-1 text-center"><button onClick={() => setForm(p => ({ ...p, equipes: p.equipes.filter((_, j) => j !== i) }))} className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50"><Trash2 className="w-3.5 h-3.5" /></button></td>

@@ -49,6 +49,7 @@ export default function Propostas() {
   const [cargosData,         setCargosData]          = useState<any[]>([]);
   const [responsabilidades,  setResponsabilidades]   = useState<any[]>([]);
   const [configuracoes,      setConfiguracoes]       = useState<any[]>([]);
+  const [veiculosOptions,    setVeiculosOptions]     = useState<any[]>([]);
 
   const fetchPropostas = async (page = 1) => {
     try {
@@ -70,7 +71,7 @@ export default function Propostas() {
 
   const fetchOptions = async () => {
     const safe = async (fn: ()=>Promise<any>, fb: any[] = []) => { try { return await fn(); } catch { return fb; } };
-    const [cl,eq,vd,ac,cp,em,rs,cfg] = await Promise.all([
+    const [cl,eq,vd,ac,cp,em,rs,cfg,ve] = await Promise.all([
       safe(()=>api.get('/clientes').then(r=>r.data)),
       safe(()=>api.get('/equipamentos').then(r=>r.data)),
       safe(()=>api.get('/equipe/vendedores').then(r=>r.data)),
@@ -79,10 +80,11 @@ export default function Propostas() {
       safe(()=>api.get('/empresas').then(r=>r.data)),
       safe(()=>api.get('/responsabilidades').then(r=>r.data)),
       safe(()=>api.get('/configuracoes').then(r=>r.data),[]),
+      safe(()=>api.get('/veiculos').then(r=>r.data)),
     ]);
     setClientes(cl||[]);setEquipamentosOptions(eq||[]);setVendedoresOptions(vd||[]);
     setAcessoriosOptions(ac||[]);setCargosData(cp||[]);setEmpresasOptions(em||[]);
-    setResponsabilidades(rs||[]);setConfiguracoes(cfg||[]);
+    setResponsabilidades(rs||[]);setConfiguracoes(cfg||[]);setVeiculosOptions(ve||[]);
   };
 
   useEffect(() => { setCurrentPage(1); fetchPropostas(1); }, [selectedTipo, searchTerm, dataInicio, dataFim]);
@@ -209,6 +211,7 @@ export default function Propostas() {
           clientes, vendedores:vendedoresOptions, empresas:empresasOptions,
           equipamentos:equipamentosOptions, acessorios:acessoriosOptions,
           responsabilidades, cargos:cargosData, configuracoes,
+          veiculos: veiculosOptions
         }}
       />
     );
