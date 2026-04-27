@@ -547,5 +547,3 @@ const CargosTab = () => {
 };
 
 export default Administracao;
-
-export default Administracao;
