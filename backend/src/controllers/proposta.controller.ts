@@ -141,6 +141,26 @@ export const createProposta = async (req: AuthRequest, res: Response) => {
         codigo = await SequenceService.generateCode('proposta', 'PROP');
       }
 
+      // Se houver responsabilidades marcadas para salvar no banco master, fazemos agora
+      if (responsabilidades?.length) {
+        for (const r of responsabilidades) {
+          if (r.salvarComoPadrao && r.descricao) {
+            // Verifica se já existe uma com mesma descrição para evitar duplicados
+            const exists = await tx.responsabilidadePadrao.findFirst({
+              where: { descricao: { equals: r.descricao, mode: 'insensitive' } }
+            });
+            if (!exists) {
+              await tx.responsabilidadePadrao.create({
+                data: {
+                  descricao: r.descricao,
+                  tipo: r.tipo || 'CONTRATADA'
+                }
+              });
+            }
+          }
+        }
+      }
+
       // Create the main proposal
       const novaProposta = await tx.proposta.create({
         data: {
@@ -352,6 +372,25 @@ export const updateProposta = async (req: AuthRequest, res: Response) => {
     } = req.body;
 
     const result = await prisma.$transaction(async (tx) => {
+      // Se houver responsabilidades marcadas para salvar no banco master, fazemos agora
+      if (responsabilidades?.length) {
+        for (const r of responsabilidades) {
+          if (r.salvarComoPadrao && r.descricao) {
+            const exists = await tx.responsabilidadePadrao.findFirst({
+              where: { descricao: { equals: r.descricao, mode: 'insensitive' } }
+            });
+            if (!exists) {
+              await tx.responsabilidadePadrao.create({
+                data: {
+                  descricao: r.descricao,
+                  tipo: r.tipo || 'CONTRATADA'
+                }
+              });
+            }
+          }
+        }
+      }
+
       // 1. Delete associated records to "sync" (re-create them)
       await tx.propostaItem.deleteMany({ where: { propostaId: id } });
       await tx.propostaAcessorio.deleteMany({ where: { propostaId: id } });

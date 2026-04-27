@@ -451,6 +451,7 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
         responsavel: r.responsavel,
         tipo: r.responsavel === 2 ? 'CONTRATANTE' : 'CONTRATADA',
         importante: r.importante || false,
+        salvarComoPadrao: !!(r as any).salvarComoPadrao,
       })),
       equipe: form.equipes.map(({ _uid, cargo, ...e }) => ({
         ...e,
@@ -668,12 +669,22 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
                         <tr key={r._uid} className="border-b border-slate-100 hover:bg-slate-50/50">
                           <td className="px-1 py-2">
                             {r.id === '0' ? (
-                              <input 
-                                value={r.descricao} 
-                                onChange={e => setForm(p => ({ ...p, responsabilidades: p.responsabilidades.map(x => x._uid === r._uid ? { ...x, descricao: e.target.value } : x) }))}
-                                placeholder="Descreva a responsabilidade..."
-                                className={cel}
-                              />
+                              <div className="flex flex-col gap-1">
+                                <input 
+                                  value={r.descricao} 
+                                  onChange={e => setForm(p => ({ ...p, responsabilidades: p.responsabilidades.map(x => x._uid === r._uid ? { ...x, descricao: e.target.value } : x) }))}
+                                  placeholder="Descreva a responsabilidade..."
+                                  className={cel}
+                                />
+                                <label className="flex items-center gap-1.5 text-[9px] font-bold text-blue-600 cursor-pointer">
+                                  <input 
+                                    type="checkbox" 
+                                    checked={!!(r as any).salvarComoPadrao} 
+                                    onChange={e => setForm(p => ({ ...p, responsabilidades: p.responsabilidades.map(x => x._uid === r._uid ? { ...x, salvarComoPadrao: e.target.checked } : x) }))}
+                                  />
+                                  SALVAR NO BANCO PARA USO FUTURO
+                                </label>
+                              </div>
                             ) : (
                               <SearchableSelect 
                                 value={r.id}
