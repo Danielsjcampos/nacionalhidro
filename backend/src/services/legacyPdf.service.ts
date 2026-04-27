@@ -5,6 +5,25 @@ import mustache from 'mustache';
 import moment from 'moment';
 import { numeroExtenso } from '../utils/numeroExtenso';
 import prisma from '../lib/prisma';
+import axios from 'axios';
+
+// Cache para imagens em Base64 para evitar múltiplos downloads
+const imageCache = new Map<string, string>();
+
+const getBase64 = async (url: string): Promise<string> => {
+    if (!url || !url.startsWith('http')) return url;
+    if (imageCache.has(url)) return imageCache.get(url)!;
+    try {
+        const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 5000 });
+        const base64 = Buffer.from(response.data, 'binary').toString('base64');
+        const dataUri = `data:${response.headers['content-type'] || 'image/png'};base64,${base64}`;
+        imageCache.set(url, dataUri);
+        return dataUri;
+    } catch (e) {
+        console.error('Failed to fetch image for PDF', url);
+        return url;
+    }
+};
 
 // B-10.5: Helper para datas em PDFs com timezone de Brasília
 const formatDateBR = (date: any): string => {
@@ -256,10 +275,12 @@ export const gerarPdfMedicao = async (medicao: any, empresa: any, cliente: any, 
         }
     };
 
+    const logoBase64 = await getBase64(empresa?.logo || 'https://prodnhidro.blob.core.windows.net/storage/logo.jpg');
+
     const headerTemplate = `
         <div style="width: 100%; margin: 0 10mm; padding-top: 10mm; -webkit-print-color-adjust: exact; font-family: 'Helvetica', 'Arial', sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                <img src="${empresa?.logo || 'https://prodnhidro.blob.core.windows.net/storage/logo.jpg'}" style="height: 60px;">
+                <img src="${logoBase64}" style="height: 60px;">
                 <div style="text-align: right;">
                     <div style="font-size: 16px; font-weight: bold; color: #0891b2;">${medicao.tipoDocumento === 'ND' ? 'NOTA DE DÉBITO' : 'RELATÓRIO DE MEDIÇÃO'}</div>
                     <div style="font-size: 12px; color: #666; margin-top: 2px;">Nº ${medicao.id?.slice(-6).toUpperCase() || medicao.codigo} ${medicao.revisao > 0 ? ' — REV ' + medicao.revisao : ''}</div>
@@ -327,10 +348,12 @@ export const gerarPdfOrdemServico = async (ordem: any, cliente: any, servicos: a
         Veiculo:   veiculoPlaca
     };
 
+    const logoBase64 = await getBase64('https://prodnhidro.blob.core.windows.net/storage/logo.jpg');
+
     const headerTemplate = `
         <div style="width: 100%; margin: 0 10mm; padding-top: 10mm; -webkit-print-color-adjust: exact; font-family: 'Helvetica', 'Arial', sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                <img src="https://prodnhidro.blob.core.windows.net/storage/logo.jpg" style="height: 60px;">
+                <img src="${logoBase64}" style="height: 60px;">
                 <div style="text-align: right;">
                     <div style="font-size: 16px; font-weight: bold; color: #333;">ORDEM DE SERVIÇO</div>
                     <div style="font-size: 12px; color: #666; margin-top: 2px;">Nº ${ordem.codigo || 'S/N'}</div>
@@ -397,10 +420,12 @@ export const gerarPdfLoteOrdemServico = async (ordens: any[]): Promise<Buffer> =
         return mustache.render(templateHtml, view);
     });
 
+    const logoBase64 = await getBase64('https://prodnhidro.blob.core.windows.net/storage/logo.jpg');
+
     const headerTemplate = `
         <div style="width: 100%; margin: 0 10mm; padding-top: 10mm; -webkit-print-color-adjust: exact; font-family: 'Helvetica', 'Arial', sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                <img src="https://prodnhidro.blob.core.windows.net/storage/logo.jpg" style="height: 60px;">
+                <img src="${logoBase64}" style="height: 60px;">
                 <div style="text-align: right;">
                     <div style="font-size: 16px; font-weight: bold; color: #333;">ORDEM DE SERVIÇO (LOTE)</div>
                 </div>
@@ -429,13 +454,13 @@ export const gerarPdfProposta = async (proposta: any, cliente: any, itens: any[]
         }
     });
 
-    const equipamentosParaView = uniqueEquips.map(item => ({
+    const equipamentosParaView = await Promise.all(uniqueEquips.map(async item => ({
         Equipamento: {
-            UrlImagem: item.imagem || item.equipamentoImg || 'https://prodnhidro.blob.core.windows.net/storage/proposta.png',
+            UrlImagem: await getBase64(item.imagem || item.equipamentoImg || 'https://prodnhidro.blob.core.windows.net/storage/proposta.png'),
             Equipamento: item.equipamento,
             Descricao: item.descricao || ''
         }
-    }));
+    })));
 
     const equipeRaw = proposta.equipe || [];
     const groupedEquipe: any[] = [];
@@ -468,13 +493,15 @@ export const gerarPdfProposta = async (proposta: any, cliente: any, itens: any[]
     const c = cliente || { nome: 'Cliente não informado', razaoSocial: 'Cliente não informado' };
     const emp = empresa || { razaoSocial: 'Nacional Hidro', cnpj: '00.000.000/0000-00' };
 
-    let signatureUrl = '';
+    let signatureBase64 = '';
     if (proposta.vendedor) {
         const user = await prisma.user.findFirst({
             where: { name: { equals: proposta.vendedor, mode: 'insensitive' } },
             select: { signatureUrl: true }
         });
-        signatureUrl = user?.signatureUrl || '';
+        if (user?.signatureUrl) {
+            signatureBase64 = await getBase64(user.signatureUrl);
+        }
     }
 
     const view = {
@@ -505,12 +532,14 @@ export const gerarPdfProposta = async (proposta: any, cliente: any, itens: any[]
         CondicaoPagamento: proposta.condicoesPagamento ? String(proposta.condicoesPagamento).replace(/\n/g, "<br />") : '',
         ValidadeProposta: validadeTexto.replace(/\n/g, "<br />"),
         Vendedor: proposta.vendedor || '',
-        Assinatura: signatureUrl
+        Assinatura: signatureBase64
     };
+
+    const bannerBase64 = await getBase64('https://prodnhidro.blob.core.windows.net/storage/proposta.png');
 
     const headerTemplate = `
         <div style="width: 100%; margin: 0 10mm; -webkit-print-color-adjust: exact;">
-            <img src="https://prodnhidro.blob.core.windows.net/storage/proposta.png" style="width: 100%; display: block;">
+            <img src="${bannerBase64}" style="width: 100%; display: block;">
         </div>
     `;
 
@@ -587,10 +616,12 @@ export const gerarPdfFichaRegistro = async (admissao: any): Promise<Buffer> => {
         Observacoes:       admissao.observacoes || ''
     };
 
+    const logoBase64 = await getBase64('https://prodnhidro.blob.core.windows.net/storage/logo.jpg');
+
     const headerTemplate = `
         <div style="width: 100%; margin: 0 10mm; padding-top: 10mm; -webkit-print-color-adjust: exact; font-family: 'Helvetica', 'Arial', sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                <img src="https://prodnhidro.blob.core.windows.net/storage/logo.jpg" style="height: 60px;">
+                <img src="${logoBase64}" style="height: 60px;">
                 <div style="text-align: right;">
                     <div style="font-size: 14px; font-weight: bold; color: #0891b2;">FICHA DE REGISTRO DE EMPREGADO</div>
                     <div style="font-size: 10px; color: #666; margin-top: 2px;">NACIONAL HIDRO OPERACOES E SANEAMENTO LTDA</div>
@@ -637,10 +668,12 @@ export const gerarPdfGuiaASO = async (admissao: any): Promise<Buffer> => {
         DataHoje:          formatDateBR(new Date())
     };
 
+    const logoBase64 = await getBase64('https://prodnhidro.blob.core.windows.net/storage/logo.jpg');
+
     const headerTemplate = `
         <div style="width: 100%; margin: 0 10mm; padding-top: 10mm; -webkit-print-color-adjust: exact; font-family: 'Helvetica', 'Arial', sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                <img src="https://prodnhidro.blob.core.windows.net/storage/logo.jpg" style="height: 60px;">
+                <img src="${logoBase64}" style="height: 60px;">
                 <div style="text-align: right;">
                     <div style="font-size: 14px; font-weight: bold; color: #2563eb;">GUIA DE ENCAMINHAMENTO</div>
                     <div style="font-size: 10px; color: #666; margin-top: 2px;">Medicina e Segurança do Trabalho</div>
