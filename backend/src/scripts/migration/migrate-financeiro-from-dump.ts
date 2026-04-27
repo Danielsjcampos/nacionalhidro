@@ -13,6 +13,25 @@ async function main() {
     return;
   }
 
+  console.log('--- Limpando Dados Financeiros Atuais ---');
+  await prisma.contaPagarHistorico.deleteMany({});
+  await prisma.contaReceberHistorico.deleteMany({});
+  await prisma.contaPagarPagamento.deleteMany({});
+  await prisma.contaReceberRecebimento.deleteMany({});
+  await prisma.contaPagarProduto.deleteMany({});
+  await prisma.contaPagarCentroCusto.deleteMany({});
+  await prisma.contaPagarNatureza.deleteMany({});
+  await prisma.contaReceberCentroCusto.deleteMany({});
+  await prisma.contaReceberNatureza.deleteMany({});
+  await prisma.contaPagar.deleteMany({});
+  await prisma.contaReceber.deleteMany({});
+  // Limpando contas bancárias duplicadas criadas por scripts anteriores
+  const contasBancarias = await prisma.contaBancaria.findMany();
+  if(contasBancarias.length > 5) {
+      await prisma.contaBancaria.deleteMany({});
+  }
+  console.log('Financeiro limpo.');
+
   console.log('--- Mapeando Entidades Existentes (Sistema Novo) ---');
   const clientesNew = await prisma.cliente.findMany({ select: { id: true, razaoSocial: true, cnpj: true, cpf: true } });
   const fornecedoresNew = await prisma.fornecedor.findMany({ select: { id: true, nome: true, documento: true } });
@@ -38,9 +57,7 @@ async function main() {
     empresaMap.set(e.nome.toUpperCase().trim(), e.id);
   });
 
-  console.log(`Mapeados: ${clienteMap.size} clientes, ${fornecedorMap.size} fornecedores, ${empresaMap.size} empresas.`);
-
-  // --- Função de Splitter Robusto ---
+  // Função de Splitter Robusto
   function splitFields(rec: string): string[] {
     const fields: string[] = [];
     let currentField = '';
@@ -60,7 +77,7 @@ async function main() {
   }
 
   function getRecords(content: string, tableName: string): string[] {
-    const regex = new RegExp(`INSERT INTO \`${tableName}\` VALUES (.*);`, 's');
+    const regex = new RegExp(`INSERT INTO \\\`${tableName}\\\` VALUES (.*);`, 's');
     const match = content.match(regex);
     if (!match) return [];
     
@@ -89,11 +106,9 @@ async function main() {
     return records;
   }
 
-  console.log('--- Lendo Dumps Legados ---');
   const entityContent = fs.readFileSync(entitiesDumpPath, 'utf-8');
   const financeContent = fs.readFileSync(financeDumpPath, 'utf-8');
 
-  // --- Mapeando IDs Legados para UUIDs Novos ---
   const legacyToNewCliente = new Map<number, string>();
   const legacyToNewFornecedor = new Map<number, string>();
   const legacyToNewEmpresa = new Map<number, string>();
@@ -127,39 +142,6 @@ async function main() {
     if (newId) legacyToNewEmpresa.set(id, newId);
   });
 
-  console.log(`Relacionamentos identificados: ${legacyToNewCliente.size} Clientes, ${legacyToNewFornecedor.size} Fornecedores.`);
-
-  // --- Migrando Centro de Custos e Naturezas ---
-  console.log('--- Migrando Auxiliares (Centro de Custo / Natureza) ---');
-  const legacyCC = new Map<number, string>();
-  const legacyNC = new Map<number, string>();
-
-  // Deletar dependências primeiro
-  await prisma.contaPagarCentroCusto.deleteMany({});
-  await prisma.contaPagarNatureza.deleteMany({});
-  await prisma.contaReceberCentroCusto.deleteMany({});
-  await prisma.contaReceberNatureza.deleteMany({});
-  
-  await prisma.naturezaContabil.deleteMany({});
-  await prisma.centroCusto.deleteMany({});
-
-  for (const rec of getRecords(financeContent, 'centro_custos')) {
-    const f = splitFields(rec);
-    const id = parseInt(f[0]);
-    const nome = f[1];
-    const created = await prisma.centroCusto.create({ data: { nome, ativo: true } });
-    legacyCC.set(id, created.id);
-  }
-
-  for (const rec of getRecords(financeContent, 'natureza_contabeis')) {
-    const f = splitFields(rec);
-    const id = parseInt(f[0]);
-    const descricao = f[1];
-    const created = await prisma.naturezaContabil.create({ data: { descricao, inativo: false } });
-    legacyNC.set(id, created.id);
-  }
-
-  // --- Mapeando Links ---
   const cpFornecedorLink = new Map<number, number>();
   const cpEmpresaLink = new Map<number, number>();
   const crClienteLink = new Map<number, number>();
@@ -182,33 +164,29 @@ async function main() {
     crEmpresaLink.set(f[0], f[1]);
   });
 
-  // --- Migrando Contas a Pagar ---
-  console.log('--- Limpando Dados Financeiros Atuais ---');
-  await prisma.contaPagarHistorico.deleteMany({});
-  await prisma.contaReceberHistorico.deleteMany({});
-  await prisma.contaPagarPagamento.deleteMany({});
-  await prisma.contaReceberRecebimento.deleteMany({});
-  await prisma.contaPagarProduto.deleteMany({});
-  await prisma.contaPagar.deleteMany({});
-  await prisma.contaReceber.deleteMany({});
-  console.log('Financeiro limpo.');
-
-  console.log('--- Migrando Contas a Pagar ---');
+  console.log('--- Migrando Contas a Pagar (Apenas Em Aberto) ---');
   let cpCount = 0;
+  let cpSkip = 0;
   for (const rec of getRecords(financeContent, 'contas')) {
     try {
       const f = splitFields(rec);
-      if (f.length < 2) continue;
+      if (f.length < 5) continue;
+      
+      // Legacy schema: 0:id, 1:status, 2:valor_total, 3:numero_nf, 4:data_emissao_nf, 5:observacoes, 6:created_at
       const id = parseInt(f[0]);
       const statusInt = parseInt(f[1]);
+      
+      // Filtra APENAS status=1 (Em Aberto/Criado)
+      if (statusInt !== 1) {
+        cpSkip++;
+        continue;
+      }
+      
       const valorTotal = parseFloat(f[2]);
       const numeroNF = f[3] === 'NULL' ? null : f[3];
       const dataEmissao = f[4] === 'NULL' ? new Date() : new Date(f[4]);
       const observacoes = f[5] === 'NULL' ? null : f[5];
       const createdAt = f[6] === 'NULL' ? new Date() : new Date(f[6]);
-
-      const statusMap: Record<number, string> = { 0: 'CANCELADO', 1: 'ABERTO', 2: 'PAGO', 3: 'PAGO' };
-      const status = statusMap[statusInt] || 'ABERTO';
 
       const oldFornecedorId = cpFornecedorLink.get(id);
       const oldEmpresaId = cpEmpresaLink.get(id);
@@ -221,9 +199,9 @@ async function main() {
           descricao: `MIGRADO [ID ${id}] ${numeroNF ? 'NF ' + numeroNF : ''}`,
           fornecedorId,
           valorOriginal: isNaN(valorTotal) ? 0 : valorTotal,
-          valorPago: status === 'PAGO' ? (isNaN(valorTotal) ? 0 : valorTotal) : 0,
+          valorPago: 0,
           dataVencimento: dataEmissao,
-          status,
+          status: 'ABERTO',
           observacoes,
           notaFiscal: numeroNF,
           dataEmissao,
@@ -232,30 +210,39 @@ async function main() {
         }
       });
       cpCount++;
-      if (cpCount % 500 === 0) console.log(`${cpCount} contas a pagar migradas...`);
-    } catch (e: any) {
-      // Ignorar erros individuais
-    }
+      if (cpCount % 500 === 0) console.log(`${cpCount} contas a pagar em aberto migradas...`);
+    } catch (e: any) {}
   }
 
-  // --- Migrando Contas a Receber ---
-  console.log('--- Migrando Contas a Receber ---');
+  console.log(`Pularam ${cpSkip} Contas a Pagar finalizadas.`);
+
+  console.log('--- Migrando Contas a Receber (Apenas Em Aberto) ---');
   let crCount = 0;
+  let crSkip = 0;
   for (const rec of getRecords(financeContent, 'contas_receber')) {
     try {
       const f = splitFields(rec);
-      if (f.length < 5) continue;
+      if (f.length < 12) continue;
+      
+      // Legacy schema: 0:id, 1:insercao_manual, 2:nota, 3:tipo_fatura, 4:data_emissao, 5:valor_total, 6:observacoes, 7:status, ... 11:data_vencimento, ... 17:created_at
       const id = parseInt(f[0]);
-      const tipoFatura = f[1] === 'NULL' ? null : f[1];
-      const dataEmissao = f[2] === 'NULL' ? new Date() : new Date(f[2]);
-      const valorTotal = parseFloat(f[3]);
-      const observacoes = f[4] === 'NULL' ? null : f[4];
-      const statusInt = parseInt(f[5]);
-      const dataVencimento = f[8] === 'NULL' ? new Date() : new Date(f[8]);
-      const createdAt = f[11] === 'NULL' ? new Date() : new Date(f[11]);
-
-      const statusMap: Record<number, string> = { 0: 'CANCELADO', 1: 'PENDENTE', 2: 'PENDENTE', 3: 'RECEBIDO_PARCIAL', 4: 'RECEBIDO', 5: 'PENDENTE' };
-      const status = statusMap[statusInt] || 'PENDENTE';
+      const statusInt = parseInt(f[7]);
+      
+      // Filtra APENAS [1, 2, 3, 5] (EmAberto, Pendente, Parcial, EmCorrecao). 4 = Recebido, 0 = Cancelado.
+      if (![1, 2, 3, 5].includes(statusInt)) {
+        crSkip++;
+        continue;
+      }
+      
+      const insercaoManual = f[1] === '1';
+      const nota = f[2] === 'NULL' ? null : f[2];
+      const tipoFatura = f[3] === 'NULL' ? null : f[3];
+      const dataEmissao = f[4] === 'NULL' ? new Date() : new Date(f[4]);
+      const valorTotal = parseFloat(f[5]);
+      const observacoes = f[6] === 'NULL' ? null : f[6];
+      
+      const dataVencimento = f[11] === 'NULL' ? new Date() : new Date(f[11]);
+      const createdAt = f[17] === 'NULL' ? new Date() : new Date(f[17]);
 
       const oldClienteId = crClienteLink.get(id);
       const oldEmpresaId = crEmpresaLink.get(id);
@@ -265,27 +252,28 @@ async function main() {
 
       await prisma.contaReceber.create({
         data: {
-          descricao: `MIGRADO [ID ${id}]`,
+          descricao: `MIGRADO [ID ${id}] ${nota ? 'NF ' + nota : ''}`,
           clienteId,
           valorOriginal: isNaN(valorTotal) ? 0 : valorTotal,
-          valorRecebido: status === 'RECEBIDO' ? (isNaN(valorTotal) ? 0 : valorTotal) : 0,
+          valorRecebido: 0,
           dataVencimento,
-          status,
+          status: 'PENDENTE',
           observacoes,
           dataEmissao,
           empresa: empresaNome,
           tipoFatura,
+          notaFiscal: nota,
+          insercaoManual,
           createdAt
         }
       });
       crCount++;
-      if (crCount % 500 === 0) console.log(`${crCount} contas a receber migradas...`);
-    } catch (e: any) {
-      // Ignorar
-    }
+      if (crCount % 500 === 0) console.log(`${crCount} contas a receber em aberto migradas...`);
+    } catch (e: any) {}
   }
-
-  console.log(`\n✅ Sucesso! Migradas ${cpCount} Contas a Pagar e ${crCount} Contas a Receber.`);
+  
+  console.log(`Pularam ${crSkip} Contas a Receber finalizadas.`);
+  console.log(`\n✅ Sucesso! Migradas apenas ${cpCount} Contas a Pagar e ${crCount} Contas a Receber em aberto.`);
 }
 
 main()
