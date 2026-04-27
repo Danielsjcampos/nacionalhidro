@@ -109,20 +109,6 @@
           <div class="page">
             <div class="paging">
               <div class="container pdf">
-                <div>
-                  {{#Empresa.Logo}}
-                  <img src="{{Empresa.Logo}}" alt="Nacional Hidro" width="120">
-                  {{/Empresa.Logo}}
-                  {{^Empresa.Logo}}
-                  <img src="http://www.nacionalhidro.com.br/site/wp-content/uploads/2016/03/logo-nacional-hidro-7.png"
-                    alt="Nacional Hidro" width="120">
-                  {{/Empresa.Logo}}
-                </div>
-
-                <div style="margin-top: 4%; text-align: center;">
-                  <h5>RELATÓRIO DE MEDIÇÃO Nº {{Medicao}}{{#Revisao}} — REVISÃO {{Revisao}}{{/Revisao}}</h5>
-                </div>
-
                 <div style="margin-bottom: 2%;">
                   <p style="margin-bottom: 0px;">CLIENTE: <b style="margin-left: 100px;">{{Cliente.RazaoSocial}}</b></p>
                   <p style="margin-bottom: 0px;">CONTATO: <b style="margin-left: 90px; margin-right: 20%;">{{ContatoNome}}</b> | E-MAIL: <b

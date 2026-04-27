@@ -68,9 +68,16 @@ export const generatePdfFromHtml = async (html: string, headerTemplate?: string)
         if (headerTemplate) {
             pdfOptions.displayHeaderFooter = true;
             pdfOptions.headerTemplate = headerTemplate;
-            pdfOptions.footerTemplate = '<div></div>'; // hide default footer
+            pdfOptions.footerTemplate = `
+                <div style="width: 100%; font-size: 9px; text-align: center; color: #999; font-family: 'Helvetica', 'Arial', sans-serif; -webkit-print-color-adjust: exact; padding-bottom: 5mm;">
+                    Página <span class="pageNumber"></span> de <span class="totalPages"></span>
+                </div>
+            `;
             // We need a top margin large enough to fit the header
-            pdfOptions.margin = { top: '40mm', right: '0mm', bottom: '15mm', left: '0mm' };
+            pdfOptions.margin = { top: '45mm', right: '10mm', bottom: '20mm', left: '10mm' };
+        } else {
+            // Default margins even without header/footer to avoid text touching edges
+            pdfOptions.margin = { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' };
         }
 
         const pdfBuffer = await page.pdf(pdfOptions);
@@ -249,9 +256,22 @@ export const gerarPdfMedicao = async (medicao: any, empresa: any, cliente: any, 
         }
     };
 
+    const headerTemplate = `
+        <div style="width: 100%; margin: 0 10mm; padding-top: 10mm; -webkit-print-color-adjust: exact; font-family: 'Helvetica', 'Arial', sans-serif;">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <img src="${empresa?.logo || 'https://prodnhidro.blob.core.windows.net/storage/logo.jpg'}" style="height: 60px;">
+                <div style="text-align: right;">
+                    <div style="font-size: 16px; font-weight: bold; color: #0891b2;">${medicao.tipoDocumento === 'ND' ? 'NOTA DE DÉBITO' : 'RELATÓRIO DE MEDIÇÃO'}</div>
+                    <div style="font-size: 12px; color: #666; margin-top: 2px;">Nº ${medicao.id?.slice(-6).toUpperCase() || medicao.codigo} ${medicao.revisao > 0 ? ' — REV ' + medicao.revisao : ''}</div>
+                </div>
+            </div>
+            <div style="height: 2px; background: #0891b2; margin-top: 5mm; width: 100%;"></div>
+        </div>
+    `;
+
     const templateHtml = await getTemplateHtml('relatorio_cobranca.html');
     const rendered = mustache.render(templateHtml, view);
-    return generatePdfFromHtml(rendered);
+    return generatePdfFromHtml(rendered, headerTemplate);
 };
 
 // ==========================================
@@ -307,9 +327,22 @@ export const gerarPdfOrdemServico = async (ordem: any, cliente: any, servicos: a
         Veiculo:   veiculoPlaca
     };
 
+    const headerTemplate = `
+        <div style="width: 100%; margin: 0 10mm; padding-top: 10mm; -webkit-print-color-adjust: exact; font-family: 'Helvetica', 'Arial', sans-serif;">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <img src="https://prodnhidro.blob.core.windows.net/storage/logo.jpg" style="height: 60px;">
+                <div style="text-align: right;">
+                    <div style="font-size: 16px; font-weight: bold; color: #333;">ORDEM DE SERVIÇO</div>
+                    <div style="font-size: 12px; color: #666; margin-top: 2px;">Nº ${ordem.codigo || 'S/N'}</div>
+                </div>
+            </div>
+            <div style="height: 1px; background: #ddd; margin-top: 5mm; width: 100%;"></div>
+        </div>
+    `;
+
     const templateHtml = await getTemplateHtml('ordem_servico.html');
     const rendered = mustache.render(templateHtml, view);
-    return generatePdfFromHtml(rendered);
+    return generatePdfFromHtml(rendered, headerTemplate);
 };
 
 export const gerarPdfLoteOrdemServico = async (ordens: any[]): Promise<Buffer> => {
@@ -364,8 +397,20 @@ export const gerarPdfLoteOrdemServico = async (ordens: any[]): Promise<Buffer> =
         return mustache.render(templateHtml, view);
     });
 
+    const headerTemplate = `
+        <div style="width: 100%; margin: 0 10mm; padding-top: 10mm; -webkit-print-color-adjust: exact; font-family: 'Helvetica', 'Arial', sans-serif;">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <img src="https://prodnhidro.blob.core.windows.net/storage/logo.jpg" style="height: 60px;">
+                <div style="text-align: right;">
+                    <div style="font-size: 16px; font-weight: bold; color: #333;">ORDEM DE SERVIÇO (LOTE)</div>
+                </div>
+            </div>
+            <div style="height: 1px; background: #ddd; margin-top: 5mm; width: 100%;"></div>
+        </div>
+    `;
+
     const finalHtml = renderedPages.join('<div style="page-break-before: always;"></div>');
-    return generatePdfFromHtml(finalHtml);
+    return generatePdfFromHtml(finalHtml, headerTemplate);
 };
 
 // ==========================================
@@ -463,13 +508,18 @@ export const gerarPdfProposta = async (proposta: any, cliente: any, itens: any[]
         Assinatura: signatureUrl
     };
 
+    const headerTemplate = `
+        <div style="width: 100%; margin: 0 10mm; -webkit-print-color-adjust: exact;">
+            <img src="https://prodnhidro.blob.core.windows.net/storage/proposta.png" style="width: 100%; display: block;">
+        </div>
+    `;
+
     const templateHtml = await getTemplateHtml('proposta.html');
     let rendered = mustache.render(templateHtml, view);
     // Replace script tags with div so they render in Puppeteer
     rendered = rendered.replace(/<script id="template" type="x-tmpl-mustache">/g, '<div>').replace(/<\/script><!--remove-->/g, '</div>');
 
-    // GAP 2: Banner inline (sem headerTemplate) — posição idêntica ao legado
-    return generatePdfFromHtml(rendered);
+    return generatePdfFromHtml(rendered, headerTemplate);
 };
 
 // ==========================================
@@ -537,9 +587,22 @@ export const gerarPdfFichaRegistro = async (admissao: any): Promise<Buffer> => {
         Observacoes:       admissao.observacoes || ''
     };
 
+    const headerTemplate = `
+        <div style="width: 100%; margin: 0 10mm; padding-top: 10mm; -webkit-print-color-adjust: exact; font-family: 'Helvetica', 'Arial', sans-serif;">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <img src="https://prodnhidro.blob.core.windows.net/storage/logo.jpg" style="height: 60px;">
+                <div style="text-align: right;">
+                    <div style="font-size: 14px; font-weight: bold; color: #0891b2;">FICHA DE REGISTRO DE EMPREGADO</div>
+                    <div style="font-size: 10px; color: #666; margin-top: 2px;">NACIONAL HIDRO OPERACOES E SANEAMENTO LTDA</div>
+                </div>
+            </div>
+            <div style="height: 1px; background: #0891b2; margin-top: 5mm; width: 100%;"></div>
+        </div>
+    `;
+
     const templateHtml = await getTemplateHtml('ficha_registro.html');
     const rendered = mustache.render(templateHtml, view);
-    return generatePdfFromHtml(rendered);
+    return generatePdfFromHtml(rendered, headerTemplate);
 };
 
 // ==========================================
@@ -574,8 +637,21 @@ export const gerarPdfGuiaASO = async (admissao: any): Promise<Buffer> => {
         DataHoje:          formatDateBR(new Date())
     };
 
+    const headerTemplate = `
+        <div style="width: 100%; margin: 0 10mm; padding-top: 10mm; -webkit-print-color-adjust: exact; font-family: 'Helvetica', 'Arial', sans-serif;">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <img src="https://prodnhidro.blob.core.windows.net/storage/logo.jpg" style="height: 60px;">
+                <div style="text-align: right;">
+                    <div style="font-size: 14px; font-weight: bold; color: #2563eb;">GUIA DE ENCAMINHAMENTO</div>
+                    <div style="font-size: 10px; color: #666; margin-top: 2px;">Medicina e Segurança do Trabalho</div>
+                </div>
+            </div>
+            <div style="height: 1px; background: #2563eb; margin-top: 5mm; width: 100%;"></div>
+        </div>
+    `;
+
     const templateHtml = await getTemplateHtml('guia_aso.html');
     const rendered = mustache.render(templateHtml, view);
-    return generatePdfFromHtml(rendered);
+    return generatePdfFromHtml(rendered, headerTemplate);
 };
 
