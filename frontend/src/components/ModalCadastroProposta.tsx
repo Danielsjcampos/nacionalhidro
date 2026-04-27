@@ -129,74 +129,63 @@ function gerarDescricaoValores(itens: PropostaItem[]): string {
 
 function gerarDescricaoGarantia(itens: PropostaItem[], configuracoes: any[]): string {
   const cfg = (key: string) => {
-    if (Array.isArray(configuracoes)) return configuracoes.find(c => c.key === key || c.descricao === key)?.valor || '';
-    return '';
+    if (Array.isArray(configuracoes)) {
+      const found = configuracoes.find(c => c.key === key || c.descricao === key);
+      if (found?.valor) return found.valor;
+    }
+    // Fallbacks from legacy DB dump
+    switch (key) {
+      case 'ModalidadeHora':
+        return '     Para modalidade Hora, no Equipamento {{Equipamento}}, considerar Faturamento mínimo de 10 horas por chamado, sendo {{HorasDiaria}}h por diária, trabalhadas ou a disposição.';
+      case 'DescricaoGarantiaHora':
+        return 'Valores de horas orçados para atendimento em horário comercial, sendo:\nSeg a sex das 8h às 17h\nAtendimento fora do horário comercial:\nFeriados e Domingos: Considerar adicional em 50% no valor hora orçado.\nSábado e Noturno: Considerar adicional em 35% no valor hora orçado.\nAs horas passam a ser consideradas na apresentação da Equipe/Equipamento na portaria do contratante e finalizará até que seja feito o fechamento e assinatura da ordem de serviço.\nNão poderá ser feito qualquer tipo de abatimento de horas que não seja por indisponibilidade do equipamento.\nHoras à Disposição – Considerar 100% do  valor hora / trabalhados ou a disposição.\nConsideramos como hora a disposição tempo para alimentação da equipe, abertura e fechamento dos equipamentos, liberação dos serviços, integração da equipe, \ncomissionamento dos equipamentos, protocolo COVID, abastecimento dos equipamentos dentro ou fora da contratante, liberação de crachás, greve ou qualquer outra ocasião que fuja a nossa responsabilidade.';
+      case 'ModalidadeDiaria':
+        return '     Para modalidade Diária, no Equipamento {{Equipamento}}, considerar Faturamento mínimo de  01 diária(s), sendo:\nDiária corresponde a {{HorasDiaria}} horas trabalhadas ou a disposição, incluindo 01 hora de almoço.';
+      case 'DescricaoGarantiaDiaria':
+        return 'Indispensável 01 hora de almoço\nValores de Diárias orçados para atendimento em horário comercial, sendo:\nSeg a sex das 8h às 17h\nAtendimento fora horário comercial:\nFeriados e Domingos: Considerar adicional em 50% no valor diária orçado.\nSábados e Noturno: Considerar adicional em 35% no valor diária orçado.\nAs Horas da diária passam a ser consideradas na apresentação da Equip /Equipamento na portaria do contratante e finalizará até que seja feito o fechamento e assinatura da ordem de serviço. \nNão poderá ser feito qualquer tipo de abatimento de horas que não seja por indisponibilidade do equipamento. \nDiária não pode ser cobrado fracionada.\nHoras à Disposição – Considerar 100% do  valor hora / trabalhados ou a disposição.\nConsideramos como hora a disposição tempo para alimentação da equipe, abertura e fechamento dos equipamentos, liberação dos serviços, integração da equipe, \ncomissionamento dos equipamentos, protocolo COVID, abastecimento dos equipamentos dentro ou fora da contratante, liberação de crachás, greve ou qualquer outra ocasião que fuja a nossa responsabilidade.';
+      case 'DescricaoGarantiaFrete':
+        return '     Para modalidade Frete, considerar sempre a capacidade do caminhão, independente se carregamento foi menor devido a quantidade disponível a ser succionado.   \nPrazo de carregamento e descarte em 01 hora, o que passar, devido a liberações ou interferências na coleta, será cobrado hora adicional na importância de R$ 190,00 ( Cento e noventa reais)\nValores de FRETES orçados para atendimento em horário comercial, sendo:\nSeg a sex das 8h às 17h \nAtendimento fora horário comercial:\nFeriados e Domingos: Considerar adicional em 50% no valor hora orçado.\nSábados e Noturno: Considerar adicional em 35% no valor hora orçado.\nAs Horas passam a ser consideradas na apresentação da Equipe / Equipamento na portaria do contratante e finalizará até que seja feito o fechamento e assinatura da ordem de serviço. \nNão poderá ser feito qualquer tipo de abatimento de horas que não seja por indisponibilidade do equipamento.\nHoras à Disposição – Considerar 100% do  valor hora / trabalhados ou a disposição.\nConsideramos como hora a disposição tempo para alimentação da equipe, abertura e fechamento dos equipamentos, liberação dos serviços, integração da equipe, \ncomissionamento dos equipamentos, protocolo COVID, abastecimento dos equipamentos dentro ou fora da contratante, liberação de crachás, greve ou qualquer outra ocasião que fuja a nossa responsabilidade.';
+      case 'ModalidadeFechado':
+        return '     Para modalidade Fechada, no Equipamento {{Equipamento}}, considerar Faturamento mínimo de  01 diária(s), sendo:\nDiária corresponde a {{HorasDiaria}} horas trabalhadas ou a disposição, incluindo 01 hora de almoço.';
+      case 'DescricaoGarantiaFechado':
+        return 'Indispensável 01 hora de almoço\nValores de Diárias orçados para atendimento em horário comercial, sendo:\nSeg a sex das 8h às 17h\nAtendimento fora horário comercial:\nFeriados e Domingos: Considerar adicional em 50% no valor diária orçado.\nSábados e Noturno: Considerar adicional em 35% no valor diária orçado.\nAs Horas da diária passam a ser consideradas na apresentação da Equip /Equipamento na portaria do contratante e finalizará até que seja feito o fechamento e assinatura da ordem de serviço. \nNão poderá ser feito qualquer tipo de abatimento de horas que não seja por indisponibilidade do equipamento. \nDiária não pode ser cobrado fracionada.\nHoras à Disposição – Considerar 100% do  valor hora / trabalhados ou a disposição.\nConsideramos como hora a disposição tempo para alimentação da equipe, abertura e fechamento dos equipamentos, liberação dos serviços, integração da equipe, \ncomissionamento dos equipamentos, protocolo COVID, abastecimento dos equipamentos dentro ou fora da contratante, liberação de crachás, greve ou qualquer outra ocasião que fuja a nossa responsabilidade.';
+      default:
+        return '';
+    }
   };
 
   let text = '';
   
   const validItems = itens.filter(it => it.equipamento);
-  
   const horaItems = validItems.filter(it => it.tipoCobrancaInt === 1);
   const diariaItems = validItems.filter(it => it.tipoCobrancaInt === 2);
+  const freteItems = validItems.filter(it => it.tipoCobrancaInt === 3);
   const fechadoItems = validItems.filter(it => it.tipoCobrancaInt === 4);
 
   if (horaItems.length > 0) {
-    const groups: Record<number, string[]> = {};
     horaItems.forEach(it => {
-      const h = it.horasDiaria || 10;
-      if (!groups[h]) groups[h] = [];
-      groups[h].push(it.equipamento);
+      text += cfg('ModalidadeHora').replace(/\{\{HorasDiaria\}\}/g, String(it.horasDiaria || 10)).replace(/\{\{Equipamento\}\}/g, it.equipamento) + '\n';
     });
-    
-    Object.entries(groups).forEach(([h, equips]) => {
-      const eqText = equips.length > 1 
-        ? 'os equipamentos ' + equips.slice(0, -1).join(', ') + ' e ' + equips[equips.length - 1]
-        : 'o equipamento ' + equips[0];
-      
-      let tpl = cfg('ModalidadeHora');
-      if (tpl) {
-        text += tpl.replace(/\{\{HorasDiaria\}\}/g, String(h)).replace(/\{\{Equipamento\}\}/g, eqText) + '\n';
-      } else {
-        text += `Garantia de faturamento mínimo de ${h} horas diárias para ${eqText}.\n`;
-      }
-    });
+    text += cfg('DescricaoGarantiaHora') + '\n\n';
   }
 
   if (diariaItems.length > 0) {
-    const equips = diariaItems.map(i => i.equipamento);
-    const eqText = equips.length > 1 
-      ? 'os equipamentos ' + equips.slice(0, -1).join(', ') + ' e ' + equips[equips.length - 1]
-      : 'o equipamento ' + equips[0];
-      
-    let tpl = cfg('ModalidadeDiaria');
-    if (tpl) text += tpl.replace(/\{\{Equipamento\}\}/g, eqText) + '\n';
-    else text += `Garantia de faturamento mínimo de 01 diária por chamado para ${eqText}.\n`;
+    diariaItems.forEach(it => {
+      text += cfg('ModalidadeDiaria').replace(/\{\{HorasDiaria\}\}/g, String(it.horasDiaria || 10)).replace(/\{\{Equipamento\}\}/g, it.equipamento) + '\n';
+    });
+    text += cfg('DescricaoGarantiaDiaria') + '\n\n';
+  }
+
+  if (freteItems.length > 0) {
+    text += cfg('DescricaoGarantiaFrete') + '\n\n';
   }
 
   if (fechadoItems.length > 0) {
-    const equips = fechadoItems.map(i => i.equipamento);
-    const eqText = equips.length > 1 
-      ? 'os equipamentos ' + equips.slice(0, -1).join(', ') + ' e ' + equips[equips.length - 1]
-      : 'o equipamento ' + equips[0];
-      
-    let tpl = cfg('ModalidadeFechado');
-    if (tpl) text += tpl.replace(/\{\{Equipamento\}\}/g, eqText) + '\n';
-    else text += `Garantia de faturamento conforme valor fechado para ${eqText}.\n`;
+    fechadoItems.forEach(it => {
+      text += cfg('ModalidadeFechado').replace(/\{\{HorasDiaria\}\}/g, String(it.horasDiaria || 10)).replace(/\{\{Equipamento\}\}/g, it.equipamento) + '\n';
+    });
+    text += cfg('DescricaoGarantiaFechado') + '\n\n';
   }
-
-  // Fallback for empty item
-  if (!text && itens.length > 0) {
-    const it = itens[0];
-    if (it.tipoCobrancaInt === 1) text += `Garantia de faturamento de ${it.horasDiaria || 10} horas diárias para o equipamento .\n`;
-    else if (it.tipoCobrancaInt === 2) text += `Garantia de faturamento mínimo de 01 diária por chamado para o equipamento .\n`;
-    else if (it.tipoCobrancaInt === 4) text += `Garantia de faturamento conforme valor fechado para o equipamento .\n`;
-  }
-
-  if (horaItems.length > 0) text += '\n' + (cfg('DescricaoGarantiaHora') || 'Garantimos os equipamentos contra defeitos de fabricação e montagem. Em caso de quebra, será providenciado o reparo ou substituição do equipamento no menor prazo possível. Horas paradas por quebra de responsabilidade da Contratada não serão faturadas.') + '\n';
-  if (diariaItems.length > 0) text += '\n' + (cfg('DescricaoGarantiaDiaria') || 'Garantimos os equipamentos contra defeitos de fabricação e montagem. Em caso de quebra, será providenciado o reparo ou substituição no menor prazo possível.') + '\n';
-  if (validItems.some(it => it.tipoCobrancaInt === 3)) text += '\n' + (cfg('DescricaoGarantiaFrete') || '') + '\n';
-  if (fechadoItems.length > 0) text += '\n' + (cfg('DescricaoGarantiaFechado') || '') + '\n';
 
   return text.trim();
 }
