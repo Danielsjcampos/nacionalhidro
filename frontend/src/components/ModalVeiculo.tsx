@@ -1,187 +1,262 @@
-/**
- * Modal de Cadastro/Edição de Veículo
- * Campos: Descricao (UPPERCASE), Placa (UPPERCASE), Tipo, Manutencao, VisivelEstograma, Bicos
- * Seção Funcionários: colapsável, pelo menos 1 obrigatório
- */
 import { useState, useEffect } from 'react';
 import api from '../services/api';
-import { X, ChevronDown, ChevronUp, Plus, Loader2 } from 'lucide-react';
+import { X, Loader2, Truck, FileText, Calendar } from 'lucide-react';
+import { useToast } from '../contexts/ToastContext';
 
-const TIPOS_VEICULO = [
-  { value: 'AP', label: 'Alta Pressão (AP)' },
-  { value: 'SAP', label: 'Super Alta Pressão (SAP)' },
-  { value: 'ALTO_VACUO', label: 'Alto Vácuo' },
-  { value: 'COMBINADO', label: 'Combinado' },
-  { value: 'CARRETA', label: 'Carreta' },
-  { value: 'CARRO_APOIO', label: 'Carro/Apoio' },
-];
-
-interface FuncItem { id: string; }
-interface Props { data?: any; onClose: () => void; onSaved: () => void; }
+interface Props {
+  data?: any;
+  onClose: () => void;
+  onSaved: () => void;
+}
 
 export default function ModalVeiculo({ data, onClose, onSaved }: Props) {
   const isEdit = !!data?.id;
-  const [saving, setSaving] = useState(false);
-  const [funcionarios, setFuncionarios] = useState<any[]>([]);
-  const [openFuncs, setOpenFuncs] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const { showToast } = useToast();
 
   const [form, setForm] = useState({
-    descricao: data?.descricao || data?.modelo || '',
     placa: data?.placa || '',
-    tipo: data?.tipo || 'AP',
-    manutencao: data?.status === 'MANUTENCAO' || data?.manutencao || false,
-    visivelEstograma: data?.visivelEstograma ?? (data?.tipo === 'CARRO_APOIO' ? false : true),
+    modelo: data?.modelo || '',
+    marca: data?.marca || '',
+    ano: data?.ano || '',
+    tipo: data?.tipo || 'CAMINHAO',
+    tipoEquipamento: data?.tipoEquipamento || '',
+    kmAtual: data?.kmAtual || 0,
+    nivelCombustivel: data?.nivelCombustivel || 100,
+    crlvVencimento: data?.crlvVencimento ? data.crlvVencimento.substring(0, 10) : '',
+    anttVencimento: data?.anttVencimento ? data.anttVencimento.substring(0, 10) : '',
+    tacografoVencimento: data?.tacografoVencimento ? data.tacografoVencimento.substring(0, 10) : '',
+    seguroVencimento: data?.seguroVencimento ? data.seguroVencimento.substring(0, 10) : '',
+    certificacaoLiquidosVencimento: data?.certificacaoLiquidosVencimento ? data.certificacaoLiquidosVencimento.substring(0, 10) : '',
+    visivelEstograma: data?.visivelEstograma ?? true,
     bicos: data?.bicos || 1,
-    funcs: (data?.funcionariosIds || []).map((id: string) => ({ id })) as FuncItem[],
   });
 
-  useEffect(() => {
-    api.get('/rh').then(r => setFuncionarios(r.data)).catch(() => {});
-    if (!isEdit && form.funcs.length === 0) {
-      setForm(p => ({ ...p, funcs: [{ id: '' }] }));
-    }
-  }, []);
-
-  useEffect(() => {
-    if (form.tipo === 'CARRO_APOIO') setForm(p => ({ ...p, visivelEstograma: false }));
-  }, [form.tipo]);
-
-  const setField = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }));
-
-  const updateFunc = (i: number, id: string) => {
-    const next = [...form.funcs];
-    next[i] = { id };
-    setForm(p => ({ ...p, funcs: next }));
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target as HTMLInputElement;
+    setForm(prev => ({
+      ...prev,
+      [name]: type === 'number' ? Number(value) : value
+    }));
   };
 
-  const removeFunc = (i: number) => setForm(p => ({ ...p, funcs: p.funcs.filter((_, idx) => idx !== i) }));
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.placa.trim() || !form.modelo.trim()) {
+      showToast('Preencha os campos obrigatórios (Placa e Modelo).');
+      return;
+    }
 
-  const canSave =
-    form.descricao.trim() !== '' &&
-    form.placa.trim() !== '' &&
-    form.funcs.length > 0 &&
-    form.funcs.every(f => f.id !== '');
-
-  const handleSave = async () => {
-    if (!canSave) return;
-    setSaving(true);
+    setLoading(true);
     try {
       const payload = {
-        descricao: form.descricao.toUpperCase(),
-        modelo: form.descricao.toUpperCase(),
+        ...form,
         placa: form.placa.toUpperCase(),
-        tipo: form.tipo,
-        manutencao: form.manutencao,
-        visivelEstograma: form.visivelEstograma,
-        bicos: ['AP', 'SAP'].includes(form.tipo) ? Number(form.bicos) : null,
-        funcionariosIds: form.funcs.map(f => f.id),
+        ano: form.ano ? Number(form.ano) : null,
       };
-      if (isEdit) await api.patch(`/logistica/veiculos/${data.id}`, payload);
-      else await api.post('/logistica/veiculos', payload);
+
+      if (isEdit) {
+        await api.patch(`/logistica/veiculos/${data.id}`, payload);
+      } else {
+        await api.post('/logistica/veiculos', payload);
+      }
+      showToast(`Veículo ${isEdit ? 'atualizado' : 'cadastrado'} com sucesso!`);
       onSaved();
       onClose();
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
+      showToast('Erro ao salvar veículo.');
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
-  const showBicos = ['AP', 'SAP'].includes(form.tipo);
-
-  const inputClass = (valid: boolean) =>
-    `w-full border rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition ${valid ? 'border-slate-300' : 'border-red-400'}`;
+  const inputClass = "w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all italic shadow-sm";
+  const labelClass = "block text-[10px] font-black text-slate-400 uppercase italic mb-1 tracking-widest ml-1";
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-slate-100">
-          <h2 className="font-black text-slate-800 text-lg uppercase tracking-tight italic">{isEdit ? 'Editar Veículo' : 'Novo Veículo'}</h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition"><X className="w-5 h-5 text-slate-500" /></button>
-        </div>
-
-        <div className="p-6 space-y-5">
-          {/* Row 1: Descricao + Placa */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Veículo *</label>
-              <input type="text" value={form.descricao} onChange={e => setField('descricao', e.target.value.toUpperCase())} className={inputClass(form.descricao.trim() !== '')} placeholder="Descrição do veículo" />
+    <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-200">
+        <div className="p-6 bg-indigo-600 border-b border-indigo-700 flex justify-between items-center italic">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/20 rounded-xl">
+              <Truck className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Placa *</label>
-              <input type="text" value={form.placa} onChange={e => setField('placa', e.target.value.toUpperCase())} className={inputClass(form.placa.trim() !== '')} placeholder="AAA-0000" />
-            </div>
+            <h2 className="text-sm font-black text-white uppercase tracking-widest">
+              {isEdit ? 'Editar Veículo da Frota' : 'Novo Registro de Veículo'}
+            </h2>
           </div>
-
-          {/* Row 2: Tipo, Manutencao, Bicos, VisivelEstograma */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Tipo</label>
-              <select value={form.tipo} onChange={e => setField('tipo', e.target.value)} className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white focus:ring-2 focus:ring-blue-500">
-                {TIPOS_VEICULO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Manutenção</label>
-              <select value={String(form.manutencao)} onChange={e => setField('manutencao', e.target.value === 'true')} className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white focus:ring-2 focus:ring-blue-500">
-                <option value="false">Não</option>
-                <option value="true">Sim</option>
-              </select>
-            </div>
-            {showBicos && (
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Bicos</label>
-                <select value={form.bicos} onChange={e => setField('bicos', Number(e.target.value))} className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white focus:ring-2 focus:ring-blue-500">
-                  <option value={1}>1</option>
-                  <option value={2}>2</option>
-                </select>
-              </div>
-            )}
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Visível Estograma</label>
-              <button type="button" onClick={() => setField('visivelEstograma', !form.visivelEstograma)} className={`relative inline-flex items-center h-7 w-14 rounded-full transition-colors ${form.visivelEstograma ? 'bg-blue-600' : 'bg-slate-300'}`}>
-                <span className={`inline-block w-5 h-5 bg-white rounded-full shadow transform transition-transform ${form.visivelEstograma ? 'translate-x-8' : 'translate-x-1'}`} />
-              </button>
-            </div>
-          </div>
-
-          {/* Seção Funcionários */}
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
-            <button onClick={() => setOpenFuncs(!openFuncs)} className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition">
-              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Funcionários Responsáveis *</span>
-              {openFuncs ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
-            </button>
-            {openFuncs && (
-              <div className="p-4 space-y-2">
-                {form.funcs.map((f, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <select
-                      value={f.id}
-                      onChange={e => updateFunc(i, e.target.value)}
-                      className={`flex-1 border rounded-xl px-3 py-2 text-sm outline-none bg-white focus:ring-2 focus:ring-blue-500 transition ${f.id ? 'border-slate-300' : 'border-red-400'}`}
-                    >
-                      <option value="">Selecione o funcionário</option>
-                      {funcionarios.map((fn: any) => (
-                        <option key={fn.id} value={fn.id}>{fn.nome} — {fn.cargo}</option>
-                      ))}
-                    </select>
-                    <button onClick={() => removeFunc(i)} className="text-red-400 hover:text-red-600 p-1"><X className="w-4 h-4" /></button>
-                  </div>
-                ))}
-                <button onClick={() => setForm(p => ({ ...p, funcs: [...p.funcs, { id: '' }] }))} className="text-blue-600 text-xs font-semibold hover:underline flex items-center gap-1">
-                  <Plus className="w-3 h-3" /> Adicionar Funcionário
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-100">
-          <button onClick={onClose} className="px-6 py-2.5 rounded-xl border border-slate-300 text-sm font-bold text-slate-600 hover:bg-slate-50 transition">Cancelar</button>
-          <button onClick={handleSave} disabled={!canSave || saving} className="px-6 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 transition">
-            {saving && <Loader2 className="w-4 h-4 animate-spin" />}Salvar
+          <button 
+            type="button" 
+            onClick={onClose} 
+            className="p-2 hover:bg-white/10 rounded-full text-white transition-colors"
+          >
+            <X className="w-5 h-5" />
           </button>
         </div>
+
+        <form onSubmit={handleSave} className="p-8 space-y-8 max-h-[85vh] overflow-y-auto custom-scrollbar bg-slate-50/30">
+          {/* Informações Básicas */}
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1 h-4 bg-indigo-500 rounded-full" />
+              <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest italic">Dados de Identificação</h3>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="col-span-1">
+                <label className={labelClass}>Placa *</label>
+                <input 
+                  name="placa" 
+                  value={form.placa} 
+                  onChange={handleChange} 
+                  className={inputClass} 
+                  placeholder="ABC-1234" 
+                  required 
+                />
+              </div>
+              <div className="col-span-2">
+                <label className={labelClass}>Modelo / Versão *</label>
+                <input 
+                  name="modelo" 
+                  value={form.modelo} 
+                  onChange={handleChange} 
+                  className={inputClass} 
+                  placeholder="Scania P360" 
+                  required 
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Marca</label>
+                <input 
+                  name="marca" 
+                  value={form.marca} 
+                  onChange={handleChange} 
+                  className={inputClass} 
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Ano</label>
+                <input 
+                  type="number" 
+                  name="ano" 
+                  value={form.ano} 
+                  onChange={handleChange} 
+                  className={inputClass} 
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Tipo</label>
+                <select 
+                  name="tipo" 
+                  value={form.tipo} 
+                  onChange={handleChange} 
+                  className={inputClass}
+                >
+                  <option value="CAMINHAO">Caminhão</option>
+                  <option value="UTILITARIO">Utilitário</option>
+                  <option value="CARRO">Carro Comum</option>
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className={labelClass}>Equipamento Acoplado</label>
+                <input 
+                  name="tipoEquipamento" 
+                  value={form.tipoEquipamento} 
+                  onChange={handleChange} 
+                  className={inputClass} 
+                  placeholder="ex: HIDROJATO, CARRETA" 
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Vencimentos e Documentação */}
+          <section className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100">
+            <div className="flex items-center gap-2 mb-4">
+              <FileText className="w-4 h-4 text-indigo-600" />
+              <h3 className="text-[10px] font-black text-indigo-800 uppercase tracking-widest italic">Vencimentos e Compliance</h3>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className={labelClass}>Venc. CRLV</label>
+                <input type="date" name="crlvVencimento" value={form.crlvVencimento} onChange={handleChange} className={inputClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Venc. Seguro</label>
+                <input type="date" name="seguroVencimento" value={form.seguroVencimento} onChange={handleChange} className={inputClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Venc. ANTT</label>
+                <input type="date" name="anttVencimento" value={form.anttVencimento} onChange={handleChange} className={inputClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Venc. Tacógrafo</label>
+                <input type="date" name="tacografoVencimento" value={form.tacografoVencimento} onChange={handleChange} className={inputClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Certif. Líquidos</label>
+                <input type="date" name="certificacaoLiquidosVencimento" value={form.certificacaoLiquidosVencimento} onChange={handleChange} className={inputClass} />
+              </div>
+            </div>
+          </section>
+
+          {/* Operacional */}
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <Calendar className="w-4 h-4 text-slate-400" />
+              <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest italic">Status Operacional</h3>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div>
+                <label className={labelClass}>Hodômetro Atual (Km)</label>
+                <input type="number" name="kmAtual" value={form.kmAtual} onChange={handleChange} className={inputClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Nível do Tanque (%)</label>
+                <input type="number" name="nivelCombustivel" value={form.nivelCombustivel} onChange={handleChange} className={inputClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Nº de Bicos</label>
+                <select name="bicos" value={form.bicos} onChange={handleChange} className={inputClass}>
+                  <option value={1}>1 Bico</option>
+                  <option value={2}>2 Bicos</option>
+                </select>
+              </div>
+              <div className="flex flex-col justify-end pb-2">
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <input 
+                    type="checkbox" 
+                    checked={form.visivelEstograma} 
+                    onChange={e => setForm(p => ({ ...p, visivelEstograma: e.target.checked }))}
+                    className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-indigo-600 transition-colors">Visível no Histograma</span>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-8 py-3.5 rounded-2xl bg-slate-200 text-slate-500 font-black text-[10px] uppercase tracking-widest hover:bg-slate-300 transition-all italic"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-10 py-3.5 rounded-2xl bg-indigo-600 text-white font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-500/20 italic flex items-center gap-2 disabled:opacity-50"
+            >
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                'Salvar Registro'
+              )}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

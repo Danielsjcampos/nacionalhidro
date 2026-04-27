@@ -19,18 +19,19 @@ import ModalEquipamento from '../components/ModalEquipamento';
 import ModalFornecedor from '../components/ModalFornecedor';
 import ModalCentroCusto from '../components/ModalCentroCusto';
 import ModalNaturezaContabil from '../components/ModalNaturezaContabil';
+import ModalAcessorio from '../components/ModalAcessorio';
 
 // ═══════════════════════════════════════════════════════════
 // PAINEL ADMINISTRATIVO — Grid de cards estilo ADM (12 TILES)
 // ═══════════════════════════════════════════════════════════
 
 const adminModules = [
-  { icon: Wrench,        label: 'Acessórios',            tab: 'acessorios' },
+  { icon: Wrench,        label: 'Acessórios',            tab: 'acessorios',    endpoint: '/acessorios',    modal: ModalAcessorio,    columns: [{ key: 'nome', label: 'Nome' }] },
   { icon: Medal,         label: 'Cargos',                tab: 'cargos' },
   { icon: DollarSign,    label: 'Centro Custo',          tab: 'centro_custo',  endpoint: '/centros-custo', modal: ModalCentroCusto, columns: [{ key: 'nome', label: 'Nome' }, { key: 'codigo', label: 'Código' }] },
   { icon: Users,         label: 'Clientes',              tab: 'clientes',      endpoint: '/clientes',      modal: ModalCliente,      columns: [{ key: 'nome', label: 'Razão Social' }, { key: 'documento', label: 'CNPJ/CPF' }] },
   { icon: Home,          label: 'Empresas',              tab: 'empresas',      endpoint: '/empresas',      modal: ModalEmpresa,      columns: [{ key: 'razaoSocial', label: 'Razão Social' }, { key: 'cnpj', label: 'CNPJ' }] },
-  { icon: Wrench,        label: 'Equipamentos',          tab: 'equipamentos',  endpoint: '/equipamentos',  modal: ModalEquipamento,  columns: [{ key: 'nome', label: 'Nome' }, { key: 'codigo', label: 'Código' }] },
+  { icon: Wrench,        label: 'Equipamentos',          tab: 'equipamentos',  endpoint: '/equipamentos',  modal: ModalEquipamento,  columns: [{ key: 'imagem', label: 'Foto' }, { key: 'nome', label: 'Nome' }, { key: 'id', label: 'Código' }] },
   { icon: Package,       label: 'Fornecedores',          tab: 'fornecedores',  endpoint: '/fornecedores',  modal: ModalFornecedor,   columns: [{ key: 'razaoSocial', label: 'Razão Social' }, { key: 'cnpj', label: 'CNPJ' }] },
   { icon: Users,         label: 'Funcionários',          tab: 'funcionarios',  endpoint: '/rh',            modal: ModalFuncionario,  columns: [{ key: 'nome', label: 'Nome' }, { key: 'funcao', label: 'Função' }] },
   { icon: FileText,      label: 'Naturezas Contábeis',   tab: 'plano_contas',  endpoint: '/naturezas',      modal: ModalNaturezaContabil, columns: [{ key: 'descricao', label: 'Nome' }, { key: 'id', label: 'ID' }] },
@@ -102,12 +103,11 @@ const Administracao = () => {
             </button>
           </div>
           <div className="p-8">
-            {activeTab === 'acessorios' && <AcessoriosTab />}
             {activeTab === 'responsabilidades' && <ResponsabilidadesTab />}
             {activeTab === 'cargos' && <CargosTab />}
             
             {/* Renderiza CRUD Genérico para os outros módulos */}
-            {activeModule && !['acessorios', 'responsabilidades', 'cargos'].includes(activeTab) && (
+            {activeModule && !['responsabilidades', 'cargos'].includes(activeTab) && (
               <GenericCRUDTab 
                 endpoint={activeModule.endpoint!} 
                 modal={activeModule.modal!} 
@@ -208,7 +208,17 @@ const GenericCRUDTab = ({ endpoint, modal: ModalComponent, columns, label }: { e
               <tr key={item.id} className="group hover:bg-blue-50/50 transition-colors">
                 {columns.map(col => (
                   <td key={col.key} className="px-8 py-5 font-bold text-slate-700">
-                    {item[col.key] || '-'}
+                    {col.key === 'imagem' ? (
+                      <div className="w-12 h-12 bg-slate-100 rounded-xl overflow-hidden border border-slate-200">
+                        {item[col.key] ? (
+                          <img src={item[col.key]} alt="Thumb" className="w-full h-full object-cover" />
+                        ) : (
+                          <Package className="w-5 h-5 text-slate-300 m-auto mt-3" />
+                        )}
+                      </div>
+                    ) : (
+                      item[col.key] || '-'
+                    )}
                   </td>
                 ))}
                 <td className="px-8 py-5 text-right">
@@ -255,81 +265,6 @@ const GenericCRUDTab = ({ endpoint, modal: ModalComponent, columns, label }: { e
   );
 };
 
-// ═══════════════════════════════════════════════════════════
-// ACESSÓRIOS TAB
-// ═══════════════════════════════════════════════════════════
-const AcessoriosTab = () => {
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { register, handleSubmit, reset } = useForm();
-  const { showToast } = useToast();
-
-  const fetchAcessorios = async () => {
-    try {
-      setLoading(true);
-      const res = await api.get('/acessorios');
-      setItems(res.data);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  };
-
-  useEffect(() => { fetchAcessorios(); }, []);
-
-  const onAcessorioSubmit = async (data: any) => {
-    try { await api.post('/acessorios', data); reset(); fetchAcessorios(); }
-    catch (e) { showToast('Erro ao salvar acessório.'); }
-  };
-
-  const handleDeleteAcessorio = async (id: string) => {
-    if (!window.confirm('Deseja realmente excluir este acessório?')) return;
-    try { await api.delete(`/acessorios/${id}`); fetchAcessorios(); }
-    catch (e) { showToast('Erro ao excluir acessório.'); }
-  };
-
-  if (loading) return <div className="flex justify-center p-20"><Loader2 className="w-10 h-10 animate-spin text-blue-600" /></div>;
-
-  return (
-    <div className="space-y-6">
-      <form onSubmit={handleSubmit(onAcessorioSubmit)} className="flex items-end gap-4 p-8 bg-slate-50 rounded-3xl border border-slate-200">
-        <div className="flex-1">
-          <label className="block text-[10px] font-black text-slate-500 mb-3 uppercase tracking-[0.2em] ml-1">Nome do Acessório</label>
-          <input
-            {...register('nome', { required: true })}
-            className="w-full border-none bg-white rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm font-bold text-slate-700"
-            placeholder="Ex: Mangueira de 30m"
-          />
-        </div>
-        <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 transition-all shadow-lg hover:shadow-blue-500/20 active:scale-95">
-          <Plus className="w-4 h-4" /> Adicionar
-        </button>
-      </form>
-
-      <div className="border border-slate-100 rounded-3xl overflow-hidden shadow-sm bg-white">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-slate-800 text-white font-black text-[10px] uppercase tracking-[0.2em]">
-            <tr>
-              <th className="px-8 py-5">Nome do Acessório</th>
-              <th className="px-8 py-5 text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-50">
-            {items.map(item => (
-              <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-8 py-5 font-bold text-slate-700">{item.nome}</td>
-                <td className="px-8 py-5 text-right">
-                  <button onClick={() => handleDeleteAcessorio(item.id)} className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-5 h-5" /></button>
-                </td>
-              </tr>
-            ))}
-            {items.length === 0 && (
-              <tr><td colSpan={2} className="px-8 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">Nenhum acessório cadastrado.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-};
 
 // ═══════════════════════════════════════════════════════════
 // RESPONSABILIDADES TAB

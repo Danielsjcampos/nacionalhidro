@@ -3,117 +3,7 @@ import { useState, useEffect } from 'react';
 import { Truck, AlertCircle, Plus, Edit, Trash2, X, FileText, History, Wrench, ClipboardCheck, ChevronRight } from 'lucide-react';
 import api from '../services/api';
 
-const VeiculoForm = ({ initialData, onClose, onSave }: { initialData?: any, onClose: () => void, onSave: (data: any) => Promise<void> }) => {
-    const [formData, setFormData] = useState<any>(initialData || {
-        placa: '', modelo: '', marca: '', ano: '', tipo: 'CAMINHAO', tipoEquipamento: '',
-        kmAtual: 0, nivelCombustivel: 100, crlvVencimento: '', anttVencimento: '', tacografoVencimento: '', seguroVencimento: '', certificacaoLiquidosVencimento: ''
-    });
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { showToast } = useToast();
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
-
-    const inputClass = "w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all italic";
-    const labelClass = "block text-[10px] font-black text-slate-400 uppercase italic mb-1 tracking-widest";
-
-    return (
-        <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200">
-                <div className="p-6 bg-indigo-600 border-b border-indigo-700 flex justify-between items-center italic">
-                    <h2 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-widest">
-                        <Truck className="w-5 h-5" />
-                        {initialData ? 'Editar Veículo' : 'Novo Veículo'}
-                    </h2>
-                    <button type="button" onClick={onClose} className="p-2 hover:bg-white/10 rounded-full text-white transition-colors"><X className="w-5 h-5" /></button>
-                </div>
-                
-                <form 
-                    onSubmit={(e) => { e.preventDefault(); onSave(formData); }} 
-                    className="p-8 space-y-8 max-h-[75vh] overflow-y-auto custom-scrollbar bg-slate-50/50"
-                >
-                    <div>
-                        <h3 className="text-[10px] font-black text-indigo-700 uppercase tracking-widest mb-4 border-b border-indigo-100 pb-2 italic">Informações Base</h3>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                            <div className="col-span-1">
-                                <label className={labelClass}>Placa</label>
-                                <input required name="placa" value={formData.placa} onChange={handleChange} className={inputClass} placeholder="ABC-1234" />
-                            </div>
-                            <div className="col-span-2">
-                                <label className={labelClass}>Modelo / Versão</label>
-                                <input required name="modelo" value={formData.modelo} onChange={handleChange} className={inputClass} placeholder="Scania P360" />
-                            </div>
-                            <div>
-                                <label className={labelClass}>Marca</label>
-                                <input name="marca" value={formData.marca || ''} onChange={handleChange} className={inputClass} />
-                            </div>
-                            <div>
-                                <label className={labelClass}>Ano</label>
-                                <input type="number" name="ano" value={formData.ano || ''} onChange={handleChange} className={inputClass} />
-                            </div>
-                            <div>
-                                <label className={labelClass}>Tipo</label>
-                                <select required name="tipo" value={formData.tipo} onChange={handleChange} className={inputClass}>
-                                    <option value="CAMINHAO">Caminhão</option>
-                                    <option value="UTILITARIO">Utilitário</option>
-                                    <option value="CARRO">Carro Comum</option>
-                                </select>
-                            </div>
-                            <div className="col-span-2">
-                                <label className={labelClass}>Equipamento/Função</label>
-                                <input name="tipoEquipamento" value={formData.tipoEquipamento || ''} onChange={handleChange} className={inputClass} placeholder="ex: HIDROJATO, CARRETA" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div>
-                        <h3 className="text-[10px] font-black text-blue-900 uppercase tracking-widest mb-4 border-b border-blue-100 pb-2 flex items-center gap-2 italic">
-                            <FileText className="w-4 h-4" /> Vencimentos Adicionais (Checklist Legal)
-                        </h3>
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                            <div>
-                                <label className={labelClass}>Venc. CRLV</label>
-                                <input type="date" name="crlvVencimento" value={formData.crlvVencimento ? formData.crlvVencimento.substring(0, 10) : ''} onChange={handleChange} className={inputClass} />
-                            </div>
-                            <div>
-                                <label className={labelClass}>Venc. Seguro</label>
-                                <input type="date" name="seguroVencimento" value={formData.seguroVencimento ? formData.seguroVencimento.substring(0, 10) : ''} onChange={handleChange} className={inputClass} />
-                            </div>
-                            <div>
-                                <label className={labelClass}>Venc. ANTT</label>
-                                <input type="date" name="anttVencimento" value={formData.anttVencimento ? formData.anttVencimento.substring(0, 10) : ''} onChange={handleChange} className={inputClass} />
-                            </div>
-                            <div>
-                                <label className={labelClass}>Venc. Tacógrafo</label>
-                                <input type="date" name="tacografoVencimento" value={formData.tacografoVencimento ? formData.tacografoVencimento.substring(0, 10) : ''} onChange={handleChange} className={inputClass} />
-                            </div>
-                            <div>
-                                <label className={labelClass}>Certif. Líquidos</label>
-                                <input type="date" name="certificacaoLiquidosVencimento" value={formData.certificacaoLiquidosVencimento ? formData.certificacaoLiquidosVencimento.substring(0, 10) : ''} onChange={handleChange} className={inputClass} />
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-6">
-                        <div>
-                            <label className={labelClass}>Hodômetro (Km)</label>
-                            <input type="number" name="kmAtual" value={formData.kmAtual} onChange={handleChange} className={inputClass} />
-                        </div>
-                        <div>
-                            <label className={labelClass}>Tanque (%)</label>
-                            <input type="number" name="nivelCombustivel" value={formData.nivelCombustivel} onChange={handleChange} className={inputClass} />
-                        </div>
-                    </div>
-
-                    <div className="flex justify-end gap-3 pt-6 border-t border-slate-200">
-                        <button type="button" onClick={onClose} className="px-8 py-3 rounded-2xl bg-slate-200 text-slate-500 font-black text-[10px] uppercase tracking-widest hover:bg-slate-300 transition-all italic">Cancelar</button>
-                        <button type="submit" className="px-8 py-3 rounded-2xl bg-indigo-600 text-white font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 italic">Salvar Registro</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-};
+import ModalVeiculo from '../components/ModalVeiculo';
 
 const VeiculoTimeline = ({ veiculoId, onClose }: { veiculoId: string, onClose: () => void }) => {
     const [data, setData] = useState<any>(null);
@@ -393,7 +283,7 @@ export default function FrotaVeiculos() {
                     </tbody>
                 </table>
             </div>
-            {showForm && <VeiculoForm initialData={editingItem} onClose={() => setShowForm(false)} onSave={handleSave} />}
+            {showForm && <ModalVeiculo data={editingItem} onClose={() => setShowForm(false)} onSaved={() => { fetchVeiculos(); setShowForm(false); }} />}
             {viewingTimeline && <VeiculoTimeline veiculoId={viewingTimeline} onClose={() => setViewingTimeline(null)} />}
         </div>
     );
