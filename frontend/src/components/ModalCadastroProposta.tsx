@@ -158,7 +158,7 @@ function gerarDescricaoGarantia(itens: PropostaItem[], configuracoes: any[]): st
       if (tpl) {
         text += tpl.replace(/\{\{HorasDiaria\}\}/g, String(h)).replace(/\{\{Equipamento\}\}/g, eqText) + '\n';
       } else {
-        text += `Garantia de faturamento de ${h} horas diárias para ${eqText}.\n`;
+        text += `Garantia de faturamento mínimo de ${h} horas diárias para ${eqText}.\n`;
       }
     });
   }
@@ -193,8 +193,8 @@ function gerarDescricaoGarantia(itens: PropostaItem[], configuracoes: any[]): st
     else if (it.tipoCobrancaInt === 4) text += `Garantia de faturamento conforme valor fechado para o equipamento .\n`;
   }
 
-  if (horaItems.length > 0) text += '\n' + (cfg('DescricaoGarantiaHora') || '') + '\n';
-  if (diariaItems.length > 0) text += '\n' + (cfg('DescricaoGarantiaDiaria') || '') + '\n';
+  if (horaItems.length > 0) text += '\n' + (cfg('DescricaoGarantiaHora') || 'Garantimos os equipamentos contra defeitos de fabricação e montagem. Em caso de quebra, será providenciado o reparo ou substituição do equipamento no menor prazo possível. Horas paradas por quebra de responsabilidade da Contratada não serão faturadas.') + '\n';
+  if (diariaItems.length > 0) text += '\n' + (cfg('DescricaoGarantiaDiaria') || 'Garantimos os equipamentos contra defeitos de fabricação e montagem. Em caso de quebra, será providenciado o reparo ou substituição no menor prazo possível.') + '\n';
   if (validItems.some(it => it.tipoCobrancaInt === 3)) text += '\n' + (cfg('DescricaoGarantiaFrete') || '') + '\n';
   if (fechadoItems.length > 0) text += '\n' + (cfg('DescricaoGarantiaFechado') || '') + '\n';
 
@@ -341,6 +341,17 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
   const [isAddingContact, setIsAddingContact] = useState(false);
   const [newContact, setNewContact] = useState({ nome: '', email: '', telefone: '' });
   const [creatingContact, setCreatingContact] = useState(false);
+  
+  // Quick cargo state
+  const [isAddingCargo, setIsAddingCargo] = useState(false);
+  const [newCargoName, setNewCargoName] = useState('');
+  const [creatingCargo, setCreatingCargo] = useState(false);
+  const [internalCargos, setInternalCargos] = useState(options.cargos || []);
+  
+  useEffect(() => {
+    setInternalCargos(options.cargos || []);
+  }, [options.cargos]);
+  
 
   // ── Item helpers ──
   const recalcItem = (item: PropostaItem): PropostaItem => {
@@ -381,20 +392,28 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
     });
 
     // ── Auto-fill responsabilidades from junction table (EquipamentoResponsabilidade) ──
-    const eqResps: PropostaResponsabilidade[] = (eq.responsabilidadesPadrao || eq.responsabilidades || []).map((r: any) => ({
-      _uid: uid(), id: r.id || '0',
-      descricao: r.descricao || r.Responsabilidade?.Responsabilidade || r.responsabilidade || '',
-      responsavel: r.tipo === 'CONTRATANTE' ? 2 : r.tipo === 'CONTRATADA' ? 1 : (r.responsavel ?? null),
-      importante: r.importante || false,
-    }));
+    const eqResps: PropostaResponsabilidade[] = (eq.responsabilidadesPadrao?.length > 0 ? eq.responsabilidadesPadrao : eq.responsabilidades || []).map((r: any) => {
+      const isContratante = r.tipo === 'CONTRATANTE' || r.responsavel === 'CONTRATANTE' || r.responsavel === 2;
+      const isContratada = r.tipo === 'CONTRATADA' || r.responsavel === 'CONTRATADA' || r.responsavel === 1;
+      
+      return {
+        _uid: uid(), id: r.id || '0',
+        descricao: r.descricao || r.Responsabilidade?.Responsabilidade || r.responsabilidade || '',
+        responsavel: isContratante ? 2 : isContratada ? 1 : null,
+        importante: r.importante || false,
+      };
+    });
 
     setForm(p => ({
       ...p,
-      acessorios: [...p.acessorios.filter(a => a.id === '0'), ...eqAcs],
+      acessorios: [...p.acessorios.filter(a => a.id === '0' || a.nome), ...eqAcs],
       responsabilidades: [
-        ...p.responsabilidades.filter(r => r.responsavel !== null),
+        ...p.responsabilidades.filter(r => r.responsavel !== null && r.descricao),
         ...eqResps.filter(nr => !p.responsabilidades.some(er => er.descricao === nr.descricao)),
-      ],
+      ].length ? [
+        ...p.responsabilidades.filter(r => r.responsavel !== null && r.descricao),
+        ...eqResps.filter(nr => !p.responsabilidades.some(er => er.descricao === nr.descricao)),
+      ] : [{ _uid: uid(), id: '0', descricao: '', responsavel: null, importante: false }],
     }));
   };
 
@@ -752,9 +771,9 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
                       {form.equipes.map((e, i) => (
                         <tr key={e._uid} className="border-b border-slate-100">
                           <td className="px-1 py-1">
-                            <select value={e.cargoId} onChange={ev => { const c = options.cargos.find((c: any) => c.id === ev.target.value); setForm(p => ({ ...p, equipes: p.equipes.map((eq, j) => j === i ? { ...eq, cargoId: ev.target.value, cargo: c || null } : eq) })); }} className={cel}>
+                            <select value={e.cargoId} onChange={ev => { const c = internalCargos.find((c: any) => c.id === ev.target.value); setForm(p => ({ ...p, equipes: p.equipes.map((eq, j) => j === i ? { ...eq, cargoId: ev.target.value, cargo: c || null } : eq) })); }} className={cel}>
                               <option value="">Selecione o cargo...</option>
-                              {options.cargos.map((c: any) => <option key={c.id} value={c.id}>{c.nome || c.descricao}</option>)}
+                              {internalCargos.map((c: any) => <option key={c.id} value={c.id}>{c.nome || c.descricao}</option>)}
                             </select>
                           </td>
                           <td className="px-1 py-1">
@@ -873,6 +892,58 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
             </button>
           </div>
         </div>
+
+        
+        {/* Quick Cargo Modal */}
+        {isAddingCargo && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
+              <h3 className="text-lg font-black text-slate-800 uppercase mb-4 border-b pb-2">Novo Cargo Rápido</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block">Nome do Cargo <span className="text-red-500">*</span></label>
+                  <input 
+                    value={newCargoName}
+                    onChange={e => setNewCargoName(e.target.value)}
+                    className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-sm focus:border-blue-500 outline-none"
+                    placeholder="Ex: Líder de Equipe"
+                    autoFocus
+                  />
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button 
+                    onClick={() => { setIsAddingCargo(false); setNewCargoName(''); }}
+                    className="flex-1 py-2 text-xs font-black uppercase text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    disabled={creatingCargo || !newCargoName.trim()}
+                    onClick={async () => {
+                      setCreatingCargo(true);
+                      try {
+                        const res = await api.post(`/cargos`, { nome: newCargoName, descricao: newCargoName });
+                        const savedCargo = res.data;
+                        setInternalCargos(prev => [...prev, savedCargo]);
+                        // Atribuir o cargo à equipe (o ideal seria achar qual index chamou, mas aqui podemos deixar o usuário selecionar novamente)
+                        setIsAddingCargo(false);
+                        setNewCargoName('');
+                      } catch (err) {
+                        alert('Erro ao salvar cargo');
+                      } finally {
+                        setCreatingCargo(false);
+                      }
+                    }}
+                    className="flex-1 py-2 text-xs font-black uppercase bg-blue-600 text-white hover:bg-blue-700 rounded-lg shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2"
+                  >
+                    {creatingCargo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    Salvar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Quick Contact Modal */}
         {isAddingContact && (
