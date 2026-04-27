@@ -478,6 +478,7 @@ model Funcionario {
   nome                           String
   cargoId                        String?
   cargoRef                       Cargo?                 @relation(fields: [cargoId], references: [id])
+  cargo                          String?                // Denormalized field for legacy support
   departamento                   String
   salario                        Decimal                @db.Decimal(10, 2)
   dataAdmissao                   DateTime
@@ -1761,6 +1762,7 @@ model Admissao {
   id                          String       @id @default(uuid())
   cargoId                     String?
   cargoRef                    Cargo?       @relation(fields: [cargoId], references: [id])
+  cargo                       String?      // Denormalized field for legacy support
   observacoes                 String?
   createdAt                   DateTime     @default(now())
   updatedAt                   DateTime     @updatedAt
