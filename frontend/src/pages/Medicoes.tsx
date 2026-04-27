@@ -272,13 +272,10 @@ export default function Medicoes() {
         setEditMedicaoId(m.id);
     };
 
-    const downloadPdf = async (m: any) => {
-        try {
-            const pdfRes = await api.post(`/medicoes/${m.id}/pdf`, {}, { responseType: 'blob' });
-            const url = URL.createObjectURL(new Blob([pdfRes.data], { type: 'application/pdf' }));
-            const a = document.createElement('a'); a.href = url; a.download = `Medicao_${m.codigo}.pdf`; a.click();
-            URL.revokeObjectURL(url);
-        } catch { showToast('Erro ao gerar PDF'); }
+    const handleVerPDF = (m: any) => {
+        const token = localStorage.getItem('accessToken');
+        const url = `${api.defaults.baseURL}/medicoes/${m.id}/pdf?token=${token}`;
+        window.open(url, '_blank');
     };
 
     const handleMedicaoAction = async (id: string, next: string, extra: any = {}) => {
@@ -580,7 +577,7 @@ export default function Medicoes() {
                                                     <button title="Precificar" className="hover:text-orange-600 transition-colors"><Calculator className="w-3.5 h-3.5" /></button>
                                                 )}
                                                 {activeTab === 'medicao' && (<>
-                                                    <button title="Visualizar PDF" className="hover:text-slate-900 transition-colors" onClick={e => { e.stopPropagation(); downloadPdf(item); }}>
+                                                    <button title="Visualizar PDF" className="hover:text-slate-900 transition-colors" onClick={e => { e.stopPropagation(); handleVerPDF(item); }}>
                                                         <Eye className="w-4 h-4" />
                                                     </button>
                                                     {(item.status === 'EM_ABERTO' || item.status === 'EM_CONFERENCIA') && (

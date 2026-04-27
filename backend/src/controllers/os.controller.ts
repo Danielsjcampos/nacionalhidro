@@ -503,7 +503,7 @@ export const downloadPdfOS = async (req: AuthRequest, res: Response) => {
     const pdfBuffer = await gerarPdfOrdemServico(os, os.cliente, os.servicos);
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=OS_${os.codigo}.pdf`);
+    res.setHeader('Content-Disposition', `inline; filename=OS_${os.codigo}.pdf`);
     res.send(pdfBuffer);
   } catch (error: any) {
     console.error('Download OS PDF error:', error);
@@ -536,7 +536,7 @@ export const printLoteOSPdf = async (req: AuthRequest, res: Response) => {
     const pdfBuffer = await gerarPdfLoteOrdemServico(ordens);
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=OS_Lote_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `inline; filename=OS_Lote_${Date.now()}.pdf`);
     res.send(pdfBuffer);
   } catch (error: any) {
     console.error('Lote OS PDF error:', error);

@@ -4,7 +4,7 @@ import api from '../services/api';
 import {
   Plus, Loader2, ChevronRight, X, Clock, Copy, Printer,
   CheckCircle2, AlertCircle, PlayCircle, FolderOpen, ChevronLeft, ChevronDown,
-  Package, Users, ArrowDownToLine, RotateCcw
+  Package, Users, ArrowDownToLine, RotateCcw, Eye
 } from 'lucide-react';
 import { ImprimirOS } from '../components/ImprimirOS';
 import ModalBaixaLoteOS, { BaixaLoteData } from '../components/ModalBaixaLoteOS';
@@ -241,6 +241,12 @@ export default function OS() {
     }
   };
 
+  const handleVerPDF = (os: any) => {
+    const token = localStorage.getItem('accessToken');
+    const url = `${api.defaults.baseURL}/os/${os.id}/pdf?token=${token}`;
+    window.open(url, '_blank');
+  };
+
   const handleReverterCancelamento = async (id: string) => {
     const justificativa = window.prompt('Justificativa para reverter o cancelamento:');
     if (!justificativa || justificativa.trim().length < 3) {
@@ -265,18 +271,9 @@ export default function OS() {
     if (selectedIds.length === 0) return;
     try {
       setPrintingLote(true);
-      const res = await api.get(`/os/exportar/lote-pdf`, {
-        params: { ids: selectedIds.join(',') },
-        responseType: 'blob'
-      });
-      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Lote_OS_${new Date().getTime()}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      const token = localStorage.getItem('accessToken');
+      const url = `${api.defaults.baseURL}/os/exportar/lote-pdf?ids=${selectedIds.join(',')}&token=${token}`;
+      window.open(url, '_blank');
       setSelectedIds([]); // clear selection after print
     } catch (err) {
       console.error('Erro ao imprimir lote', err);
@@ -828,6 +825,13 @@ export default function OS() {
                             className="p-1.5 rounded border border-slate-200 hover:bg-blue-50 hover:border-blue-300"
                           >
                             <ChevronRight className="w-3.5 h-3.5 text-blue-500" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleVerPDF(os); }}
+                            title="Visualizar PDF"
+                            className="p-1.5 rounded border border-slate-200 hover:bg-slate-50 hover:border-slate-300"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-slate-600" />
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); setPrintOs(os); }}

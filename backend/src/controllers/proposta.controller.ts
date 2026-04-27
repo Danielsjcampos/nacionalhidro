@@ -861,7 +861,7 @@ export const gerarPDFPropostaWeb = async (req: AuthRequest, res: Response) => {
 
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="Proposta_${proposta.codigo}.pdf"`,
+      'Content-Disposition': `inline; filename="Proposta_${proposta.codigo}.pdf"`,
       'Content-Length': pdfBuffer.length
     });
 

@@ -183,8 +183,9 @@ export default function Propostas() {
     finally { setLoading(false); }
   };
 
-  const handleVerPDF = async (prop: any) => {
-    setViewingPdf(prop);
+  const handleVerPDF = (prop: any) => {
+    const url = `${api.defaults.baseURL}/propostas/${prop.id}/gerar-pdf?token=${localStorage.getItem('accessToken')}`;
+    window.open(url, '_blank');
   };
 
   const isVencida = (p: any) => p.dataValidade && moment(p.dataValidade).isBefore(moment(),'day');
