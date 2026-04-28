@@ -192,6 +192,15 @@ export default function OS() {
       if (funcs[index]) {
         const item = typeof funcs[index] === 'object' ? { ...funcs[index] } : { nome: funcs[index], statusOperacional: 'NORMAL', ausente: false };
         (item as any)[field] = value;
+        
+        // Automation: If selecting name, find status
+        if (field === 'nome') {
+          const ta = (disponibilidades || []).find(d => d.nome === value);
+          if (ta) {
+            item.statusOperacional = ta.status === 'DISPONIVEL' ? 'NORMAL' : ta.status;
+          }
+        }
+        
         funcs[index] = item;
       }
       return { ...prev, escala: funcs };
@@ -299,8 +308,13 @@ export default function OS() {
   };
 
   const handleQuadroFuncConfirm = (selected: any[]) => {
-    const funcIds = selected.map((f: any) => f.id);
-    setForm((prev: any) => ({ ...prev, escala: funcIds }));
+    const funcs = selected.map((f: any) => ({
+      id: f.id,
+      nome: f.nome,
+      statusOperacional: f.status === 'DISPONIVEL' ? 'NORMAL' : (f.status || 'NORMAL'),
+      ausente: false
+    }));
+    setForm((prev: any) => ({ ...prev, escala: funcs }));
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -540,6 +554,7 @@ export default function OS() {
         tipoCobranca: firstItem.tipoCobranca || prop.tipoCobranca || 'Fechada',
         minimoHoras: firstItem.horasPorDia || prop.franquiaHoras || 0,
         quantidadeDia: firstItem.quantidade ? String(firstItem.quantidade) : '',
+        diasSemana: prop.diasSemana ? (typeof prop.diasSemana === 'string' ? prop.diasSemana.split(',') : prop.diasSemana) : [],
       }));
       // Load client contacts
       if (prop.clienteId) {
@@ -547,6 +562,14 @@ export default function OS() {
           const c = res.data;
           const contatos = c.contatosList || (Array.isArray(c.contatos) ? c.contatos : []);
           setClienteContatos(contatos);
+          
+          // Se o contato da proposta for um ID, vamos buscar o nome
+          if (prop.contato) {
+              const matched = contatos.find((ct: any) => ct.id === prop.contato || ct.nome === prop.contato);
+              if (matched) {
+                  setForm((f: any) => ({ ...f, contato: matched.nome }));
+              }
+          }
         }).catch(() => setClienteContatos([]));
       }
       // FIX 5: Populate equipe sugerida
@@ -1457,7 +1480,12 @@ export default function OS() {
                                     value={v.veiculoId || ''}
                                     onChange={e => setForm((f: any) => {
                                       const arr = [...(f.veiculosEscala || [])];
-                                      arr[idx] = { ...arr[idx], veiculoId: e.target.value };
+                                      const selectedV = veiculos.find(vv => vv.id === e.target.value);
+                                      arr[idx] = { 
+                                        ...arr[idx], 
+                                        veiculoId: e.target.value,
+                                        manutencao: selectedV?.status === 'MANUTENCAO' || selectedV?.emManutencao === true
+                                      };
                                       return { ...f, veiculosEscala: arr };
                                     })}
                                     className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400"
@@ -1478,7 +1506,7 @@ export default function OS() {
                                       arr[idx] = { ...arr[idx], manutencao: e.target.value === 'true' };
                                       return { ...f, veiculosEscala: arr };
                                     })}
-                                    className={`w-full border rounded px-2 py-2 text-xs outline-none focus:border-blue-400 ${v.manutencao ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-slate-300'}`}
+                                    className={`w-full border rounded px-2 py-2 text-xs outline-none focus:border-blue-400 font-bold ${v.manutencao ? 'border-red-400 bg-red-50 text-red-700' : 'border-emerald-300 bg-emerald-50 text-emerald-700'}`}
                                   >
                                     <option value="false">Não</option>
                                     <option value="true">Sim</option>
