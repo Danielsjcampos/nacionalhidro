@@ -25,14 +25,7 @@ const TIPOS_COBRANCA = ['Hora', 'Diária', 'Frete', 'Fechada'];
 
 const DIAS_SEMANA_OPTIONS = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo'];
 
-type OsTab = 'abrir' | 'em_aberto' | 'executadas' | 'canceladas';
-
-const STATUS_MAP: Record<OsTab, string[]> = {
-  abrir: [],
-  em_aberto: ['ABERTA', 'EM_EXECUCAO'],
-  executadas: ['CONCLUIDA', 'FINALIZADA'],
-  canceladas: ['CANCELADA'],
-};
+type OsTab = 'abrir' | 'em_aberto' | 'em_execucao' | 'executadas' | 'canceladas';
 
 function calcHorasTotais(entrada: string, saida: string, almoco: string, descontarAlmoco: boolean, minimoHorasStr: string): { total: string, adicional: string, diffRaw: number, adicRaw: number } {
   if (!entrada || !saida) return { total: '---', adicional: '---', diffRaw: 0, adicRaw: 0 };
@@ -367,11 +360,33 @@ export default function OS() {
   // ── Filtered lists ──────────────────────────────────────────────
   // Proposals marked as accepted/approved (used for highlighting in the list)
 
+  const OS_STATUS_GROUPS = {
+    ABERTA: ['ABERTA'],
+    EM_EXECUCAO: ['EM_EXECUCAO', 'EM_ANDAMENTO'],
+    CONCLUIDA: ['CONCLUIDA', 'BAIXADA', 'FINALIZADA'],
+    CANCELADA: ['CANCELADA'],
+  };
+
   const osFiltered = useMemo(() => {
-    const statuses = STATUS_MAP[activeTab];
-    if (!statuses || !statuses.length) return [];
+    if (activeTab === 'abrir') return [];
+    
+    let statuses: string[] = [];
+    if (activeTab === 'em_aberto') statuses = OS_STATUS_GROUPS.ABERTA;
+    else if (activeTab === 'em_execucao') statuses = OS_STATUS_GROUPS.EM_EXECUCAO;
+    else if (activeTab === 'executadas') statuses = OS_STATUS_GROUPS.CONCLUIDA;
+    else if (activeTab === 'canceladas') statuses = OS_STATUS_GROUPS.CANCELADA;
+
     return (osList || []).filter(o => statuses.includes(o.status));
   }, [osList, activeTab]);
+
+  // Helper to check if a proposal + equipment already has an active OS
+  const getExistingOS = (propostaId: string, equipamento: string) => {
+    return osList.find(o => 
+      o.propostaId === propostaId && 
+      o.servicos?.some((s: any) => s.equipamento === equipamento) &&
+      !['CANCELADA', 'FINALIZADA', 'CONCLUIDA', 'BAIXADA'].includes(o.status)
+    );
+  };
 
   const propostasFiltroData = useMemo(() => {
     let list = propostas || [];
@@ -587,7 +602,18 @@ export default function OS() {
       let status = 'ABERTA';
       if (action === 'BAIXAR') status = 'CONCLUIDA';
       if (action === 'BAIXAR_ESTOQUE') status = 'BAIXADA';
-      if (action === 'SALVAR' && selectedOS) status = selectedOS.status; // Keep existing status if just editing
+      if (action === 'SALVAR' && selectedOS) status = selectedOS.status;
+
+      // Verificação de duplicidade ao abrir
+      if (action === 'ABRIR' && form.propostaId && form.servicos?.[0]?.equipamento) {
+        const existing = getExistingOS(form.propostaId, form.servicos[0].equipamento);
+        if (existing) {
+          if (!window.confirm(`⚠️ Já existe uma OS (${existing.codigo}) aberta para este equipamento nesta proposta. Deseja criar outra mesmo assim?`)) {
+            setSaving(false);
+            return;
+          }
+        }
+      }
       
       const payload: any = { 
         ...form, 
@@ -652,10 +678,11 @@ export default function OS() {
 
   // ── Tab config ──────────────────────────────────────────────────
   const tabs: { id: OsTab; label: string; color: string; dotColor: string; count: number }[] = [
-    { id: 'abrir', label: 'Abrir', color: 'text-blue-600', dotColor: 'bg-blue-500', count: (propostas || []).length },
-    { id: 'em_aberto', label: 'Em Aberto', color: 'text-blue-500', dotColor: 'bg-blue-400', count: (osFiltered || []).length },
-    { id: 'executadas', label: 'Executadas', color: 'text-emerald-600', dotColor: 'bg-emerald-500', count: (osList || []).filter(o => ['CONCLUIDA', 'FINALIZADA'].includes(o.status)).length },
-    { id: 'canceladas', label: 'Canceladas', color: 'text-slate-500', dotColor: 'bg-slate-800', count: (osList || []).filter(o => o.status === 'CANCELADA').length },
+    { id: 'abrir', label: 'Abrir', color: 'text-blue-600', dotColor: 'bg-blue-500', count: propostasFiltroData.length },
+    { id: 'em_aberto', label: 'Abertas', color: 'text-blue-500', dotColor: 'bg-blue-400', count: (osList || []).filter(o => OS_STATUS_GROUPS.ABERTA.includes(o.status)).length },
+    { id: 'em_execucao', label: 'Em Execução', color: 'text-amber-500', dotColor: 'bg-amber-400', count: (osList || []).filter(o => OS_STATUS_GROUPS.EM_EXECUCAO.includes(o.status)).length },
+    { id: 'executadas', label: 'Executadas', color: 'text-emerald-600', dotColor: 'bg-emerald-500', count: (osList || []).filter(o => OS_STATUS_GROUPS.CONCLUIDA.includes(o.status)).length },
+    { id: 'canceladas', label: 'Canceladas', color: 'text-slate-500', dotColor: 'bg-slate-800', count: (osList || []).filter(o => OS_STATUS_GROUPS.CANCELADA.includes(o.status)).length },
   ];
 
   if (loading) return (
@@ -767,47 +794,57 @@ export default function OS() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {activeTab === 'abrir' ? (
-                  paginated.map((prop: any) => (
-                    <tr key={prop.id} className="hover:bg-blue-50/40 transition-colors group">
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() => openNewModal(prop)}
-                          title="Abrir OS a partir desta proposta"
-                          className="p-1.5 rounded-lg border border-slate-200 hover:border-blue-400 hover:bg-blue-50 transition-colors group-hover:border-blue-300"
-                        >
-                          <FolderOpen className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
-                        </button>
-                      </td>
-                      <td className="px-4 py-3 font-bold text-slate-800">{prop.codigo}</td>
-                      <td className="px-4 py-3 text-slate-500 text-xs">
-                        {prop.revisao ?? <span className="text-slate-400 italic">Não revisado</span>}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600 text-xs max-w-[180px] truncate">
-                        {prop.empresa || prop.cnpjFaturamento || '—'}
-                      </td>
-                      <td className="px-4 py-3 font-medium text-slate-800 max-w-[180px] truncate">
-                        {prop.cliente?.nome || '—'}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600 text-xs">
-                        {prop.responsavel || prop.vendedor || '—'}
-                      </td>
-                      <td className="px-4 py-3 text-slate-500 text-xs">
-                        {prop.createdAt ? new Date(prop.createdAt).toLocaleDateString('pt-BR') : '—'}
-                      </td>
-                      <td className="px-4 py-3 text-slate-500 text-xs">
-                        {prop.dataValidade ? new Date(prop.dataValidade).toLocaleDateString('pt-BR') : '—'}
-                      </td>
-                      <td className="px-4 py-3 text-xs">
-                        {prop.dataAprovacao ? (
-                          <span className="text-emerald-700 font-bold">{new Date(prop.dataAprovacao).toLocaleDateString('pt-BR')}</span>
-                        ) : prop.status === 'ACEITA' ? (
-                          <span className="text-emerald-700 font-bold">{prop.updatedAt ? new Date(prop.updatedAt).toLocaleDateString('pt-BR') : '—'}</span>
-                        ) : (
-                          <span className="text-slate-400">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
+                  paginated.map((prop: any) => {
+                    // Check if ANY equipment from this proposal already has an active OS
+                    const hasOpenOS = prop.itens?.some((i: any) => getExistingOS(prop.id, i.equipamento));
+                    
+                    return (
+                      <tr key={prop.id} className={`hover:bg-blue-50/40 transition-colors group ${hasOpenOS ? 'opacity-70 bg-slate-50' : ''}`}>
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            onClick={() => openNewModal(prop)}
+                            title={hasOpenOS ? "Já existe OS aberta para esta proposta" : "Abrir OS a partir desta proposta"}
+                            className={`p-1.5 rounded-lg border transition-colors ${hasOpenOS 
+                              ? 'border-amber-200 bg-amber-50 text-amber-600' 
+                              : 'border-slate-200 hover:border-blue-400 hover:bg-blue-50 group-hover:border-blue-300'}`}
+                          >
+                            {hasOpenOS ? <AlertCircle className="w-4 h-4" /> : <FolderOpen className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 font-bold text-slate-800">
+                          {prop.codigo}
+                          {hasOpenOS && <span className="ml-2 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-black">JÁ ABERTA</span>}
+                        </td>
+                        <td className="px-4 py-3 text-slate-500 text-xs">
+                          {prop.revisao ?? <span className="text-slate-400 italic">Não revisado</span>}
+                        </td>
+                        <td className="px-4 py-3 text-slate-600 text-xs max-w-[180px] truncate">
+                          {prop.empresa || prop.cnpjFaturamento || '—'}
+                        </td>
+                        <td className="px-4 py-3 font-medium text-slate-800 max-w-[180px] truncate">
+                          {prop.cliente?.nome || '—'}
+                        </td>
+                        <td className="px-4 py-3 text-slate-600 text-xs">
+                          {prop.responsavel || prop.vendedor || '—'}
+                        </td>
+                        <td className="px-4 py-3 text-slate-500 text-xs">
+                          {prop.createdAt ? new Date(prop.createdAt).toLocaleDateString('pt-BR') : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-slate-500 text-xs">
+                          {prop.dataValidade ? new Date(prop.dataValidade).toLocaleDateString('pt-BR') : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-xs">
+                          {prop.dataAprovacao ? (
+                            <span className="text-emerald-700 font-bold">{new Date(prop.dataAprovacao).toLocaleDateString('pt-BR')}</span>
+                          ) : prop.status === 'ACEITA' ? (
+                            <span className="text-emerald-700 font-bold">{prop.updatedAt ? new Date(prop.updatedAt).toLocaleDateString('pt-BR') : '—'}</span>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   paginated.map((os: any) => (
                     <tr key={os.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => openEditModal(os)}>
