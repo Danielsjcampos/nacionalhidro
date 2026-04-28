@@ -8,7 +8,7 @@ import {
     FileText, Plus, Search, Loader2, X, CheckCircle2, Clock,
     DollarSign, Send, Ban, List, Columns, Printer, Pencil,
     ChevronRight, Mail, RefreshCw, AlertTriangle, Eye, ThumbsUp, ThumbsDown,
-    Calculator, Save, Zap, Trash2, Package, ArrowLeftCircle, History, Snowflake
+    Calculator, Save, Zap, Trash2, Package, ArrowLeftCircle, History, Snowflake, XCircle
 } from 'lucide-react';
 
 // ─── HELPERS ────────────────────────────────────────────────────
@@ -124,6 +124,8 @@ export default function Medicoes() {
     // ─── SETTINGS ───
     const [activeTab, setActiveTab] = useState<ActiveTab>('precificacao');
     const [loading, setLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
 
     // ─── DATA ───
     const [osPricing, setOsPricing] = useState<any[]>([]);
@@ -160,7 +162,11 @@ export default function Medicoes() {
             const params = { search, dataInicio, dataFim };
 
             const resPricing = await api.get('/precificacao', { params });
-            setOsPricing(resPricing.data.kanban.EM_ABERTO || []);
+            setOsPricing([
+                ...(resPricing.data.kanban.EM_ABERTO || []),
+                ...(resPricing.data.kanban.PRECIFICADAS || []),
+                ...(resPricing.data.kanban.EM_NEGOCIACAO || [])
+            ]);
 
             const resMed = await api.get('/medicoes', { params });
             setMedicoesList(resMed.data.list || []);
@@ -328,7 +334,9 @@ export default function Medicoes() {
         return items;
     };
 
-    const list = getFilteredList();
+    const fullList = getFilteredList();
+    const totalPages = Math.max(1, Math.ceil(fullList.length / itemsPerPage));
+    const list = fullList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     // Status filter options based on tab
     const getStatusOptions = () => {
@@ -371,7 +379,7 @@ export default function Medicoes() {
                     ].map((step, idx, arr) => (
                         <React.Fragment key={step.id}>
                             <button 
-                                onClick={() => setActiveTab(step.id as any)}
+                                onClick={() => { setActiveTab(step.id as any); setCurrentPage(1); }}
                                 className="flex flex-col items-center group transition-all duration-300"
                             >
                                 <div className={`w-3.5 h-3.5 rounded-full ${activeTab === step.id ? step.color : 'bg-white/20'} mb-3 shadow-lg group-hover:scale-125 transition-transform`} />
@@ -526,35 +534,37 @@ export default function Medicoes() {
                                         <Td className="sticky left-0 bg-white z-10 border-r border-slate-100">
                                             <div className="flex gap-2 text-slate-400 group-hover:text-slate-600 transition-colors">
                                                 {activeTab === 'precificacao' && (<>
-                                                    <button title="Precificar" className="hover:text-orange-600 transition-colors"><Calculator className="w-3.5 h-3.5" /></button>
+                                                    <button title="Precificar" className="hover:text-orange-600 transition-colors" onClick={e => { e.stopPropagation(); openPricing(item); }}>
+                                                        <Calculator className="w-4 h-4" />
+                                                    </button>
                                                     <button 
                                                         title="Voltar para Logística" 
                                                         className="hover:text-red-600 transition-colors"
                                                         onClick={e => { e.stopPropagation(); handleCorrigirOS(item.id); }}
                                                     >
-                                                        <ArrowLeftCircle className="w-3.5 h-3.5" />
+                                                        <ArrowLeftCircle className="w-4 h-4" />
                                                     </button>
                                                 </>)}
                                                 {activeTab === 'medicao' && (<>
-                                                    <button title="Visualizar PDF" className="hover:text-slate-900 transition-colors" onClick={e => { e.stopPropagation(); handleVerPDF(item); }}>
+                                                    <button title="Cancelar / Retornar" className="hover:text-red-600 transition-colors" onClick={e => { e.stopPropagation(); handleCorrigirMedicao(item.id); }}>
+                                                        <XCircle className="w-4 h-4" />
+                                                    </button>
+                                                    <button title="Visualizar / Editar" className="hover:text-slate-900 transition-colors" onClick={e => { e.stopPropagation(); openMedicaoModal(item); }}>
                                                         <Eye className="w-4 h-4" />
                                                     </button>
-                                                    {(item.status === 'EM_ABERTO' || item.status === 'EM_CONFERENCIA') && (
-                                                        <button title="Editar" className="hover:text-blue-600 transition-colors" onClick={e => { e.stopPropagation(); openMedicaoModal(item); }}>
-                                                            <Pencil className="w-4 h-4" />
-                                                        </button>
-                                                    )}
+                                                    <button title="Contestar" className="hover:text-orange-600 transition-colors" onClick={e => { e.stopPropagation(); openMedicao(item); }}>
+                                                        <ThumbsDown className="w-4 h-4" />
+                                                    </button>
+                                                    <button title="Aprovar" className="hover:text-emerald-600 transition-colors" onClick={e => { e.stopPropagation(); openMedicao(item); }}>
+                                                        <ThumbsUp className="w-4 h-4" />
+                                                    </button>
                                                 </>)}
 
                                                 {activeTab === 'finalizadas' && (<>
-                                                    <button 
-                                                        title="Corrigir Medição" 
-                                                        className="hover:text-red-600 transition-colors"
-                                                        onClick={e => { e.stopPropagation(); handleCorrigirMedicao(item.id); }}
-                                                    >
-                                                        <ArrowLeftCircle className="w-3.5 h-3.5" />
+                                                    <button title="Cancelar / Retornar" className="hover:text-red-600 transition-colors" onClick={e => { e.stopPropagation(); handleCorrigirMedicao(item.id); }}>
+                                                        <XCircle className="w-4 h-4" />
                                                     </button>
-                                                    <button title="Visualizar PDF" className="hover:text-slate-900 transition-colors" onClick={e => { e.stopPropagation(); handleVerPDF(item); }}>
+                                                    <button title="Visualizar" className="hover:text-slate-900 transition-colors" onClick={e => { e.stopPropagation(); handleVerPDF(item); }}>
                                                         <Eye className="w-4 h-4" />
                                                     </button>
                                                     <button title="Histórico" className="hover:text-blue-600 transition-colors" onClick={e => { e.stopPropagation(); openMedicao(item); }}>
@@ -663,9 +673,49 @@ export default function Medicoes() {
                         </table>
                     </div>
                     {/* Pagination info */}
-                    <div className="px-4 py-2 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-slate-400">{list.length} registro(s)</span>
-                        <span className="text-[10px] font-bold text-slate-300">Página 1 de 1</span>
+                    <div className="bg-slate-50 border-t border-slate-200 p-3 flex items-center justify-between text-xs font-bold text-slate-500">
+                        <button 
+                            disabled={currentPage === 1} 
+                            onClick={() => setCurrentPage(p => p - 1)}
+                            className="px-4 py-2 hover:bg-slate-200 rounded disabled:opacity-50 transition-colors uppercase tracking-widest text-[10px]"
+                        >
+                            Anterior
+                        </button>
+                        
+                        <div className="flex items-center gap-4">
+                            <span className="uppercase tracking-widest text-[10px]">
+                                Página 
+                                <input 
+                                    type="number" 
+                                    value={currentPage} 
+                                    onChange={e => {
+                                        const val = Number(e.target.value);
+                                        if (val >= 1 && val <= totalPages) setCurrentPage(val);
+                                    }} 
+                                    className="w-12 text-center border border-slate-200 rounded p-1 mx-2 focus:outline-none focus:border-blue-500" 
+                                /> 
+                                de {totalPages}
+                            </span>
+                            
+                            <select 
+                                value={itemsPerPage} 
+                                onChange={e => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} 
+                                className="border border-slate-200 rounded p-1 outline-none text-[10px] uppercase tracking-widest"
+                            >
+                                <option value={10}>10 itens</option>
+                                <option value={20}>20 itens</option>
+                                <option value={50}>50 itens</option>
+                                <option value={100}>100 itens</option>
+                            </select>
+                        </div>
+
+                        <button 
+                            disabled={currentPage === totalPages || fullList.length === 0}
+                            onClick={() => setCurrentPage(p => p + 1)}
+                            className="px-4 py-2 hover:bg-slate-200 rounded disabled:opacity-50 transition-colors uppercase tracking-widest text-[10px]"
+                        >
+                            Próximo
+                        </button>
                     </div>
                 </div>
 

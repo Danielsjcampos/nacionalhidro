@@ -121,7 +121,7 @@ export default function ModalPrecificarOS({ isOpen, onClose, osId, onSuccess }: 
 
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl w-full max-w-5xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="bg-white rounded-3xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in duration-200">
                 {/* Header */}
                 <div className="bg-[#1e3a5f] px-6 py-4 flex items-center justify-between text-white">
                     <div className="flex items-center gap-3">
@@ -142,7 +142,7 @@ export default function ModalPrecificarOS({ isOpen, onClose, osId, onSuccess }: 
                         <p className="text-xs font-black text-slate-400 uppercase">Carregando dados da OS...</p>
                     </div>
                 ) : (
-                    <div className="p-6 space-y-6">
+                    <div className="p-6 space-y-6 flex-1 overflow-y-auto custom-scrollbar">
                         {/* OS Info Grid */}
                         <div className="grid grid-cols-4 gap-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
                             <Field label="Nº da Proposta" value={os.proposta?.codigo} />
