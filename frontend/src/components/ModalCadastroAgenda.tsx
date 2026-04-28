@@ -70,7 +70,7 @@ export default function ModalCadastroAgenda({ isOpen, onClose, onSaved, initialD
     setForm((f:any)=>({...f, veiculoId:vid}));
     if (!vid) { setVeiculoAlerta(''); return; }
     try {
-      const res = await api.get(`/veiculos/${vid}/disponibilidade`, { params:{ data: form.dataInicio } }).catch(()=>null);
+      const res = await api.get(`/logistica/veiculos/${vid}/disponibilidade`, { params:{ data: form.dataInicio } }).catch(()=>null);
       if (res?.data?.disponivel === false) {
         setVeiculoAlerta(`⚠️ Veículo indisponível em ${form.dataInicio} — ${res.data.motivo||'já agendado'}`);
       } else { setVeiculoAlerta(''); }

@@ -512,15 +512,19 @@ export default function OS() {
   const onProposalChange = (propId: string) => {
     const prop = propostas.find(p => p.id === propId);
     if (prop) {
+      // Legacy parity: auto-fill initially with first equipment if available
+      const firstItem = prop.itens?.[0] || {};
+      
       setForm((f: any) => ({
         ...f,
         propostaId: prop.id,
         clienteNome: prop.cliente?.nome || '',
         contato: prop.contato || '',
         empresa: prop.empresa || f.empresa,
-        servicos: prop.itens?.length
-          ? prop.itens.map((i: any) => ({ equipamento: i.equipamento || '', descricao: i.descricao || '' }))
-          : [{ equipamento: '', descricao: '' }],
+        servicos: [{ equipamento: firstItem.equipamento || '', descricao: firstItem.descricao || '' }],
+        tipoCobranca: firstItem.tipoCobranca || prop.tipoCobranca || 'Fechada',
+        minimoHoras: firstItem.horasPorDia || prop.franquiaHoras || 0,
+        quantidadeDia: firstItem.quantidade ? String(firstItem.quantidade) : '',
       }));
       // Load client contacts
       if (prop.clienteId) {
@@ -535,20 +539,17 @@ export default function OS() {
         const sugerida = prop.equipe.map((e: any) => ({
           cargo: e.cargoRef?.nome || e.cargo || e.funcao || 'N/A',
           cargoId: e.cargoId,
-          equipamento: e.equipamento,
-          equipamentoId: e.equipamentoId,
           quantidade: e.quantidade || 1,
+          equipamento: e.equipamento || ''
         }));
         setEquipeSugerida(sugerida);
-        const totalPessoas = sugerida.reduce((sum: number, e: any) => sum + (e.quantidade || 1), 0);
-        setForm((f: any) => ({ ...f, qtdPessoas: totalPessoas }));
       } else {
         setEquipeSugerida([]);
       }
     } else {
-      setForm((f: any) => ({ ...f, propostaId: '', clienteNome: '', contato: '', servicos: [{ equipamento: '', descricao: '' }] }));
-      setEquipeSugerida([]);
+      setForm((f: any) => ({ ...f, propostaId: '' }));
       setClienteContatos([]);
+      setEquipeSugerida([]);
     }
   };
 
@@ -564,14 +565,15 @@ export default function OS() {
       s[idx] = { ...s[idx], [field]: value };
       const updated: any = { ...f, servicos: s };
 
-      // Legacy parity: auto-fill TipoCobranca e HoraPadrao ao selecionar equipamento (ModalCadastroOrdem.js:539-543)
+      // Legacy parity: auto-fill TipoCobranca, HoraPadrao (minimoHoras) e quantidadeDia ao selecionar equipamento
       if (field === 'equipamento' && idx === 0 && f.propostaId) {
         const prop = propostas.find((p: any) => p.id === f.propostaId);
         if (prop?.itens) {
           const item = prop.itens.find((i: any) => i.equipamento === value);
           if (item) {
             if (item.tipoCobranca) updated.tipoCobranca = item.tipoCobranca;
-            if (item.horaPadrao) updated.minimoHoras = item.horaPadrao;
+            if (item.horasPorDia) updated.minimoHoras = item.horasPorDia;
+            if (item.quantidade) updated.quantidadeDia = String(item.quantidade);
           }
         }
       }
@@ -579,10 +581,13 @@ export default function OS() {
       return updated;
     });
 
-  const handleSave = async (baixar = false, baixarEstoque = false) => {
+  const handleSave = async (action: 'ABRIR' | 'BAIXAR' | 'BAIXAR_ESTOQUE' | 'SALVAR') => {
     try {
       setSaving(true);
-      const status = baixarEstoque ? 'BAIXADA' : (baixar ? 'EM_EXECUCAO' : 'ABERTA');
+      let status = 'ABERTA';
+      if (action === 'BAIXAR') status = 'CONCLUIDA';
+      if (action === 'BAIXAR_ESTOQUE') status = 'BAIXADA';
+      if (action === 'SALVAR' && selectedOS) status = selectedOS.status; // Keep existing status if just editing
       
       const payload: any = { 
         ...form, 
@@ -594,7 +599,7 @@ export default function OS() {
         observacoesEscala: form.observacoesEscala || undefined,
       };
       // Incluir materiais utilizados se estiver baixando com estoque
-      if (baixarEstoque && materiaisUtilizados.length > 0) {
+      if (action === 'BAIXAR_ESTOQUE' && materiaisUtilizados.length > 0) {
         payload.materiaisUtilizados = materiaisUtilizados.filter((m: any) => m.produtoId && m.quantidade > 0);
       }
       if (selectedOS) {
@@ -917,15 +922,16 @@ export default function OS() {
               </div>
 
               {/* Modal Body */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
 
-                {/* Row 1: N° Proposta | Código OS | Data Inicial | Hora Inicial | Tipo Cobrança | Empresa */}
+                {/* Row 1 */}
                 <div className="grid grid-cols-6 gap-3">
                   <FormField label="N° Proposta">
                     <select
                       value={form.propostaId}
                       onChange={e => onProposalChange(e.target.value)}
-                      className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400 bg-white"
+                      disabled={!!selectedOS}
+                      className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400 bg-white disabled:bg-slate-100 disabled:text-slate-500"
                     >
                       <option value="">Selecione...</option>
                       {(propostas || []).map(p => (
@@ -940,7 +946,8 @@ export default function OS() {
                       value={form.codigo}
                       onChange={e => setForm((f: any) => ({ ...f, codigo: e.target.value }))}
                       placeholder="Auto"
-                      className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400 bg-slate-50"
+                      readOnly
+                      className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none bg-slate-100 text-slate-500 cursor-not-allowed font-bold"
                     />
                   </FormField>
 
@@ -965,7 +972,7 @@ export default function OS() {
                     </div>
                   </FormField>
 
-                  <FormField label="Tipo Cobrança">
+                  <FormField label="Tipo de Cobrança">
                     <div className="relative">
                       <select
                         value={form.tipoCobranca}
@@ -1005,11 +1012,11 @@ export default function OS() {
                         </span>
                       ))}
                       {(form.diasSemana || []).length > 0 && (
-                        <button type="button" onClick={() => setForm((f: any) => ({ ...f, diasSemana: [] }))} className="p-0.5 text-slate-400 hover:text-red-500 ml-auto">
+                        <button type="button" onClick={() => setForm((f: any) => ({ ...f, diasSemana: [] }))} className="p-0.5 text-slate-400 hover:text-red-500 ml-auto flex items-center justify-center bg-slate-100 rounded hover:bg-red-50">
                           <X className="w-3.5 h-3.5" />
                         </button>
                       )}
-                      <div className="relative ml-auto">
+                      <div className="relative ml-1">
                         <select
                           value=""
                           onChange={e => {
@@ -1018,9 +1025,9 @@ export default function OS() {
                               setForm((f: any) => ({ ...f, diasSemana: [...(f.diasSemana || []), val] }));
                             }
                           }}
-                          className="text-[10px] text-slate-400 border-none outline-none bg-transparent cursor-pointer appearance-none pr-4"
+                          className="text-[10px] text-slate-500 font-medium border-none outline-none bg-transparent cursor-pointer appearance-none pr-4"
                         >
-                          <option value="">+</option>
+                          <option value="">Dias</option>
                           {DIAS_SEMANA_OPTIONS.filter(d => !(form.diasSemana || []).includes(d)).map(d => (
                             <option key={d} value={d}>{d}</option>
                           ))}
@@ -1041,13 +1048,13 @@ export default function OS() {
                 </div>
 
                 {/* Row 3: Cliente | Contato | Acompanhante */}
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-[2fr_1fr_1fr] gap-3">
                   <FormField label="Cliente">
                     <input
                       type="text"
                       readOnly
                       value={form.clienteNome}
-                      className="w-full border border-slate-200 rounded px-2 py-2 text-xs bg-slate-100 font-bold uppercase text-slate-700"
+                      className="w-full border border-slate-200 rounded px-2 py-2 text-xs bg-slate-100 font-bold uppercase text-slate-700 cursor-not-allowed"
                       placeholder="Selecione a proposta..."
                     />
                   </FormField>
@@ -1056,7 +1063,7 @@ export default function OS() {
                       <select
                         value={form.contato}
                         onChange={e => setForm((f: any) => ({ ...f, contato: e.target.value }))}
-                        className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400 appearance-none"
+                        className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400 appearance-none bg-white"
                       >
                         <option value="">Selecione...</option>
                         {clienteContatos.map((c: any, i: number) => (
@@ -1081,15 +1088,15 @@ export default function OS() {
                 </div>
 
                 {/* ── TABS: Serviços / Escala ── */}
-                <div>
+                <div className="mt-4">
                   <div className="flex gap-1 border-b border-slate-200">
                     {(['servicos', 'escala'] as const).map(t => (
                       <button
                         key={t}
                         onClick={() => setModalTab(t)}
                         className={`px-5 py-2 text-xs font-bold capitalize transition-colors border-b-2 ${modalTab === t
-                          ? 'border-blue-600 text-blue-700'
-                          : 'border-transparent text-slate-500 hover:text-slate-700'
+                          ? 'border-blue-600 text-blue-700 bg-blue-50/50'
+                          : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                           }`}
                       >
                         {t === 'servicos' ? 'Serviços' : 'Escala'}
@@ -1097,51 +1104,234 @@ export default function OS() {
                     ))}
                   </div>
 
-                  <div className="border border-t-0 border-slate-200 rounded-b-xl p-5 bg-white min-h-[200px]">
+                  <div className="border border-t-0 border-slate-200 rounded-b-xl p-5 bg-white min-h-[300px]">
                     {modalTab === 'servicos' && (
-                      <div className="space-y-4">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                          <ChevronRight className="w-3 h-3 text-blue-500" /> Serviços
-                        </p>
-                        {form.servicos.map((s: any, idx: number) => (
-                          <div key={idx} className="grid grid-cols-[1fr_2fr_auto] gap-3 items-end">
-                            <FormField label="Tipo de nome">
+                      <div className="space-y-5">
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1 mb-2">
+                            <ChevronDown className="w-3 h-3 text-slate-400" /> Serviços
+                          </p>
+                          {form.servicos.map((s: any, idx: number) => (
+                            <div key={idx} className="grid grid-cols-[1fr_2fr_auto] gap-3 items-end mb-3">
+                              <FormField label="Equipamentos">
+                                <div className="relative">
+                                  <select
+                                    value={s.equipamento}
+                                    onChange={e => updateServico(idx, 'equipamento', e.target.value)}
+                                    className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400 appearance-none text-red-600"
+                                  >
+                                    <option value="">Equipamentos</option>
+                                    {equipamentosFiltrados.map(eq => <option key={eq} value={eq}>{eq}</option>)}
+                                    {equipamentosFiltrados.length === 0 && <option value="" disabled>Nenhuma proposta vinculada</option>}
+                                  </select>
+                                  <ChevronDown className="absolute right-2 top-2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                                </div>
+                              </FormField>
+                              <FormField label="Descrição do Serviço">
+                                <input
+                                  type="text"
+                                  value={s.descricao}
+                                  onChange={e => updateServico(idx, 'descricao', e.target.value)}
+                                  placeholder="Discriminação"
+                                  className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400 text-red-600 placeholder-red-300"
+                                />
+                              </FormField>
+                              <button
+                                onClick={() => removeServico(idx)}
+                                className="p-2 text-red-400 hover:text-red-600 transition-colors mb-0.5"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            onClick={addServico}
+                            className="text-blue-600 text-xs font-bold hover:underline flex items-center gap-1 mt-1"
+                          >
+                            <Plus className="w-3 h-3" /> Adicionar Serviço
+                          </button>
+                        </div>
+
+                        {/* ── Observações da OS ── */}
+                        <div className="pt-2">
+                          <FormField label="Observações">
+                            <textarea
+                              value={form.observacoes}
+                              onChange={e => setForm((f: any) => ({ ...f, observacoes: e.target.value }))}
+                              rows={3}
+                              placeholder="Observações..."
+                              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-blue-400 resize-none bg-slate-50"
+                            />
+                          </FormField>
+                        </div>
+
+                        {/* ── Efetuar Baixa ── */}
+                        <div className="pt-4 mt-2 border-t border-slate-200">
+                          <p className="text-xs font-bold text-slate-700 mb-3 flex items-center gap-2">
+                            Efetuar Baixa
+                          </p>
+                          <div className="grid grid-cols-6 gap-3 items-end">
+                            <FormField label="Mínimo de Horas">
                               <div className="relative">
-                                <select
-                                  value={s.equipamento}
-                                  onChange={e => updateServico(idx, 'equipamento', e.target.value)}
-                                  className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400 appearance-none"
-                                >
-                                  <option value="">Selecione...</option>
-                                  {equipamentosFiltrados.map(eq => <option key={eq} value={eq}>{eq}</option>)}
-                                  {equipamentosFiltrados.length === 0 && <option value="" disabled>Nenhuma proposta vinculada (ou zerada)</option>}
-                                </select>
-                                <ChevronDown className="absolute right-2 top-2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={form.minimoHoras}
+                                  onChange={e => setForm((f: any) => ({ ...f, minimoHoras: e.target.value }))}
+                                  className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none"
+                                />
+                                <Clock className="absolute right-2 top-2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                               </div>
                             </FormField>
-                            <FormField label="Descrição do Serviço">
+                            <FormField label="Entrada">
+                              <div className="relative">
+                                <input
+                                  type="time"
+                                  value={form.entrada ? new Date(form.entrada).toTimeString().slice(0, 5) : ''}
+                                  onChange={e => {
+                                    const time = e.target.value;
+                                    if (time) {
+                                      const d = new Date(form.dataInicial);
+                                      const [h, m] = time.split(':');
+                                      d.setHours(Number(h), Number(m));
+                                      setForm((f: any) => ({ ...f, entrada: d.toISOString() }));
+                                    } else {
+                                      setForm((f: any) => ({ ...f, entrada: '' }));
+                                    }
+                                  }}
+                                  className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none"
+                                />
+                                <Clock className="absolute right-2 top-2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                              </div>
+                            </FormField>
+                            <FormField label="Saída">
+                              <div className="relative">
+                                <input
+                                  type="time"
+                                  value={form.saida ? new Date(form.saida).toTimeString().slice(0, 5) : ''}
+                                  onChange={e => {
+                                    const time = e.target.value;
+                                    if (time) {
+                                      const d = new Date(form.dataInicial);
+                                      const [h, m] = time.split(':');
+                                      d.setHours(Number(h), Number(m));
+                                      setForm((f: any) => ({ ...f, saida: d.toISOString() }));
+                                    } else {
+                                      setForm((f: any) => ({ ...f, saida: '' }));
+                                    }
+                                  }}
+                                  className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none"
+                                />
+                                <Clock className="absolute right-2 top-2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                              </div>
+                            </FormField>
+                            <FormField label="Almoço">
+                              <div className="relative">
+                                <input
+                                  type="time"
+                                  value={form.almoco ? new Date(form.almoco).toTimeString().slice(0, 5) : ''}
+                                  onChange={e => {
+                                    const time = e.target.value;
+                                    if (time) {
+                                      const d = new Date(form.dataInicial);
+                                      const [h, m] = time.split(':');
+                                      d.setHours(Number(h), Number(m));
+                                      setForm((f: any) => ({ ...f, almoco: d.toISOString() }));
+                                    } else {
+                                      setForm((f: any) => ({ ...f, almoco: '' }));
+                                    }
+                                  }}
+                                  className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none"
+                                />
+                                <Clock className="absolute right-2 top-2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                              </div>
+                            </FormField>
+                            <FormField label="Horas Totais">
                               <input
-                                type="text"
-                                value={s.descricao}
-                                onChange={e => updateServico(idx, 'descricao', e.target.value)}
-                                placeholder="Discriminação do serviço..."
-                                className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400"
+                                readOnly
+                                value={horas.total}
+                                className="w-full border border-slate-200 rounded px-2 py-2 text-xs bg-slate-100 font-bold text-center text-slate-600"
                               />
                             </FormField>
+                            <FormField label="Hora Adicional">
+                              <input
+                                readOnly
+                                value={horas.adicional}
+                                className="w-full border border-slate-200 rounded px-2 py-2 text-xs bg-slate-100 font-bold text-center text-slate-600"
+                              />
+                            </FormField>
+                          </div>
+                          <div className="mt-3 flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase">Descontar Almoço?</span>
                             <button
-                              onClick={() => removeServico(idx)}
-                              className="p-2 text-slate-400 hover:text-slate-800 transition-colors mb-0.5"
+                              type="button"
+                              onClick={() => setForm((f: any) => ({ ...f, descontarAlmoco: !f.descontarAlmoco }))}
+                              className={`relative w-9 h-5 rounded-full transition-colors ${form.descontarAlmoco ? 'bg-blue-500' : 'bg-slate-300'}`}
                             >
-                              <X className="w-4 h-4" />
+                              <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${form.descontarAlmoco ? 'left-4' : 'left-0.5'}`} />
                             </button>
                           </div>
-                        ))}
-                        <button
-                          onClick={addServico}
-                          className="text-blue-600 text-xs font-bold hover:underline flex items-center gap-1 mt-2"
-                        >
-                          <Plus className="w-3.5 h-3.5" /> Adicionar Serviço
-                        </button>
+                        </div>
+
+                        {/* ── Materiais Utilizados (Baixa de Estoque) ── */}
+                        {selectedOS && (
+                          <div className="pt-4 mt-2 border-t border-slate-200">
+                            <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                              <Package className="w-3.5 h-3.5 text-amber-600" />
+                              Materiais Utilizados (Baixa de Estoque)
+                            </p>
+                            {materiaisUtilizados.map((m: any, idx: number) => {
+                              const prod = (produtos || []).find((p: any) => p.id === m.produtoId);
+                              return (
+                                <div key={idx} className="grid grid-cols-[2fr_1fr_1fr_auto] gap-2 mb-2 items-end">
+                                  <FormField label={idx === 0 ? 'Produto' : ''}>
+                                    <select
+                                      value={m.produtoId}
+                                      onChange={e => updateMaterial(idx, 'produtoId', e.target.value)}
+                                      className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-amber-400"
+                                    >
+                                      <option value="">Selecione...</option>
+                                      {(produtos || []).map((p: any) => (
+                                        <option key={p.id} value={p.id}>{p.nome} (Estoque: {p.estoqueAtual} {p.unidadeMedida})</option>
+                                      ))}
+                                    </select>
+                                  </FormField>
+                                  <FormField label={idx === 0 ? 'Quantidade' : ''}>
+                                    <input
+                                      type="number"
+                                      min={0.01}
+                                      step={0.01}
+                                      value={m.quantidade}
+                                      onChange={e => updateMaterial(idx, 'quantidade', Number(e.target.value))}
+                                      className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-amber-400"
+                                    />
+                                  </FormField>
+                                  <FormField label={idx === 0 ? 'Unidade' : ''}>
+                                    <input
+                                      readOnly
+                                      value={prod?.unidadeMedida || 'UN'}
+                                      className="w-full border border-slate-200 rounded px-2 py-2 text-xs bg-slate-100"
+                                    />
+                                  </FormField>
+                                  <button onClick={() => removeMaterial(idx)} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                            <button
+                              type="button"
+                              onClick={addMaterial}
+                              className="text-[11px] font-bold text-amber-700 hover:text-amber-800 flex items-center gap-1 mt-1"
+                            >
+                              <Plus className="w-3.5 h-3.5" /> Adicionar Material
+                            </button>
+                            {materiaisUtilizados.length > 0 && (
+                              <p className="text-[10px] text-slate-400 mt-2 italic">⚠️ Os materiais serão descontados do estoque ao baixar a OS.</p>
+                            )}
+                          </div>
+                        )}
+
                       </div>
                     )}
 
@@ -1150,7 +1340,7 @@ export default function OS() {
                         {/* ── Equipamento (igual sistema antigo) ── */}
                         <div>
                           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1">
-                            <ChevronDown className="w-3 h-3 text-blue-500" /> Escala
+                            <ChevronDown className="w-3 h-3 text-slate-400" /> Escala
                           </p>
                           <FormField label="Equipamento">
                             <div className="flex items-center gap-2">
@@ -1164,11 +1354,11 @@ export default function OS() {
                                 {EQUIPAMENTOS.filter(e => !equipamentosFiltrados.includes(e)).map(eq => <option key={eq} value={eq}>{eq}</option>)}
                               </select>
                               {form.equipamentoEscala && (
-                                <button type="button" onClick={() => setForm((f: any) => ({ ...f, equipamentoEscala: '' }))} className="p-1 text-slate-400 hover:text-red-500">
+                                <button type="button" onClick={() => setForm((f: any) => ({ ...f, equipamentoEscala: '' }))} className="p-1 text-slate-400 hover:text-red-500 bg-slate-100 rounded">
                                   <X className="w-3.5 h-3.5" />
                                 </button>
                               )}
-                              <ChevronDown className="w-3.5 h-3.5 text-slate-400 pointer-events-none -ml-7" />
+                              <ChevronDown className="w-3.5 h-3.5 text-slate-400 pointer-events-none -ml-9" />
                             </div>
                           </FormField>
                         </div>
@@ -1207,14 +1397,14 @@ export default function OS() {
                         )}
 
                         {/* ── Veículos (igual sistema antigo) ── */}
-                        <div>
-                          <p className="text-sm font-bold text-slate-700 mb-1">Veículos</p>
+                        <div className="pt-2">
+                          <p className="text-xs font-bold text-slate-500 mb-1">Veículos</p>
                           <div className="space-y-1">
-                            <button type="button" onClick={() => setQuadroVeicOpen(true)} className="text-blue-600 text-xs font-bold hover:underline">
+                            <button type="button" onClick={() => setQuadroVeicOpen(true)} className="text-blue-600 text-[11px] font-bold hover:underline mb-1">
                               Ver Quadro de Veículos
                             </button>
                             <br />
-                            <button type="button" onClick={() => setForm((f: any) => ({ ...f, veiculosEscala: [...(f.veiculosEscala || []), { veiculoId: '', manutencao: false }] }))} className="text-blue-600 text-xs hover:underline">
+                            <button type="button" onClick={() => setForm((f: any) => ({ ...f, veiculosEscala: [...(f.veiculosEscala || []), { veiculoId: '', manutencao: false }] }))} className="text-blue-600 text-[11px] hover:underline">
                               Adicionar veículo
                             </button>
                           </div>
@@ -1222,7 +1412,7 @@ export default function OS() {
 
                         {/* Veículos adicionados */}
                         {(form.veiculosEscala || []).length > 0 && (
-                          <div className="space-y-2">
+                          <div className="space-y-2 mt-2">
                             {(form.veiculosEscala || []).map((v: any, idx: number) => (
                               <div key={idx} className="grid grid-cols-[2fr_1fr_auto] gap-2 items-end">
                                 <FormField label={idx === 0 ? 'Placa / Veículo' : ''}>
@@ -1269,21 +1459,21 @@ export default function OS() {
                         )}
 
                         {/* ── Funcionários (igual sistema antigo) ── */}
-                        <div>
-                          <p className="text-sm font-bold text-slate-700 mb-1">Funcionários</p>
+                        <div className="pt-2">
+                          <p className="text-xs font-bold text-slate-500 mb-1">Funcionários</p>
                           <div className="space-y-1">
-                            <button type="button" onClick={() => setQuadroFuncOpen(true)} className="text-blue-600 text-xs font-bold hover:underline">
+                            <button type="button" onClick={() => setQuadroFuncOpen(true)} className="text-blue-600 text-[11px] font-bold hover:underline mb-1">
                               Ver Quadro de Funcionários
                             </button>
                             <br />
-                            <button type="button" onClick={addFuncionarioRow} className="text-blue-600 text-xs hover:underline">
+                            <button type="button" onClick={addFuncionarioRow} className="text-blue-600 text-[11px] hover:underline">
                               Adicionar funcionário
                             </button>
                           </div>
                         </div>
 
                         {Array.isArray(form.escala) && form.escala.length > 0 ? (
-                          <table className="w-full text-xs border border-slate-200 rounded-xl overflow-hidden">
+                          <table className="w-full text-xs border border-slate-200 rounded-xl overflow-hidden mt-2">
                             <thead className="bg-slate-100">
                               <tr>
                                 <th className="px-3 py-2 text-left text-[9px] font-black text-slate-500 uppercase w-[40%]">Funcionário</th>
@@ -1341,20 +1531,20 @@ export default function OS() {
                             </tbody>
                           </table>
                         ) : (
-                          <div className="col-span-full py-8 text-center text-slate-400 text-xs italic border border-dashed border-slate-200 rounded-xl bg-slate-50">
+                          <div className="col-span-full py-8 text-center text-slate-400 text-xs italic border border-dashed border-slate-200 rounded-xl bg-slate-50 mt-2">
                             Nenhum funcionário adicionado. Clique em "+ Adicionar".
                           </div>
                         )}
 
-                        {/* ── Observações da Escala — Gap #4 Legacy Parity ── */}
-                        <div className="pt-4 border-t border-slate-200">
-                          <FormField label="Observações da Escala">
+                        {/* ── Observações da Escala ── */}
+                        <div className="pt-4 mt-2">
+                          <FormField label="Observações">
                             <textarea
                               value={form.observacoesEscala || ''}
                               onChange={e => setForm((f: any) => ({ ...f, observacoesEscala: e.target.value }))}
                               rows={3}
-                              placeholder="Observações específicas da escala..."
-                              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-blue-400 resize-none"
+                              placeholder="Observações..."
+                              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-blue-400 resize-none bg-slate-50"
                             />
                           </FormField>
                         </div>
@@ -1362,159 +1552,11 @@ export default function OS() {
                     )}
                   </div>
                 </div>
-
-                {/* ── Observações ── */}
-                <FormField label="Observações">
-                  <textarea
-                    value={form.observacoes}
-                    onChange={e => setForm((f: any) => ({ ...f, observacoes: e.target.value }))}
-                    rows={4}
-                    placeholder="Observações gerais da OS..."
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-blue-400 resize-none"
-                  />
-                </FormField>
-
-                {/* ── Primeira Baixa ── */}
-                <div className="pt-2">
-                  <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3 border-b border-slate-200 pb-2">
-                    Primeira Baixa
-                  </p>
-                  <div className="grid grid-cols-6 gap-3 items-end">
-                    <FormField label="Mínimo de Horas">
-                      <div className="relative">
-                        <input
-                          type="number"
-                          min={0}
-                          value={form.minimoHoras}
-                          onChange={e => setForm((f: any) => ({ ...f, minimoHoras: e.target.value }))}
-                          className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none"
-                        />
-                        <Clock className="absolute right-2 top-2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                      </div>
-                    </FormField>
-                    <FormField label="Entrada">
-                      <div className="relative">
-                        <input
-                          type="datetime-local"
-                          value={form.entrada}
-                          onChange={e => setForm((f: any) => ({ ...f, entrada: e.target.value }))}
-                          className="w-full border border-slate-300 rounded px-2 py-2 text-[10px] outline-none"
-                        />
-                        <Clock className="absolute right-2 top-2.5 w-3 h-3 text-slate-400 pointer-events-none" />
-                      </div>
-                    </FormField>
-                    <FormField label="Saída">
-                      <div className="relative">
-                        <input
-                          type="datetime-local"
-                          value={form.saida}
-                          onChange={e => setForm((f: any) => ({ ...f, saida: e.target.value }))}
-                          className="w-full border border-slate-300 rounded px-2 py-2 text-[10px] outline-none"
-                        />
-                        <Clock className="absolute right-2 top-2.5 w-3 h-3 text-slate-400 pointer-events-none" />
-                      </div>
-                    </FormField>
-                    <FormField label="Almoço">
-                      <div className="relative">
-                        <input
-                          type="datetime-local"
-                          value={form.almoco}
-                          onChange={e => setForm((f: any) => ({ ...f, almoco: e.target.value }))}
-                          className="w-full border border-slate-300 rounded px-2 py-2 text-[10px] outline-none"
-                        />
-                        <Clock className="absolute right-2 top-2.5 w-3 h-3 text-slate-400 pointer-events-none" />
-                      </div>
-                    </FormField>
-                    <FormField label="Total Horas">
-                      <input
-                        readOnly
-                        value={horas.total}
-                        className="w-full border border-slate-200 rounded px-2 py-2 text-xs bg-slate-100 font-bold text-center"
-                      />
-                    </FormField>
-                    <FormField label="Hora Adicional">
-                      <input
-                        readOnly
-                        value={horas.adicional}
-                        className="w-full border border-slate-200 rounded px-2 py-2 text-xs bg-slate-100 font-bold text-center"
-                      />
-                    </FormField>
-                  </div>
-                  {/* Descontar Almoço toggle */}
-                  <div className="mt-3 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setForm((f: any) => ({ ...f, descontarAlmoco: !f.descontarAlmoco }))}
-                      className={`relative w-9 h-5 rounded-full transition-colors ${form.descontarAlmoco ? 'bg-blue-500' : 'bg-slate-300'}`}
-                    >
-                      <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${form.descontarAlmoco ? 'left-4' : 'left-0.5'}`} />
-                    </button>
-                    <span className="text-xs text-slate-600 font-medium">Descontar Almoço</span>
-                  </div>
-                </div>
-
-                {/* ── Materiais Utilizados (Baixa de Estoque) ── */}
-                {selectedOS && (
-                  <div className="pt-2">
-                    <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3 border-b border-slate-200 pb-2 flex items-center gap-2">
-                      <Package className="w-3.5 h-3.5 text-amber-600" />
-                      Materiais Utilizados (Baixa de Estoque)
-                    </p>
-                    {materiaisUtilizados.map((m: any, idx: number) => {
-                      const prod = (produtos || []).find((p: any) => p.id === m.produtoId);
-                      return (
-                        <div key={idx} className="grid grid-cols-[2fr_1fr_1fr_auto] gap-2 mb-2 items-end">
-                          <FormField label={idx === 0 ? 'Produto' : ''}>
-                            <select
-                              value={m.produtoId}
-                              onChange={e => updateMaterial(idx, 'produtoId', e.target.value)}
-                              className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-amber-400"
-                            >
-                              <option value="">Selecione...</option>
-                              {(produtos || []).map((p: any) => (
-                                <option key={p.id} value={p.id}>{p.nome} (Estoque: {p.estoqueAtual} {p.unidadeMedida})</option>
-                              ))}
-                            </select>
-                          </FormField>
-                          <FormField label={idx === 0 ? 'Quantidade' : ''}>
-                            <input
-                              type="number"
-                              min={0.01}
-                              step={0.01}
-                              value={m.quantidade}
-                              onChange={e => updateMaterial(idx, 'quantidade', Number(e.target.value))}
-                              className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-amber-400"
-                            />
-                          </FormField>
-                          <FormField label={idx === 0 ? 'Unidade' : ''}>
-                            <input
-                              readOnly
-                              value={prod?.unidadeMedida || 'UN'}
-                              className="w-full border border-slate-200 rounded px-2 py-2 text-xs bg-slate-100"
-                            />
-                          </FormField>
-                          <button onClick={() => removeMaterial(idx)} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                    <button
-                      type="button"
-                      onClick={addMaterial}
-                      className="text-[11px] font-bold text-amber-700 hover:text-amber-800 flex items-center gap-1 mt-1"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Adicionar Material
-                    </button>
-                    {materiaisUtilizados.length > 0 && (
-                      <p className="text-[10px] text-slate-400 mt-2 italic">⚠️ Os materiais serão descontados do estoque ao baixar a OS.</p>
-                    )}
-                  </div>
-                )}
 
               </div>
 
               {/* Modal Footer */}
+
               <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
                 <button
                   onClick={() => setShowModal(false)}
@@ -1559,7 +1601,7 @@ export default function OS() {
                 )}
 
                 <button
-                  onClick={() => handleSave(false, true)}
+                  onClick={() => handleSave('BAIXAR_ESTOQUE')}
                   disabled={saving}
                   className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-5 py-2 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-60"
                 >
@@ -1568,7 +1610,7 @@ export default function OS() {
                   Baixar c/ Estoque
                 </button>
                 <button
-                  onClick={() => handleSave(false)}
+                  onClick={() => handleSave('BAIXAR')}
                   disabled={saving}
                   className="bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold px-5 py-2 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-60"
                 >
@@ -1576,7 +1618,7 @@ export default function OS() {
                   Baixar Ordem
                 </button>
                 <button
-                  onClick={() => handleSave(true)}
+                  onClick={() => handleSave(selectedOS ? 'SALVAR' : 'ABRIR')}
                   disabled={saving}
                   className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-5 py-2 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-60"
                 >

@@ -55,7 +55,7 @@ export default function Agendamentos() {
     const [pr,eq,ve] = await Promise.all([
       safe(api.get('/propostas?limit=200&status=ACEITA')),
       safe(api.get('/equipamentos')),
-      safe(api.get('/veiculos')),
+      safe(api.get('/logistica/veiculos')),
     ]);
     setPropostas(Array.isArray(pr)?pr:pr.data||[]);
     setEquipamentos(eq);

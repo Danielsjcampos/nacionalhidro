@@ -91,7 +91,7 @@ export default function Propostas() {
       safe(()=>api.get('/empresas').then(r=>r.data)),
       safe(()=>api.get('/responsabilidades').then(r=>r.data)),
       safe(()=>api.get('/configuracoes').then(r=>r.data),[]),
-      safe(()=>api.get('/veiculos').then(r=>r.data)),
+      safe(()=>api.get('/logistica/veiculos').then(r=>r.data)),
     ]);
     setClientes(cl||[]);setEquipamentosOptions(eq||[]);setVendedoresOptions(vd||[]);
     setAcessoriosOptions(ac||[]);setCargosData(cp||[]);setEmpresasOptions(em||[]);
