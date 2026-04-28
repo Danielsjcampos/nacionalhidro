@@ -71,7 +71,7 @@ export const getOSPrecificacao = async (req: AuthRequest, res: Response) => {
 export const addItemCobranca = async (req: AuthRequest, res: Response) => {
     try {
         const osId = req.params.id as string;
-        const { descricao, quantidade, valorUnitario, percentualAdicional, centroCustoId } = req.body;
+        const { descricao, quantidade, valorUnitario, percentualAdicional, centroCustoId, tipoCobranca, horaInicio, horaFim } = req.body;
 
         const qty = parseFloat(quantidade);
         const unitPrice = parseFloat(valorUnitario);
@@ -86,7 +86,10 @@ export const addItemCobranca = async (req: AuthRequest, res: Response) => {
                 valorUnitario: unitPrice,
                 percentualAdicional: adicional || null,
                 valorTotal,
-                centroCustoId: centroCustoId || null
+                centroCustoId: centroCustoId || null,
+                tipoCobranca: tipoCobranca || null,
+                horaInicio: horaInicio || null,
+                horaFim: horaFim || null
             }
         });
 

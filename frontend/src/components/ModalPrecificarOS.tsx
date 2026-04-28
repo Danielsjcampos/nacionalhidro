@@ -43,8 +43,24 @@ export default function ModalPrecificarOS({ isOpen, onClose, osId, onSuccess }: 
     const [observacao, setObservacao] = useState('');
     
     // New item form
-    const [itemForm, setItemForm] = useState({ descricao: '', valorUnitario: '', quantidade: '1' });
+    const [itemForm, setItemForm] = useState({ 
+        descricao: '', 
+        valorUnitario: '', 
+        quantidade: '1',
+        horaInicio: '',
+        horaFim: '',
+        percentualAdicional: ''
+    });
     const [showItemForm, setShowItemForm] = useState(false);
+
+    const calcQuantity = (start: string, end: string) => {
+        if (!start || !end) return '';
+        const [sh, sm] = start.split(':').map(Number);
+        const [eh, em] = end.split(':').map(Number);
+        let diff = (eh * 60 + em) - (sh * 60 + sm);
+        if (diff < 0) diff += 24 * 60;
+        return (diff / 60).toFixed(2);
+    };
 
     useEffect(() => {
         if (isOpen && osId) {
@@ -75,7 +91,7 @@ export default function ModalPrecificarOS({ isOpen, onClose, osId, onSuccess }: 
                 ...itemForm,
                 tipoCobranca: tipoPrecificacao === 'Servico' ? 'EXECUCAO' : 'HORA'
             });
-            setItemForm({ descricao: '', valorUnitario: '', quantidade: '1' });
+            setItemForm({ descricao: '', valorUnitario: '', quantidade: '1', horaInicio: '', horaFim: '', percentualAdicional: '' });
             setShowItemForm(false);
             fetchOS();
         } catch (err) { console.error(err); }
@@ -113,8 +129,8 @@ export default function ModalPrecificarOS({ isOpen, onClose, osId, onSuccess }: 
     };
 
     const itemsTotal = os?.itensCobranca?.reduce((sum: number, i: any) => sum + parseFloat(i.valorTotal), 0) || 0;
-    const totalServico = tipoPrecificacao === 'Servico' ? itemsTotal : 0;
-    const totalHora = tipoPrecificacao === 'Hora' ? itemsTotal : 0;
+    const totalServico = os?.itensCobranca?.filter((i: any) => i.tipoCobranca === 'EXECUCAO').reduce((sum: number, i: any) => sum + parseFloat(i.valorTotal), 0) || 0;
+    const totalHora = os?.itensCobranca?.filter((i: any) => i.tipoCobranca === 'HORA').reduce((sum: number, i: any) => sum + parseFloat(i.valorTotal), 0) || 0;
     const grandTotal = itemsTotal + parseFloat(valorAdicional || '0') - parseFloat(valorDesconto || '0');
 
     if (!isOpen) return null;
@@ -196,18 +212,32 @@ export default function ModalPrecificarOS({ isOpen, onClose, osId, onSuccess }: 
                                     <thead className="bg-slate-50 border-b border-slate-200">
                                         <tr>
                                             <th className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase">Descrição do Serviço</th>
-                                            <th className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase w-32">Valor Unitário</th>
-                                            <th className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase w-24">Quantidade</th>
+                                            {tipoPrecificacao === 'Hora' && (
+                                                <>
+                                                <th className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase w-20">Início</th>
+                                                <th className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase w-20">Fim</th>
+                                                <th className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase w-20">% Extra</th>
+                                                </>
+                                            )}
+                                            <th className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase w-24">Qtd.</th>
+                                            <th className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase w-32">Valor Unit.</th>
                                             <th className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase w-32">Valor Total</th>
                                             <th className="px-4 py-2 w-10"></th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {os.itensCobranca?.map((it: any) => (
+                                        {os.itensCobranca?.filter((it: any) => (tipoPrecificacao === 'Servico' ? it.tipoCobranca === 'EXECUCAO' : it.tipoCobranca === 'HORA')).map((it: any) => (
                                             <tr key={it.id} className="hover:bg-slate-50/50 transition-colors">
                                                 <td className="px-4 py-3 text-xs font-bold text-slate-700 uppercase">{it.descricao}</td>
+                                                {tipoPrecificacao === 'Hora' && (
+                                                    <>
+                                                    <td className="px-4 py-3 text-xs font-bold text-slate-600">{it.horaInicio || '-'}</td>
+                                                    <td className="px-4 py-3 text-xs font-bold text-slate-600">{it.horaFim || '-'}</td>
+                                                    <td className="px-4 py-3 text-xs font-bold text-slate-600">{it.percentualAdicional ? `${it.percentualAdicional}%` : '-'}</td>
+                                                    </>
+                                                )}
+                                                <td className="px-4 py-3 text-xs font-bold text-slate-600">{parseFloat(it.quantidade).toFixed(2)}</td>
                                                 <td className="px-4 py-3 text-xs font-bold text-slate-600">{fmt(it.valorUnitario)}</td>
-                                                <td className="px-4 py-3 text-xs font-bold text-slate-600">{it.quantidade}</td>
                                                 <td className="px-4 py-3 text-xs font-black text-blue-700">{fmt(it.valorTotal)}</td>
                                                 <td className="px-4 py-3">
                                                     <button onClick={() => handleRemoveItem(it.id)} className="p-1 hover:text-red-500 text-slate-300 transition-colors">
@@ -227,6 +257,53 @@ export default function ModalPrecificarOS({ isOpen, onClose, osId, onSuccess }: 
                                                         onChange={e => setItemForm({...itemForm, descricao: e.target.value})}
                                                     />
                                                 </td>
+                                                {tipoPrecificacao === 'Hora' && (
+                                                    <>
+                                                    <td className="px-4 py-2">
+                                                        <input 
+                                                            type="time"
+                                                            className="w-full bg-white border border-blue-200 rounded p-1.5 text-xs font-bold outline-none focus:border-blue-500"
+                                                            value={itemForm.horaInicio}
+                                                            onChange={e => {
+                                                                const h = e.target.value;
+                                                                const q = calcQuantity(h, itemForm.horaFim);
+                                                                setItemForm({...itemForm, horaInicio: h, quantidade: q || itemForm.quantidade});
+                                                            }}
+                                                        />
+                                                    </td>
+                                                    <td className="px-4 py-2">
+                                                        <input 
+                                                            type="time"
+                                                            className="w-full bg-white border border-blue-200 rounded p-1.5 text-xs font-bold outline-none focus:border-blue-500"
+                                                            value={itemForm.horaFim}
+                                                            onChange={e => {
+                                                                const h = e.target.value;
+                                                                const q = calcQuantity(itemForm.horaInicio, h);
+                                                                setItemForm({...itemForm, horaFim: h, quantidade: q || itemForm.quantidade});
+                                                            }}
+                                                        />
+                                                    </td>
+                                                    <td className="px-4 py-2">
+                                                        <input 
+                                                            type="number"
+                                                            placeholder="%"
+                                                            className="w-full bg-white border border-blue-200 rounded p-1.5 text-xs font-bold outline-none focus:border-blue-500"
+                                                            value={itemForm.percentualAdicional}
+                                                            onChange={e => setItemForm({...itemForm, percentualAdicional: e.target.value})}
+                                                        />
+                                                    </td>
+                                                    </>
+                                                )}
+                                                <td className="px-4 py-2">
+                                                    <input 
+                                                        type="number"
+                                                        placeholder="1"
+                                                        step="0.01"
+                                                        className="w-full bg-white border border-blue-200 rounded p-1.5 text-xs font-bold outline-none focus:border-blue-500"
+                                                        value={itemForm.quantidade}
+                                                        onChange={e => setItemForm({...itemForm, quantidade: e.target.value})}
+                                                    />
+                                                </td>
                                                 <td className="px-4 py-2">
                                                     <input 
                                                         type="number"
@@ -234,15 +311,6 @@ export default function ModalPrecificarOS({ isOpen, onClose, osId, onSuccess }: 
                                                         className="w-full bg-white border border-blue-200 rounded p-1.5 text-xs font-bold outline-none focus:border-blue-500"
                                                         value={itemForm.valorUnitario}
                                                         onChange={e => setItemForm({...itemForm, valorUnitario: e.target.value})}
-                                                    />
-                                                </td>
-                                                <td className="px-4 py-2">
-                                                    <input 
-                                                        type="number"
-                                                        placeholder="1"
-                                                        className="w-full bg-white border border-blue-200 rounded p-1.5 text-xs font-bold outline-none focus:border-blue-500"
-                                                        value={itemForm.quantidade}
-                                                        onChange={e => setItemForm({...itemForm, quantidade: e.target.value})}
                                                     />
                                                 </td>
                                                 <td className="px-4 py-2"></td>
@@ -253,7 +321,7 @@ export default function ModalPrecificarOS({ isOpen, onClose, osId, onSuccess }: 
                                             </tr>
                                         ) : (
                                             <tr>
-                                                <td colSpan={5} className="px-4 py-2">
+                                                <td colSpan={tipoPrecificacao === 'Hora' ? 8 : 5} className="px-4 py-2">
                                                     <button 
                                                         onClick={() => setShowItemForm(true)}
                                                         className="text-[10px] font-black text-blue-600 flex items-center gap-1.5 hover:bg-blue-50 px-2 py-1 rounded transition-colors uppercase"
