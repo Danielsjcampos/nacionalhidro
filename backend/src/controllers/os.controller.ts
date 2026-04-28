@@ -270,7 +270,7 @@ export const updateOS = async (req: AuthRequest, res: Response) => {
       // Exclude ALL relation objects and frontend-only fields
       cliente, proposta, vendedor, logistica, manutencao, itensCobranca, rdos, agendamentos,
       servicosOS, materiais, hospedagens, passagens, medicao,
-      clienteNome, equipamento,
+      clienteNome, equipamento, horaPadrao,
       createdAt, updatedAt,
       ...rest
     } = req.body;
