@@ -226,29 +226,31 @@ export default function Medicoes() {
         }
     };
 
-    const handleCorrigir = async (osId: string) => {
+    const handleCorrigirOS = async (osId: string) => {
         const obs = window.prompt("Justificativa para retornar à Logística:");
         if (obs === null) return;
         try {
             await api.post(`/precificacao/${osId}/corrigir`, { observacoes: obs });
-            addToast('OS retornada para a Logística com sucesso.', 'success');
+            showToast('OS retornada para a Logística com sucesso.', 'success');
             fetchData();
             setSelectedOS(null);
-        } catch (err) {
-            addToast('Erro ao retornar OS.', 'error');
+        } catch (err: any) {
+            showToast(err.response?.data?.error || 'Erro ao retornar OS.', 'error');
         }
     };
+
 
     const handleCorrigirMedicao = async (medicaoId: string) => {
         if (!window.confirm("Tem certeza que deseja voltar a Medição para correção?")) return;
         try {
-            await api.post(`/medicoes/${medicaoId}/status`, { status: 'AGUARDANDO_APROVACAO' });
-            addToast('Medição retornada para correção com sucesso.', 'success');
+            await api.patch(`/medicoes/${medicaoId}/status`, { status: 'AGUARDANDO_APROVACAO', valorAprovado: null });
+            showToast('Medição retornada para correção com sucesso.', 'success');
             fetchData();
-        } catch (err) {
-            addToast('Erro ao retornar medição.', 'error');
+        } catch (err: any) {
+            showToast(err.response?.data?.error || 'Erro ao retornar medição.', 'error');
         }
     };
+
 
     const handlePrecificar = async () => {
 
@@ -375,13 +377,7 @@ export default function Medicoes() {
         }
     };
 
-    const handleCorrigir = async (m: any) => {
-        if (!window.confirm('Tem certeza que deseja voltar a Medição para correção?')) return;
-        try {
-            await api.patch(`/medicoes/${m.id}/status`, { status: 'AGUARDANDO_APROVACAO', valorAprovado: null });
-            fetchData();
-        } catch (err: any) { showToast(err.response?.data?.error || 'Erro'); }
-    };
+
 
     // ─── CREATE MEDIÇÃO ───
     const openCreateMedicao = async () => {
@@ -631,7 +627,7 @@ export default function Medicoes() {
                                                     <button 
                                                         title="Voltar para Logística" 
                                                         className="hover:text-red-600 transition-colors"
-                                                        onClick={e => { e.stopPropagation(); handleCorrigir(item.id); }}
+                                                        onClick={e => { e.stopPropagation(); handleCorrigirOS(item.id); }}
                                                     >
                                                         <ArrowLeftCircle className="w-3.5 h-3.5" />
                                                     </button>

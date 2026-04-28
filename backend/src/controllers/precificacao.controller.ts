@@ -22,10 +22,10 @@ export const listOSPrecificacao = async (req: AuthRequest, res: Response) => {
         const list = await prisma.ordemServico.findMany({
             where,
             include: {
-                cliente: { select: { id: true, nome: true, porcentagemRL: true, codigo: true, telefone: true } },
+                cliente: { select: { id: true, nome: true, porcentagemRL: true, codigo: true, telefone: true, tipoFaturamento: true } },
                 servicos: true,
                 itensCobranca: true,
-                proposta: { select: { id: true, codigo: true, valorTotal: true, tipoFaturamento: true } }
+                proposta: { select: { id: true, codigo: true, valorTotal: true } }
             },
             orderBy: { dataBaixa: 'desc' as any }
         });
