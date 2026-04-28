@@ -946,7 +946,7 @@ export default function OS() {
         {/* ═══ OS OPENING MODAL ═══ */}
         {showModal && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden">
 
               {/* Modal Header */}
               <div className="flex items-center justify-between px-6 py-4 bg-[#1e3a5f] text-white rounded-t-2xl">
