@@ -103,6 +103,7 @@ export default function OS() {
   const [dataFiltro, setDataFiltro] = useState(
     `09-11-2025 até 09-07-${new Date().getFullYear()}`
   );
+  const [codigoFiltro, setCodigoFiltro] = useState('');
 
   // Form state
   const [form, setForm] = useState<any>({
@@ -390,8 +391,38 @@ export default function OS() {
     else if (activeTab === 'executadas') statuses = OS_STATUS_GROUPS.CONCLUIDA;
     else if (activeTab === 'canceladas') statuses = OS_STATUS_GROUPS.CANCELADA;
 
-    return (osList || []).filter(o => statuses.includes(o.status));
-  }, [osList, activeTab]);
+    let list = (osList || []).filter(o => statuses.includes(o.status));
+
+    // Filtro por Código
+    if (codigoFiltro) {
+      const search = codigoFiltro.toLowerCase();
+      list = list.filter((o: any) => 
+        (o.codigo && o.codigo.toLowerCase().includes(search)) ||
+        (o.proposta?.codigo && o.proposta.codigo.toLowerCase().includes(search))
+      );
+    }
+
+    // Filtro por Data Inicial da OS
+    if (dataFiltro) {
+      const parts = dataFiltro.split(' até ');
+      if (parts.length === 2) {
+        const parseData = (str: string) => {
+          const [d, m, y] = str.split('-');
+          return new Date(Number(y), Number(m) - 1, Number(d)).getTime();
+        };
+        const inicio = parseData(parts[0]);
+        const fim = parseData(parts[1]);
+
+        list = list.filter((o: any) => {
+          if (!o.dataInicial) return true;
+          const osTime = new Date(o.dataInicial).getTime();
+          return osTime >= inicio && osTime <= fim;
+        });
+      }
+    }
+
+    return list;
+  }, [osList, activeTab, codigoFiltro, dataFiltro]);
 
   // Helper to check if a proposal + equipment already has an active OS
   const getExistingOS = (propostaId: string, equipamento: string) => {
@@ -432,6 +463,12 @@ export default function OS() {
     const STATUS_VALIDOS_PROPOSTA = ['APROVADA', 'ACEITA', 'VIGENTE'];
     list = list.filter((p: any) => STATUS_VALIDOS_PROPOSTA.includes(p.status));
 
+    // Filter by Code
+    if (codigoFiltro) {
+      const search = codigoFiltro.toLowerCase();
+      list = list.filter((p: any) => p.codigo && p.codigo.toLowerCase().includes(search));
+    }
+
     // Date filter
     if (!dataFiltro) return list;
     const parts = dataFiltro.split(' até ');
@@ -448,10 +485,10 @@ export default function OS() {
 
     return list.filter((p: any) => {
       if (!p.dataProposta) return true;
-      const dataP = new Date(p.dataProposta).getTime();
-      return dataP >= inicio && dataP <= fim;
+      const propTime = new Date(p.dataProposta).getTime();
+      return propTime >= inicio && propTime <= fim;
     });
-  }, [propostas, dataFiltro]);
+  }, [propostas, dataFiltro, codigoFiltro]);
 
   const paginated = useMemo(() => {
     const start = (page - 1) * pageSize;
@@ -760,18 +797,31 @@ export default function OS() {
           </div>
         </div>
 
-        {/* ═══ FILTER BAR (for Abrir tab = proposals) ═══ */}
-        {activeTab === 'abrir' && (
-          <div className="mb-3 px-1">
-            <p className="text-xs font-bold text-slate-500 mb-1">Filtrar data proposta</p>
+        {/* ═══ FILTER BAR (All Tabs) ═══ */}
+        <div className="mb-3 px-1 flex gap-4">
+          <div>
+            <p className="text-xs font-bold text-slate-500 mb-1">
+              {activeTab === 'abrir' ? 'Filtrar data proposta' : 'Filtrar data inicial (OS)'}
+            </p>
             <input
               type="text"
               value={dataFiltro}
               onChange={e => setDataFiltro(e.target.value)}
               className="border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-600 w-56 outline-none focus:ring-1 focus:ring-blue-400"
+              placeholder="DD-MM-YYYY até DD-MM-YYYY"
             />
           </div>
-        )}
+          <div>
+            <p className="text-xs font-bold text-slate-500 mb-1">Código Proposta / OS</p>
+            <input
+              type="text"
+              value={codigoFiltro}
+              onChange={e => setCodigoFiltro(e.target.value)}
+              className="border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-600 w-56 outline-none focus:ring-1 focus:ring-blue-400"
+              placeholder="Ex: PROP-2026-..."
+            />
+          </div>
+        </div>
 
         {/* ═══ TABLE ═══ */}
         <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
