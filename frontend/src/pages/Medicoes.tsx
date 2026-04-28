@@ -188,7 +188,7 @@ export default function Medicoes() {
 
     const fetchCC = useCallback(async () => {
         try {
-            const { data } = await api.get('/centro-custo');
+            const { data } = await api.get('/centros-custo');
             setCentrosCusto(data);
         } catch (err: any) {
             console.error('Fetch CC error:', err);

@@ -58,8 +58,8 @@ export default function ModalNovaMedicao({ isOpen, onClose, onSuccess }: ModalNo
                 try {
                     const [cRes, uRes, ccRes] = await Promise.all([
                         api.get('/clientes'),
-                        api.get('/usuarios'),
-                        api.get('/centro-custo')
+                        api.get('/equipe/vendedores'),
+                        api.get('/centros-custo')
                     ]);
                     setClientes(cRes.data);
                     setVendedores(uRes.data);
