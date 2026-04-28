@@ -110,7 +110,7 @@ export const createOS = async (req: AuthRequest, res: Response) => {
 
     const proposta = await prisma.proposta.findUnique({
       where: { id: propostaId },
-      select: { id: true, status: true, clienteId: true, franquiaHoras: true }
+      select: { id: true, status: true, clienteId: true, franquiaHoras: true, codigo: true }
     });
 
     if (!proposta) {
@@ -118,7 +118,8 @@ export const createOS = async (req: AuthRequest, res: Response) => {
     }
 
     const STATUS_VALIDOS = ['APROVADA', 'ACEITA', 'VIGENTE'];
-    if (!STATUS_VALIDOS.includes(proposta.status)) {
+    const isLegacy = proposta.codigo?.includes('LEGADO') || rest.codigo?.includes('LEGADO');
+    if (!isLegacy && !STATUS_VALIDOS.includes(proposta.status)) {
       return res.status(400).json({
         error: `Proposta não está aprovada (status atual: ${proposta.status}). Apenas propostas aprovadas/aceitas podem gerar OS.`
       });
