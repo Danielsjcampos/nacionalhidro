@@ -567,7 +567,21 @@ export const printLoteOSPdf = async (req: AuthRequest, res: Response) => {
 // ─── CRIAÇÃO DE OS EM LOTE (intervalo de datas) ─────────────────
 export const createOSLote = async (req: AuthRequest, res: Response) => {
   try {
-    const { dataInicio, dataFim, diasSemana, quantidadeDia, ...osData } = req.body;
+    // Destructure everything from req.body to separate loop control from OS data
+    const { 
+      dataInicio, 
+      dataFim, 
+      diasSemana, 
+      quantidadeDia,
+      // Destructure fields that shouldn't go directly into the OS model's 'data' object
+      dataInicial: _discard1, 
+      dataFinal: _discard2, 
+      diasSemana: _discard3, 
+      quantidadeDia: _discard4,
+      servicos: _discard5,
+      escala: _discard6,
+      ...osData 
+    } = req.body;
 
     if (!dataInicio || !dataFim) {
       return res.status(400).json({ error: 'dataInicio e dataFim são obrigatórios para criação em lote.' });
@@ -590,9 +604,24 @@ export const createOSLote = async (req: AuthRequest, res: Response) => {
     const createdOSs: any[] = [];
     const errors: string[] = [];
 
+    // Fields that belong to OrdemServico model
+    const VALID_OS_FIELDS = [
+      'clienteId', 'propostaId', 'vendedorId', 'prioridade', 'status', 'tecnicos',
+      'materiais', 'acompanhante', 'almoco', 'contato', 'empresa', 'entrada',
+      'horaInicial', 'horasAdicionais', 'horasTotais', 'minimoHoras', 'horaTolerancia',
+      'descontarAlmoco', 'observacoes', 'saida', 'tipoCobranca', 'medicaoId',
+      'valorPrecificado', 'statusPrecificacao', 'qtdBicos', 'qtdPessoas', 'turnos',
+      'checkpoints', 'justificativaCancelamento'
+    ];
+
+    const sanitizedData: any = {};
+    VALID_OS_FIELDS.forEach(field => {
+      if (req.body[field] !== undefined) sanitizedData[field] = req.body[field];
+    });
+
     // Normalize services and scale data from various possible frontend casings
-    const rawServicos = osData.servicos || osData.Servicos || [];
-    const rawEscala = osData.escala || osData.EscalaFuncionarios || [];
+    const rawServicos = req.body.servicos || req.body.Servicos || [];
+    const rawEscala = req.body.escala || req.body.EscalaFuncionarios || [];
 
     for (let d = new Date(inicio); d <= fim; d.setDate(d.getDate() + 1)) {
       // Check if day is in allowed week days (0=Sunday, 1=Monday, etc)
@@ -621,10 +650,10 @@ export const createOSLote = async (req: AuthRequest, res: Response) => {
           const os = await prisma.$transaction(async (tx) => {
             const created = await tx.ordemServico.create({
               data: {
-                ...osData,
+                ...sanitizedData,
                 codigo,
                 dataInicial: new Date(d),
-                status: osData.status || 'ABERTA',
+                status: sanitizedData.status || 'ABERTA',
                 servicos: rawServicos.length > 0 ? {
                   create: rawServicos.map((s: any) => ({
                     equipamento: s.equipamento || s.discriminacao?.split(':')[0] || '',
@@ -646,8 +675,8 @@ export const createOSLote = async (req: AuthRequest, res: Response) => {
                 data: {
                   codigoOS: codigo,
                   data: new Date(d),
-                  clienteId: osData.clienteId || undefined,
-                  empresa: osData.empresa || "NACIONAL HIDROSANEAMENTO EIRELI EPP",
+                  clienteId: sanitizedData.clienteId || undefined,
+                  empresa: sanitizedData.empresa || "NACIONAL HIDROSANEAMENTO EIRELI EPP",
                   status: "AGENDADO",
                   tipoAgendamento: "CONFIRMADO",
                   funcionarios: funcs
@@ -660,21 +689,25 @@ export const createOSLote = async (req: AuthRequest, res: Response) => {
 
           createdOSs.push(os);
         } catch (err: any) {
+          console.error(`Error on day ${d.toLocaleDateString()}:`, err);
           errors.push(`${d.toLocaleDateString('pt-BR')}: ${err.message}`);
         }
       }
     }
 
-    await registrarLog({
-      entidade: 'OS',
-      entidadeId: createdOSs[0]?.id || 'lote',
-      acao: 'CRIAR_LOTE',
-      descricao: `Lote de ${createdOSs.length} OS criadas (${inicio.toLocaleDateString('pt-BR')} a ${fim.toLocaleDateString('pt-BR')})`,
-      usuarioId: req.user?.userId,
-      usuarioNome: req.user?.userId,
-    });
+    if (createdOSs.length > 0) {
+      await registrarLog({
+        entidade: 'OS',
+        entidadeId: createdOSs[0]?.id || 'lote',
+        acao: 'CRIAR_LOTE',
+        descricao: `Lote de ${createdOSs.length} OS criadas (${inicio.toLocaleDateString('pt-BR')} a ${fim.toLocaleDateString('pt-BR')})`,
+        usuarioId: req.user?.userId,
+        usuarioNome: req.user?.userId,
+      });
+    }
 
     res.status(201).json({
+      message: `${createdOSs.length} ordens de serviço criadas com sucesso.`,
       criadas: createdOSs.length,
       erros: errors.length,
       ordensServico: createdOSs,
