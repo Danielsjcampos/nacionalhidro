@@ -733,13 +733,8 @@ export default function OS() {
         // Geração em Lote ou Simples
         if (form.dataFinal) {
           const DIA_MAP: Record<string, number> = {
-            'Domingo': 0,
-            'Segunda-feira': 1,
-            'Terça-feira': 2,
-            'Quarta-feira': 3,
-            'Quinta-feira': 4,
-            'Sexta-feira': 5,
-            'Sábado': 6
+            'Domingo': 0, 'Segunda-feira': 1, 'Terça-feira': 2, 'Quarta-feira': 3,
+            'Quinta-feira': 4, 'Sexta-feira': 5, 'Sábado': 6
           };
           const batchPayload = {
             ...payload,
@@ -747,12 +742,15 @@ export default function OS() {
             dataFim: form.dataFinal,
             diasSemana: form.diasSemana.map((d: string) => DIA_MAP[d]).filter((d: any) => d !== undefined),
             quantidadeDia: Number(form.quantidadeDia) || 1,
-            Servicos: form.servicos.map((s: any) => ({ discriminacao: `${s.equipamento}: ${s.descricao}` })),
-            EscalaVeiculos: form.veiculosEscala.map((v: any) => ({ veiculoId: v.veiculoId })),
-            EscalaFuncionarios: [], // No lote geralmente não escala fixo, ou escala o mesmo
+            servicos: form.servicos.map((s: any) => ({
+              equipamento: s.equipamento,
+              descricao: s.descricao
+            })),
+            escala: form.escala.map((e: any) => e.id || e),
           };
-          await api.post('/os/lote', batchPayload);
-          showToast('Lote de OSs gerado com sucesso!', 'success');
+          const res = await api.post('/os/lote', batchPayload);
+          showToast(res.data.message || 'Lote de OSs gerado com sucesso!', 'success');
+          setForm((f: any) => ({ ...f, dataFinal: '', diasSemana: [], quantidadeDia: '' }));
         } else {
           await api.post('/os', payload);
         }

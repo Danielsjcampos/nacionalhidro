@@ -567,24 +567,21 @@ export const printLoteOSPdf = async (req: AuthRequest, res: Response) => {
 // ─── CRIAÇÃO DE OS EM LOTE (intervalo de datas) ─────────────────
 export const createOSLote = async (req: AuthRequest, res: Response) => {
   try {
-    const { dataInicio, dataFim, ...osData } = req.body;
+    const { dataInicio, dataFim, diasSemana, quantidadeDia, ...osData } = req.body;
 
     if (!dataInicio || !dataFim) {
       return res.status(400).json({ error: 'dataInicio e dataFim são obrigatórios para criação em lote.' });
     }
 
-    if (!osData.propostaId) {
-      return res.status(400).json({ error: 'propostaId é obrigatório.' });
-    }
-
     const inicio = new Date(dataInicio);
     const fim = new Date(dataFim);
+    const qtdPorDia = Number(quantidadeDia) || 1;
+    const diasFiltro = Array.isArray(diasSemana) ? diasSemana.map(Number) : [];
 
     if (fim < inicio) {
       return res.status(400).json({ error: 'dataFim deve ser maior ou igual a dataInicio.' });
     }
 
-    // Limit to 31 days max
     const diffDays = Math.ceil((fim.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     if (diffDays > 31) {
       return res.status(400).json({ error: 'Intervalo máximo de 31 dias para criação em lote.' });
@@ -593,68 +590,78 @@ export const createOSLote = async (req: AuthRequest, res: Response) => {
     const createdOSs: any[] = [];
     const errors: string[] = [];
 
+    // Normalize services and scale data from various possible frontend casings
+    const rawServicos = osData.servicos || osData.Servicos || [];
+    const rawEscala = osData.escala || osData.EscalaFuncionarios || [];
+
     for (let d = new Date(inicio); d <= fim; d.setDate(d.getDate() + 1)) {
-      try {
-        const ano = d.getFullYear();
-        const prefix = `OS-${ano}-`;
-        const lastOS = await prisma.ordemServico.findFirst({
-          where: { codigo: { startsWith: prefix } },
-          orderBy: { codigo: 'desc' },
-          select: { codigo: true }
-        });
-        
-        let nextNumber = 1;
-        if (lastOS?.codigo) {
-          const parts = lastOS.codigo.split('-');
-          const lastNum = parseInt(parts[parts.length - 1]);
-          if (!isNaN(lastNum)) nextNumber = lastNum + 1;
-        }
-        const codigo = `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+      // Check if day is in allowed week days (0=Sunday, 1=Monday, etc)
+      if (diasFiltro.length > 0 && !diasFiltro.includes(d.getDay())) {
+        continue;
+      }
 
-        const { servicos, escala, ...rest } = osData;
+      for (let i = 0; i < qtdPorDia; i++) {
+        try {
+          const ano = d.getFullYear();
+          const prefix = `OS-${ano}-`;
+          const lastOS = await prisma.ordemServico.findFirst({
+            where: { codigo: { startsWith: prefix } },
+            orderBy: { codigo: 'desc' },
+            select: { codigo: true }
+          });
+          
+          let nextNumber = 1;
+          if (lastOS?.codigo) {
+            const parts = lastOS.codigo.split('-');
+            const lastNum = parseInt(parts[parts.length - 1]);
+            if (!isNaN(lastNum)) nextNumber = lastNum + 1;
+          }
+          const codigo = `${prefix}${(nextNumber + createdOSs.length).toString().padStart(4, '0')}`;
 
-        const os = await prisma.$transaction(async (tx) => {
-          const created = await tx.ordemServico.create({
-            data: {
-              ...rest,
-              codigo,
-              dataInicial: new Date(d),
-              servicos: servicos ? {
-                create: servicos.map((s: any) => ({
-                  equipamento: s.equipamento,
-                  descricao: s.descricao
-                }))
-              } : undefined
-            },
-            include: { servicos: true, cliente: true }
+          const os = await prisma.$transaction(async (tx) => {
+            const created = await tx.ordemServico.create({
+              data: {
+                ...osData,
+                codigo,
+                dataInicial: new Date(d),
+                status: osData.status || 'ABERTA',
+                servicos: rawServicos.length > 0 ? {
+                  create: rawServicos.map((s: any) => ({
+                    equipamento: s.equipamento || s.discriminacao?.split(':')[0] || '',
+                    descricao: s.descricao || s.discriminacao?.split(':')[1]?.trim() || ''
+                  }))
+                } : undefined
+              },
+              include: { servicos: true, cliente: true }
+            });
+
+            // Create escala for this day if crew provided
+            if (Array.isArray(rawEscala) && rawEscala.length > 0) {
+              const funcs = await tx.funcionario.findMany({
+                where: { id: { in: rawEscala.map((f: any) => f.id || f) } },
+                select: { id: true, nome: true, cargo: true }
+              });
+
+              await tx.escala.create({
+                data: {
+                  codigoOS: codigo,
+                  data: new Date(d),
+                  clienteId: osData.clienteId || undefined,
+                  empresa: osData.empresa || "NACIONAL HIDROSANEAMENTO EIRELI EPP",
+                  status: "AGENDADO",
+                  tipoAgendamento: "CONFIRMADO",
+                  funcionarios: funcs
+                }
+              });
+            }
+
+            return created;
           });
 
-          // Create escala for this day if crew provided
-          if (Array.isArray(escala) && escala.length > 0) {
-            const funcs = await tx.funcionario.findMany({
-              where: { id: { in: escala } },
-              select: { id: true, nome: true, cargo: true }
-            });
-
-            await tx.escala.create({
-              data: {
-                codigoOS: codigo,
-                data: new Date(d),
-                clienteId: rest.clienteId || undefined,
-                empresa: rest.empresa || "NACIONAL HIDROSANEAMENTO EIRELI EPP",
-                status: "AGENDADO",
-                tipoAgendamento: "CONFIRMADO",
-                funcionarios: funcs
-              }
-            });
-          }
-
-          return created;
-        });
-
-        createdOSs.push(os);
-      } catch (err: any) {
-        errors.push(`${d.toLocaleDateString('pt-BR')}: ${err.message}`);
+          createdOSs.push(os);
+        } catch (err: any) {
+          errors.push(`${d.toLocaleDateString('pt-BR')}: ${err.message}`);
+        }
       }
     }
 

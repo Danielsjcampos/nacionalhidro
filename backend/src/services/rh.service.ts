@@ -155,5 +155,37 @@ export const checkEmployeeAvailability = async (
     }
   }
 
+  // 6. Verificar Conflito de OS Ativa (Trava Hard até a Baixa)
+  const escalasAtivas = await prisma.escala.findMany({
+    where: {
+      status: { notIn: ['CANCELADO', 'CANCELADA'] },
+      codigoOS: { not: null }
+    }
+  });
+
+  const codigosOS = escalasAtivas.map(e => e.codigoOS).filter(Boolean) as string[];
+  const activeOSs = await prisma.ordemServico.findMany({
+    where: {
+      codigo: { in: codigosOS },
+      status: { in: ['EM_EXECUCAO', 'EM_ANDAMENTO'] } // Somente trava se estiver REALMENTE em execução
+    },
+    select: { codigo: true }
+  });
+  const activeOSCodigos = new Set(activeOSs.map(os => os.codigo));
+
+  for (const esc of escalasAtivas) {
+    if (esc.codigoOS && activeOSCodigos.has(esc.codigoOS)) {
+      if (Array.isArray(esc.funcionarios)) {
+        const funcs = esc.funcionarios as any[];
+        if (funcs.some((f: any) => (f.id || f) === funcionarioId)) {
+          return {
+            disponivel: false,
+            motivoIndisponibilidade: `Funcionário já está em campo na OS ${esc.codigoOS} (Aguardando Baixa).`
+          };
+        }
+      }
+    }
+  }
+
   return result;
 }

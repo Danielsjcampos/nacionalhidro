@@ -51,28 +51,64 @@ export const getQuadroFuncionarios = async (
     orderBy: { nome: 'asc' }
   });
 
-  // 2. Buscar escalas do dia para saber quem já está escalado
+  // 2. Buscar escalas do dia OU escalas de OSs ainda ativas (Trava Hard)
   const startOfDay = new Date(data);
   startOfDay.setHours(0, 0, 0, 0);
   const endOfDay = new Date(data);
   endOfDay.setHours(23, 59, 59, 999);
 
-  const escalasDoDia = await prisma.escala.findMany({
+  // Buscar escalas que:
+  // a) São para o dia solicitado
+  // b) Ou estão vinculadas a uma OS que ainda não foi finalizada/cancelada (Lock until Baixa)
+  const escalasConflitantes = await prisma.escala.findMany({
     where: {
-      data: { gte: startOfDay, lte: endOfDay },
-      status: { notIn: ['CANCELADO', 'CANCELADA'] }
+      status: { notIn: ['CANCELADO', 'CANCELADA'] },
+      OR: [
+        { data: { gte: startOfDay, lte: endOfDay } },
+        { 
+          codigoOS: { not: null },
+          // Note: Since we don't have a direct relation, we'll filter OS status in memory or via subquery if possible.
+          // For now, let's get all non-cancelled escalas and filter by OS status below.
+        }
+      ]
     },
     include: { cliente: { select: { nome: true } } }
   });
 
-  // Map: funcionarioId -> cliente escalado
-  const funcionariosEscalados = new Map<string, string>();
-  for (const esc of escalasDoDia) {
-    if (Array.isArray(esc.funcionarios)) {
-      for (const f of esc.funcionarios as any[]) {
-        const fId = typeof f === 'object' ? f.id : null;
-        if (fId) {
-          funcionariosEscalados.set(fId, esc.cliente?.nome || 'Outro cliente');
+  // Fetch statuses of relevant OSs
+  const codigosOS = escalasConflitantes.map(e => e.codigoOS).filter(Boolean) as string[];
+  const activeOSs = await prisma.ordemServico.findMany({
+    where: {
+      codigo: { in: codigosOS },
+      status: { in: ['ABERTA', 'EM_EXECUCAO', 'EM_ANDAMENTO'] }
+    },
+    select: { codigo: true, status: true, dataInicial: true }
+  });
+  const activeOSMap = new Map(activeOSs.map(os => [os.codigo, os]));
+
+  // Map: funcionarioId -> cliente/motivo indisponibilidade
+  const funcionariosEscalados = new Map<string, { cliente: string; motivo?: string }>();
+  
+  for (const esc of escalasConflitantes) {
+    const osAtiva = esc.codigoOS ? activeOSMap.get(esc.codigoOS) : null;
+    
+    // Bloqueia se:
+    // 1. É uma escala para o próprio dia
+    // 2. É uma OS em execução (Trava Hard até a Baixa)
+    const isToday = esc.data >= startOfDay && esc.data <= endOfDay;
+    const isRunning = osAtiva?.status === 'EM_EXECUCAO' || osAtiva?.status === 'EM_ANDAMENTO';
+
+    if (isToday || isRunning) {
+      if (Array.isArray(esc.funcionarios)) {
+        for (const f of esc.funcionarios as any[]) {
+          const fId = typeof f === 'object' ? f.id : null;
+          if (fId) {
+            const motivo = isRunning ? `Ocupado em OS em Execução (${esc.codigoOS})` : undefined;
+            funcionariosEscalados.set(fId, { 
+              cliente: esc.cliente?.nome || 'Outro cliente',
+              motivo 
+            });
+          }
         }
       }
     }
@@ -130,7 +166,7 @@ export const getQuadroFuncionarios = async (
     }
   }
 
-  // 6. Build result — DEDUPLICATED (M05 fix)
+  // 6. Build result
   const seenIds = new Set<string>();
   const result: FuncionarioQuadro[] = [];
 
@@ -138,51 +174,28 @@ export const getQuadroFuncionarios = async (
     if (seenIds.has(func.id)) continue;
     seenIds.add(func.id);
 
-    // Status priorities: AFASTADO > FERIAS > ESCALADO > DOC_PROBLEM > DISPONIVEL
-    const statusCriticos = ['FERIAS', 'ATESTADO', 'AFASTADO', 'DESLIGADO'];
     const asoVenc = asoMap.get(func.id) ?? null;
     const intVenc = integracaoMap.get(func.id) ?? null;
     const asoSt = checkStatus(asoVenc);
     const intSt = clienteId ? checkStatus(intVenc) : 'OK';
     const afastado = afastamentoMap.get(func.id);
+    const escalado = funcionariosEscalados.get(func.id);
 
     let status: FuncionarioQuadro['status'] = 'DISPONIVEL';
     let motivo: string | undefined;
     let escaladoPara: string | undefined;
     let categoriaIndisponibilidade: FuncionarioQuadro['categoriaIndisponibilidade'] = null;
 
-    if (statusCriticos.includes(func.status)) {
+    if (['FERIAS', 'ATESTADO', 'AFASTADO', 'DESLIGADO'].includes(func.status)) {
       status = func.status === 'FERIAS' ? 'FERIAS' : 'AFASTADO';
       motivo = String(func.motivoAfastamento || func.status);
-      // Map to detailed category
-      const tipoMap: Record<string, FuncionarioQuadro['categoriaIndisponibilidade']> = {
-        'FERIAS': 'FERIAS',
-        'ATESTADO': 'ATESTADO',
-        'AFASTADO': 'AFASTAMENTO_INSS',
-        'DESLIGADO': null,
-      };
-      categoriaIndisponibilidade = tipoMap[func.status] || null;
     } else if (afastado) {
       status = 'AFASTADO';
       motivo = afastado;
-      // Map afastamento tipo to category
-      const afastTipoMap: Record<string, FuncionarioQuadro['categoriaIndisponibilidade']> = {
-        'FERIAS': 'FERIAS',
-        'ATESTADO': 'ATESTADO',
-        'ATESTADO_MEDICO': 'ATESTADO',
-        'AFASTAMENTO_INSS': 'AFASTAMENTO_INSS',
-        'INSS': 'AFASTAMENTO_INSS',
-        'FOLGA': 'FOLGA',
-        'TREINAMENTO': 'TREINAMENTO',
-        'FALTA_INJUSTIFICADA': 'FALTA_INJUSTIFICADA',
-        'LICENCA': 'LICENCA',
-        'LICENCA_MATERNIDADE': 'LICENCA',
-        'LICENCA_PATERNIDADE': 'LICENCA',
-      };
-      categoriaIndisponibilidade = afastTipoMap[afastado.toUpperCase()] || 'ATESTADO';
-    } else if (funcionariosEscalados.has(func.id)) {
+    } else if (escalado) {
       status = 'ESCALADO';
-      escaladoPara = funcionariosEscalados.get(func.id);
+      escaladoPara = escalado.cliente;
+      motivo = escalado.motivo;
     } else if (asoSt === 'VENCIDO' || asoSt === 'INEXISTENTE' || intSt === 'VENCIDO' || intSt === 'INEXISTENTE') {
       status = 'MANUTENCAO_DOC';
       motivo = asoSt !== 'OK' ? `ASO ${asoSt}` : `Integração ${intSt}`;
@@ -195,7 +208,6 @@ export const getQuadroFuncionarios = async (
       status,
       escaladoPara,
       motivoIndisponibilidade: motivo,
-      categoriaIndisponibilidade,
       integracaoStatus: intSt as any,
       asoStatus: asoSt,
       categoriaCNH: func.categoriaCNH,
@@ -208,35 +220,52 @@ export const getQuadroFuncionarios = async (
 
 // ─── Quadro de Veículos ─────────────────────────────────────────
 export const getQuadroVeiculos = async (data: Date): Promise<VeiculoQuadro[]> => {
-  // 1. Buscar todos veículos exibidos no histograma
   const veiculos = await prisma.veiculo.findMany({
     where: { exibirNoHistograma: true },
     orderBy: { placa: 'asc' }
   });
 
-  // 2. Escalas do dia
   const startOfDay = new Date(data);
   startOfDay.setHours(0, 0, 0, 0);
   const endOfDay = new Date(data);
   endOfDay.setHours(23, 59, 59, 999);
 
-  const escalasDoDia = await prisma.escala.findMany({
+  const escalasConflitantes = await prisma.escala.findMany({
     where: {
-      data: { gte: startOfDay, lte: endOfDay },
-      veiculoId: { not: null },
-      status: { notIn: ['CANCELADO', 'CANCELADA'] }
+      status: { notIn: ['CANCELADO', 'CANCELADA'] },
+      veiculoId: { not: null }
     },
     include: { cliente: { select: { nome: true } } }
   });
 
-  const veiculosEscalados = new Map<string, string>();
-  for (const esc of escalasDoDia) {
-    if (esc.veiculoId) {
-      veiculosEscalados.set(esc.veiculoId, esc.cliente?.nome || 'Outro');
+  // Fetch statuses of relevant OSs
+  const codigosOS = escalasConflitantes.map(e => e.codigoOS).filter(Boolean) as string[];
+  const activeOSs = await prisma.ordemServico.findMany({
+    where: {
+      codigo: { in: codigosOS },
+      status: { in: ['ABERTA', 'EM_EXECUCAO', 'EM_ANDAMENTO'] }
+    },
+    select: { codigo: true, status: true }
+  });
+  const activeOSMap = new Map(activeOSs.map(os => [os.codigo, os]));
+
+  const veiculosEscalados = new Map<string, { cliente: string; motivo?: string }>();
+  for (const esc of escalasConflitantes) {
+    if (!esc.veiculoId) continue;
+
+    const osAtiva = esc.codigoOS ? activeOSMap.get(esc.codigoOS) : null;
+    const isToday = esc.data >= startOfDay && esc.data <= endOfDay;
+    const isRunning = osAtiva?.status === 'EM_EXECUCAO' || osAtiva?.status === 'EM_ANDAMENTO';
+
+    if (isToday || isRunning) {
+      const motivo = isRunning ? `Ocupado em OS em Execução (${esc.codigoOS})` : undefined;
+      veiculosEscalados.set(esc.veiculoId, { 
+        cliente: esc.cliente?.nome || 'Outro cliente',
+        motivo 
+      });
     }
   }
 
-  // 3. Manutenções pendentes
   const manutencoesPendentes = await prisma.manutencao.findMany({
     where: {
       status: { in: ['PENDENTE', 'EM_ANDAMENTO'] },
@@ -246,7 +275,6 @@ export const getQuadroVeiculos = async (data: Date): Promise<VeiculoQuadro[]> =>
   });
   const veiculosEmManutencao = new Set(manutencoesPendentes.map(m => m.veiculoId).filter(Boolean));
 
-  // 4. Build result
   return veiculos.map(v => {
     let status: VeiculoQuadro['status'] = 'DISPONIVEL';
     let escaladoPara: string | undefined;
@@ -255,7 +283,7 @@ export const getQuadroVeiculos = async (data: Date): Promise<VeiculoQuadro[]> =>
       status = 'MANUTENCAO';
     } else if (veiculosEscalados.has(v.id)) {
       status = 'ESCALADO';
-      escaladoPara = veiculosEscalados.get(v.id);
+      escaladoPara = veiculosEscalados.get(v.id).cliente;
     }
 
     return {

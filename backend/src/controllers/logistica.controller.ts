@@ -71,6 +71,32 @@ export const createEscala = async (req: AuthRequest, res: Response) => {
           conflito: vehicleConflict
         });
       }
+
+      // ── Gap Analysis 2.7: Trava Hard — Veículo em OS Ativa (Lock until Baixa) ──
+      const escalasAtivas = await prisma.escala.findMany({
+        where: {
+          veiculoId,
+          status: { notIn: ['CANCELADO', 'CANCELADA'] },
+          codigoOS: { not: null }
+        },
+        select: { codigoOS: true }
+      });
+      
+      if (escalasAtivas.length > 0) {
+        const activeOSs = await prisma.ordemServico.findMany({
+          where: {
+            codigo: { in: escalasAtivas.map(e => e.codigoOS).filter(Boolean) as string[] },
+            status: { in: ['EM_EXECUCAO', 'EM_ANDAMENTO'] }
+          }
+        });
+        
+        if (activeOSs.length > 0) {
+          return res.status(409).json({
+            error: `Veículo já está em campo na OS ${activeOSs[0].codigo}. Aguarde a Baixa para liberar o veículo.`,
+            bloqueio: 'OS_ATIVA'
+          });
+        }
+      }
     }
 
     // BUG FIX #9: Check employee availability (férias/atestado/ASO/Integracao)
