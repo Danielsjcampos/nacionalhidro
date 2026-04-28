@@ -13,9 +13,28 @@ export const listPropostas = async (req: AuthRequest, res: Response) => {
     const limit = parseInt(req.query.limit as string) || 20; // Default limit increased to 20
     const skip = (page - 1) * limit;
 
-    const { search, tipo, vigente } = req.query;
+    const { search, tipo, vigente, status, dataInicio, dataFim } = req.query;
 
     const where: any = {};
+
+    // Status filter
+    if (status) {
+      where.status = status as string;
+    }
+
+    // Date range filter
+    if (dataInicio || dataFim) {
+      where.dataProposta = {};
+      if (dataInicio) {
+        where.dataProposta.gte = new Date(dataInicio as string);
+      }
+      if (dataFim) {
+        // End of day
+        const d = new Date(dataFim as string);
+        d.setHours(23, 59, 59, 999);
+        where.dataProposta.lte = d;
+      }
+    }
 
     // Search filter
     if (search) {
@@ -84,6 +103,27 @@ export const listPropostas = async (req: AuthRequest, res: Response) => {
       details: error.message,
       code: error.code 
     });
+  }
+};
+
+// ─── STATS ──────────────────────────────────────────────────────
+export const getPropostasStats = async (req: AuthRequest, res: Response) => {
+  try {
+    const stats = await Promise.all([
+      prisma.proposta.count({ where: { propostaGlobalId: null, status: { notIn: ['ACEITA', 'RECUSADA', 'CANCELADA'] } } }),
+      prisma.proposta.count({ where: { propostaGlobalId: null, status: 'ACEITA' } }),
+      prisma.proposta.count({ where: { propostaGlobalId: null, status: 'RECUSADA' } }),
+      prisma.proposta.count({ where: { propostaGlobalId: null, status: 'CANCELADA' } }),
+    ]);
+
+    res.json({
+      'Em Aberto': stats[0],
+      'Aprovadas': stats[1],
+      'Reprovadas': stats[2],
+      'Canceladas': stats[3],
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 };
 

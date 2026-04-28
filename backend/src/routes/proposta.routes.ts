@@ -2,7 +2,7 @@ import { Router } from 'express';
 import {
   listPropostas, getProposta, createProposta, updateProposta,
   updatePropostaStatus, deleteProposta, gerarOSdeUnidade, gerarPropostaTecnica, enviarEmailProposta, gerarRevisao, gerarPDFPropostaWeb,
-  dispararEquipe
+  dispararEquipe, getPropostasStats
 } from '../controllers/proposta.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import multer from 'multer';
@@ -14,6 +14,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/', authorize('comercial.propostas.listar'), listPropostas);
+router.get('/stats', authorize('comercial.propostas.listar'), getPropostasStats);
 router.get('/:id', authorize('comercial.propostas.listar'), getProposta);
 router.post('/', authorize('comercial.propostas.criar'), createProposta);
 router.patch('/:id', authorize('comercial.propostas.editar'), updateProposta);

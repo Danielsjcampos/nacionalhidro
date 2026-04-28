@@ -39,6 +39,9 @@ export default function Propostas() {
   const [totalPages, setTotalPages]   = useState(1);
   const [saving, setSaving]           = useState(false);
   const [viewingPdf, setViewingPdf]   = useState<any | null>(null);
+  const [stats, setStats]             = useState<Record<string,number>>({
+    'Em Aberto': 0, 'Aprovadas': 0, 'Reprovadas': 0, 'Canceladas': 0
+  });
 
   // Options for modal
   const [clientes,           setClientes]           = useState<any[]>([]);
@@ -57,13 +60,19 @@ export default function Propostas() {
       const params: any = { page, limit: 25, search: searchTerm };
       const statusApi = STATUS_API[selectedTipo];
       if (statusApi) params.status = statusApi;
-      if (selectedTipo === 'Em Aberto') {
-        if (dataInicio) params.dataInicio = dataInicio;
-        if (dataFim)    params.dataFim    = dataFim;
-      }
-      const res = await api.get('/propostas', { params });
-      setPropostas(res.data.data || res.data || []);
+      
+      // Always send date filters if they exist
+      if (dataInicio) params.dataInicio = dataInicio;
+      if (dataFim)    params.dataFim    = dataFim;
+
+      const [res, statsRes] = await Promise.all([
+        api.get('/propostas', { params }),
+        api.get('/propostas/stats')
+      ]);
+      
+      setPropostas(res.data.data || []);
       setTotalPages(res.data.totalPages || 1);
+      setStats(statsRes.data);
     } catch(e:any) {
       showToast('Erro ao carregar propostas: ' + (e.response?.data?.error || e.message));
     } finally { setLoading(false); }
@@ -193,12 +202,7 @@ export default function Propostas() {
   const isVencida = (p: any) => p.dataValidade && moment(p.dataValidade).isBefore(moment(),'day');
   const isEnviada = (p: any) => p.enviada || p.status === 'ENVIADA';
 
-  const counts = {
-    'Em Aberto': propostas.filter(p=>!['ACEITA','RECUSADA','CANCELADA'].includes(p.status)).length,
-    'Aprovadas':  propostas.filter(p=>p.status==='ACEITA').length,
-    'Reprovadas': propostas.filter(p=>p.status==='RECUSADA').length,
-    'Canceladas': propostas.filter(p=>p.status==='CANCELADA').length,
-  } as Record<string,number>;
+  const counts = stats;
 
   if (isEditing) {
     return (
@@ -352,8 +356,8 @@ export default function Propostas() {
                               <FileText className="w-3.5 h-3.5" />
                             </button>
                           )}
-                          {/* Enviar - se !enviada */}
-                          {selectedTipo==='Em Aberto'&&!enviada && (
+                          {/* Enviar - sempre disponível se em aberto */}
+                          {selectedTipo==='Em Aberto' && (
                             <button title="Enviar E-mail" onClick={()=>handleEnviar(p)}
                               className="p-1.5 rounded hover:bg-blue-50 text-blue-400 hover:text-blue-600 transition-colors">
                               <Send className="w-3.5 h-3.5" />
