@@ -22,13 +22,14 @@ export const listOSPrecificacao = async (req: AuthRequest, res: Response) => {
         const list = await prisma.ordemServico.findMany({
             where,
             include: {
-                cliente: { select: { id: true, nome: true, porcentagemRL: true } },
+                cliente: { select: { id: true, nome: true, porcentagemRL: true, codigo: true, telefone: true } },
                 servicos: true,
                 itensCobranca: true,
-                proposta: { select: { id: true, codigo: true, valorTotal: true } }
+                proposta: { select: { id: true, codigo: true, valorTotal: true, tipoFaturamento: true } }
             },
             orderBy: { dataBaixa: 'desc' as any }
         });
+
 
         // Group by kanban columns
         const kanban = {
@@ -206,5 +207,30 @@ export const autoCalcularItens = async (req: AuthRequest, res: Response) => {
     } catch (error: any) {
         console.error('Auto calcular error:', error);
         res.status(500).json({ error: error.message || 'Erro no cálculo automático' });
+    }
+};
+// ─── CORRIGIR OS (RETORNAR PARA LOGÍSTICA) ─────────────────────
+export const corrigirOS = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string;
+        const { observacoes } = req.body;
+
+        const currentOs = await prisma.ordemServico.findUnique({ where: { id } });
+        if (!currentOs) return res.status(404).json({ error: 'OS not found' });
+
+        const os = await prisma.ordemServico.update({
+            where: { id },
+            data: {
+                status: 'ABERTA',
+                statusPrecificacao: 'REPROVADA',
+                observacoes: observacoes ? `${currentOs.observacoes || ''}\n[CORREÇÃO]: ${observacoes}` : currentOs.observacoes
+            }
+        });
+
+
+        res.json(os);
+    } catch (error: any) {
+        console.error('Corrigir OS error:', error);
+        res.status(500).json({ error: 'Failed to return OS to logistics', details: error.message });
     }
 };

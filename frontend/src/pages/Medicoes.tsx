@@ -226,7 +226,33 @@ export default function Medicoes() {
         }
     };
 
+    const handleCorrigir = async (osId: string) => {
+        const obs = window.prompt("Justificativa para retornar à Logística:");
+        if (obs === null) return;
+        try {
+            await api.post(`/precificacao/${osId}/corrigir`, { observacoes: obs });
+            addToast('OS retornada para a Logística com sucesso.', 'success');
+            fetchData();
+            setSelectedOS(null);
+        } catch (err) {
+            addToast('Erro ao retornar OS.', 'error');
+        }
+    };
+
+    const handleCorrigirMedicao = async (medicaoId: string) => {
+        if (!window.confirm("Tem certeza que deseja voltar a Medição para correção?")) return;
+        try {
+            await api.post(`/medicoes/${medicaoId}/status`, { status: 'AGUARDANDO_APROVACAO' });
+            addToast('Medição retornada para correção com sucesso.', 'success');
+            fetchData();
+        } catch (err) {
+            addToast('Erro ao retornar medição.', 'error');
+        }
+    };
+
     const handlePrecificar = async () => {
+
+
         if (!selectedOS) return;
         try {
             await api.post(`/precificacao/${selectedOS.id}/precificar`);
@@ -523,7 +549,10 @@ export default function Medicoes() {
                                         <Th>Nº OS</Th>
                                         <Th className="text-center">DIAS EM ABERTO</Th>
                                         <Th>EMPRESA</Th>
+                                        <Th>CÓD. CLIENTE</Th>
                                         <Th>CLIENTE</Th>
+                                        <Th>CONTATO</Th>
+                                        <Th>DATA OS</Th>
                                         <Th>DATA BAIXA</Th>
                                         <Th className="text-right">VALOR PRECIF.</Th>
                                     </>)}
@@ -533,30 +562,54 @@ export default function Medicoes() {
                                         <Th>Nº MEDIÇÃO</Th>
                                         <Th className="text-center">REVISÃO</Th>
                                         <Th>DATA CRIAÇÃO</Th>
+                                        <Th>EMPRESA</Th>
+                                        <Th>CÓD. CLIENTE</Th>
                                         <Th>CLIENTE</Th>
+                                        <Th>CONTATO</Th>
                                         <Th className="text-right">VALOR TOTAL</Th>
+                                        <Th>VENDEDOR RESP</Th>
+                                        <Th>APROVAÇÃO INTERNA</Th>
+                                        <Th>COBRANÇA ENVIADA</Th>
                                         <Th className="text-center">DIAS COBRANÇA</Th>
                                     </>)}
+
 
                                     {/* ─── ABA 3: FINALIZADAS ─── */}
                                     {activeTab === 'finalizadas' && (<>
                                         <Th>Nº MEDIÇÃO</Th>
+                                        <Th className="text-center">REVISÃO</Th>
                                         <Th>DATA CRIAÇÃO</Th>
+                                        <Th>EMPRESA</Th>
+                                        <Th>CÓD. CLIENTE</Th>
                                         <Th>CLIENTE</Th>
+                                        <Th>CONTATO</Th>
                                         <Th className="text-right">VALOR TOTAL</Th>
+                                        <Th>VENDEDOR RESP</Th>
+                                        <Th>APROVAÇÃO INTERNA</Th>
+                                        <Th>COBRANÇA ENVIADA</Th>
                                         <Th>APROVAÇÃO CLIENTE</Th>
                                         <Th className="text-center">DIAS ATÉ APROV.</Th>
                                     </>)}
 
+
                                     {/* ─── ABA 4: CANCELADAS ─── */}
                                     {activeTab === 'cancelados' && (<>
                                         <Th>Nº MEDIÇÃO</Th>
+                                        <Th className="text-center">REVISÃO</Th>
                                         <Th>DATA CRIAÇÃO</Th>
+                                        <Th>EMPRESA</Th>
+                                        <Th>CÓD. CLIENTE</Th>
                                         <Th>CLIENTE</Th>
+                                        <Th>CONTATO</Th>
                                         <Th className="text-right">VALOR TOTAL</Th>
+                                        <Th>VENDEDOR RESP</Th>
+                                        <Th>APROVAÇÃO INTERNA</Th>
+                                        <Th>COBRANÇA ENVIADA</Th>
                                         <Th>DATA CANCELAMENTO</Th>
                                         <Th>MOTIVO</Th>
+                                        <Th className="text-center">DIAS ATÉ CANC.</Th>
                                     </>)}
+
                                 </tr>
                             </thead>
                             <tbody>
@@ -573,9 +626,16 @@ export default function Medicoes() {
                                         {/* ─── ACTIONS COLUMN ─── */}
                                         <Td className="sticky left-0 bg-white z-10 border-r border-slate-100">
                                             <div className="flex gap-2 text-slate-400 group-hover:text-slate-600 transition-colors">
-                                                {activeTab === 'precificacao' && (
+                                                {activeTab === 'precificacao' && (<>
                                                     <button title="Precificar" className="hover:text-orange-600 transition-colors"><Calculator className="w-3.5 h-3.5" /></button>
-                                                )}
+                                                    <button 
+                                                        title="Voltar para Logística" 
+                                                        className="hover:text-red-600 transition-colors"
+                                                        onClick={e => { e.stopPropagation(); handleCorrigir(item.id); }}
+                                                    >
+                                                        <ArrowLeftCircle className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </>)}
                                                 {activeTab === 'medicao' && (<>
                                                     <button title="Visualizar PDF" className="hover:text-slate-900 transition-colors" onClick={e => { e.stopPropagation(); handleVerPDF(item); }}>
                                                         <Eye className="w-4 h-4" />
@@ -586,7 +646,15 @@ export default function Medicoes() {
                                                         </button>
                                                     )}
                                                 </>)}
+
                                                 {activeTab === 'finalizadas' && (<>
+                                                    <button 
+                                                        title="Corrigir Medição" 
+                                                        className="hover:text-red-600 transition-colors"
+                                                        onClick={e => { e.stopPropagation(); handleCorrigirMedicao(item.id); }}
+                                                    >
+                                                        <ArrowLeftCircle className="w-3.5 h-3.5" />
+                                                    </button>
                                                     <button title="Visualizar PDF" className="hover:text-slate-900 transition-colors" onClick={e => { e.stopPropagation(); downloadPdf(item); }}>
                                                         <Eye className="w-4 h-4" />
                                                     </button>
@@ -594,6 +662,7 @@ export default function Medicoes() {
                                                         <History className="w-4 h-4" />
                                                     </button>
                                                 </>)}
+
                                             </div>
                                         </Td>
 
@@ -612,28 +681,39 @@ export default function Medicoes() {
                                         </Td>
 
                                         {/* ─── DATA COLUMNS ─── */}
+                                        {/* ─── DATA ABA 1: PRECIFICAÇÃO ─── */}
                                         {activeTab === 'precificacao' && (<>
                                             <Td className="font-black text-slate-700">{item.codigo}</Td>
                                             <Td className="text-center font-bold text-slate-500">
                                                 <span className={daysSince(item.dataBaixa || item.createdAt) > 2 ? 'text-red-500' : ''}>
-                                                    {daysSince(item.dataBaixa || item.createdAt)} dias
+                                                    {daysSince(item.dataBaixa || item.createdAt)}d
                                                 </span>
                                             </Td>
-                                            <Td className="text-slate-500 font-bold truncate max-w-[120px] uppercase">{item.empresa || 'NACIONAL HIDRO'}</Td>
+                                            <Td className="text-slate-500 font-bold truncate max-w-[120px] uppercase">{item.empresa?.split(' ')[0]}</Td>
+                                            <Td className="text-slate-500 font-bold">{item.cliente?.codigo || item.cliente?.id?.slice(0,6).toUpperCase()}</Td>
                                             <Td className="font-black text-slate-700 truncate max-w-[200px] uppercase">{item.cliente?.nome}</Td>
+                                            <Td className="text-slate-500 uppercase">{item.contato || '-'}</Td>
+                                            <Td className="text-slate-500">{fmtDate(item.createdAt)}</Td>
                                             <Td className="text-slate-500">{fmtDate(item.dataBaixa)}</Td>
-                                            <Td className="text-right font-black text-emerald-600">{fmt(item.valorPrecificado)}</Td>
+                                            <Td className="text-right font-black text-orange-600">{fmt(item.valorPrecificado)}</Td>
                                         </>)}
 
+                                        {/* ─── DATA ABA 2: STATUS MEDIÇÃO ─── */}
                                         {activeTab === 'medicao' && (<>
                                             <Td className="font-black text-slate-700">{item.codigo}</Td>
-                                            <Td className="text-center font-bold text-slate-400">{item.revisao || 0}</Td>
+                                            <Td className="text-center font-bold text-slate-400">R{item.revisao || 0}</Td>
                                             <Td className="text-slate-500">{fmtDate(item.createdAt)}</Td>
+                                            <Td className="uppercase text-[10px] font-bold text-slate-500">{item.empresa || 'NACIONAL HIDRO'}</Td>
+                                            <Td className="text-slate-500 font-bold">{item.cliente?.codigo || '-'}</Td>
                                             <Td className="font-black text-slate-700 truncate max-w-[200px] uppercase">
                                                 {item.cliente?.nome}
                                                 {item.cte && <span className="ml-2 bg-blue-100 text-blue-700 text-[8px] px-1.5 py-0.5 rounded-full font-black">CTE</span>}
                                             </Td>
-                                            <Td className="text-right font-black text-emerald-600">{fmt(item.valorTotal)}</Td>
+                                            <Td className="text-slate-500">{item.cliente?.telefone || '-'}</Td>
+                                            <Td className="text-right font-black text-blue-700">{fmt(item.valorTotal)}</Td>
+                                            <Td className="text-slate-500 uppercase">{item.vendedor?.name || '-'}</Td>
+                                            <Td className="text-slate-500">{fmtDate(item.dataAprovacaoInterna)}</Td>
+                                            <Td className="text-slate-500">{fmtDate(item.dataCobranca)}</Td>
                                             <Td className="text-center font-bold">
                                                 {item.dataCobranca ? (
                                                     <span className={`${Number(daysSince(item.dataCobranca)) > DIAS_VENCIMENTO ? 'text-red-600' : 'text-slate-500'}`}>
@@ -643,23 +723,43 @@ export default function Medicoes() {
                                             </Td>
                                         </>)}
 
+                                        {/* ─── DATA ABA 3: FINALIZADAS ─── */}
                                         {activeTab === 'finalizadas' && (<>
                                             <Td className="font-black text-slate-700">{item.codigo}</Td>
+                                            <Td className="text-center font-black text-slate-400">R{item.revisao || 0}</Td>
                                             <Td className="text-slate-500">{fmtDate(item.createdAt)}</Td>
+                                            <Td className="uppercase text-[10px] font-bold text-slate-500">{item.empresa || 'NACIONAL HIDRO'}</Td>
+                                            <Td className="text-slate-500 font-bold">{item.cliente?.codigo || '-'}</Td>
                                             <Td className="font-black text-slate-700 truncate max-w-[200px] uppercase">{item.cliente?.nome}</Td>
+                                            <Td className="text-slate-500">{item.cliente?.telefone || '-'}</Td>
                                             <Td className="text-right font-black text-emerald-600">{fmt(item.valorTotal)}</Td>
+                                            <Td className="text-slate-500 uppercase">{item.vendedor?.name || '-'}</Td>
+                                            <Td className="text-slate-500">{fmtDate(item.dataAprovacaoInterna)}</Td>
+                                            <Td className="text-slate-500">{fmtDate(item.dataCobranca)}</Td>
                                             <Td className="text-slate-500">{fmtDate(item.aprovadaEm)}</Td>
                                             <Td className="text-center font-bold text-slate-500">{diffDays(item.dataCobranca, item.aprovadaEm)}d</Td>
                                         </>)}
 
+
+                                        {/* ─── DATA ABA 4: CANCELADOS ─── */}
                                         {activeTab === 'cancelados' && (<>
                                             <Td className="font-black text-slate-700">{item.codigo}</Td>
+                                            <Td className="text-center font-black text-slate-400">R{item.revisao || 0}</Td>
                                             <Td className="text-slate-500">{fmtDate(item.createdAt)}</Td>
+                                            <Td className="uppercase text-[10px] font-bold text-slate-500">{item.empresa || 'NACIONAL HIDRO'}</Td>
+                                            <Td className="text-slate-500 font-bold">{item.cliente?.codigo || '-'}</Td>
                                             <Td className="font-black text-slate-700 uppercase">{item.cliente?.nome}</Td>
+                                            <Td className="text-slate-500">{item.cliente?.telefone || '-'}</Td>
                                             <Td className="text-right font-black text-slate-400">{fmt(item.valorTotal)}</Td>
+                                            <Td className="text-slate-500 uppercase">{item.vendedor?.name || '-'}</Td>
+                                            <Td className="text-slate-500">{fmtDate(item.dataAprovacaoInterna)}</Td>
+                                            <Td className="text-slate-500">{fmtDate(item.dataCobranca)}</Td>
                                             <Td className="text-slate-500">{fmtDate(item.dataCancelamento)}</Td>
-                                            <Td className="text-slate-500 truncate max-w-[200px] italic">{item.justificativaCancelamento || '-'}</Td>
+                                            <Td className="text-slate-500 truncate max-w-[150px] italic">{item.justificativaCancelamento || '-'}</Td>
+                                            <Td className="text-center font-bold text-slate-500">{diffDays(item.dataCobranca, item.dataCancelamento)}d</Td>
                                         </>)}
+
+
                                     </tr>
                                 ))}
                             </tbody>

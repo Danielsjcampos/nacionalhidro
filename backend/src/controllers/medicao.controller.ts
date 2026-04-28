@@ -40,12 +40,13 @@ export const listMedicoes = async (req: AuthRequest, res: Response) => {
             include: {
                 cliente: { select: { id: true, nome: true, codigo: true, razaoSocial: true, email: true, telefone: true } },
                 ordensServico: {
-                    select: { id: true, codigo: true, valorPrecificado: true, status: true, tipoCobranca: true }
+                    select: { id: true, codigo: true, valorPrecificado: true, status: true, tipoCobranca: true, contato: true, dataBaixa: true, createdAt: true }
                 },
                 cobrancasEmail: { orderBy: { dataEnvio: 'desc' as any }, take: 5 }
             },
             orderBy: { createdAt: 'desc' }
         });
+
 
         // Enrich with vendedor name
         const vendedorIds = [...new Set(list.filter(m => m.vendedorId).map(m => m.vendedorId!))];

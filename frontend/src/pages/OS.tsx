@@ -602,9 +602,9 @@ export default function OS() {
       setForm({
         ...d,
         dataInicial: d.dataInicial ? new Date(d.dataInicial).toISOString().split('T')[0] : '',
-        entrada: d.entrada ? new Date(d.entrada).toISOString().slice(0, 16) : '',
-        saida: d.saida ? new Date(d.saida).toISOString().slice(0, 16) : '',
-        almoco: d.almoco ? new Date(d.almoco).toISOString().slice(0, 16) : '',
+        entrada: d.entrada || '',
+        saida: d.saida || '',
+        almoco: d.almoco || '',
         servicos: d.servicos?.length ? d.servicos : [{ equipamento: '', descricao: '' }],
         clienteNome: d.cliente?.nome || '',
         diasSemana: d.diasSemana ? (typeof d.diasSemana === 'string' ? d.diasSemana.split(',').filter(Boolean) : d.diasSemana) : [],
@@ -1393,7 +1393,7 @@ export default function OS() {
                                   onChange={e => {
                                     const time = e.target.value;
                                     if (time) {
-                                      const d = new Date(form.dataInicial);
+                                      const d = new Date(form.dataInicial + 'T00:00:00');
                                       const [h, m] = time.split(':');
                                       d.setHours(Number(h), Number(m));
                                       setForm((f: any) => ({ ...f, entrada: d.toISOString() }));
@@ -1414,7 +1414,7 @@ export default function OS() {
                                   onChange={e => {
                                     const time = e.target.value;
                                     if (time) {
-                                      const d = new Date(form.dataInicial);
+                                      const d = new Date(form.dataInicial + 'T00:00:00');
                                       const [h, m] = time.split(':');
                                       d.setHours(Number(h), Number(m));
                                       setForm((f: any) => ({ ...f, saida: d.toISOString() }));
@@ -1435,7 +1435,7 @@ export default function OS() {
                                   onChange={e => {
                                     const time = e.target.value;
                                     if (time) {
-                                      const d = new Date(form.dataInicial);
+                                      const d = new Date(form.dataInicial + 'T00:00:00');
                                       const [h, m] = time.split(':');
                                       d.setHours(Number(h), Number(m));
                                       setForm((f: any) => ({ ...f, almoco: d.toISOString() }));
