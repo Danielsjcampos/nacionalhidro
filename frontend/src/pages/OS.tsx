@@ -592,6 +592,13 @@ export default function OS() {
       const res = await api.get(`/os/${os.id}`);
       const d = res.data;
       setSelectedOS(d);
+      const escalaRecord = d.escala;
+      const funcionarioIds = Array.isArray(escalaRecord?.funcionarios) 
+        ? escalaRecord.funcionarios.map((f: any) => f.id || f) 
+        : [];
+      
+      const veiculosEscala = d.veiculosEscala || (escalaRecord?.veiculoId ? [{ veiculoId: escalaRecord.veiculoId, manutencao: false }] : []);
+
       setForm({
         ...d,
         dataInicial: d.dataInicial ? new Date(d.dataInicial).toISOString().split('T')[0] : '',
@@ -601,8 +608,9 @@ export default function OS() {
         servicos: d.servicos?.length ? d.servicos : [{ equipamento: '', descricao: '' }],
         clienteNome: d.cliente?.nome || '',
         diasSemana: d.diasSemana ? (typeof d.diasSemana === 'string' ? d.diasSemana.split(',').filter(Boolean) : d.diasSemana) : [],
-        veiculosEscala: d.veiculosEscala || [],
-        observacoesEscala: d.observacoesEscala || '',
+        escala: funcionarioIds,
+        veiculosEscala: veiculosEscala,
+        observacoesEscala: escalaRecord?.observacoes || d.observacoesEscala || '',
       });
       setModalTab('servicos');
       setMateriaisUtilizados([]);

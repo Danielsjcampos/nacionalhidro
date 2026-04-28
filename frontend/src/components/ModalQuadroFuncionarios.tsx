@@ -36,7 +36,7 @@ export default function ModalQuadroFuncionarios({ isOpen, onClose, onConfirm, da
   const [funcionarios, setFuncionarios] = useState<FuncionarioQuadro[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<Set<string>>(new Set(selectedIds));
+  const [selected, setSelected] = useState<Set<string>>(new Set(Array.isArray(selectedIds) ? selectedIds : []));
   const [filterStatus, setFilterStatus] = useState<string>('TODOS');
 
   useEffect(() => {
@@ -54,7 +54,7 @@ export default function ModalQuadroFuncionarios({ isOpen, onClose, onConfirm, da
   }, [isOpen, data, clienteId]);
 
   useEffect(() => {
-    setSelected(new Set(selectedIds));
+    setSelected(new Set(Array.isArray(selectedIds) ? selectedIds : []));
   }, [selectedIds]);
 
   const filtered = useMemo(() => {
