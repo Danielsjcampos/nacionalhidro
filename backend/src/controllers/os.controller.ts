@@ -100,7 +100,7 @@ export const createOS = async (req: AuthRequest, res: Response) => {
   try {
     const {
       servicos, dataInicial, entrada, saida, almoco, propostaId, escala,
-      veiculosEscala, observacoesEscala, ...rest
+      veiculosEscala, observacoesEscala, clienteNome, diasSemana, ...rest
     } = req.body;
 
     // NOVA REGRA: Toda O.S. deve ser gerada a partir de uma Proposta Aprovada
@@ -135,12 +135,17 @@ export const createOS = async (req: AuthRequest, res: Response) => {
     // BUG FIX #5: Generate sequential code without gaps
     const codigo = rest.codigo || await gerarCodigoOS();
 
+    // Transform diasSemana to string if it's an array
+    const diasSemanaStr = Array.isArray(diasSemana) ? diasSemana.join(',') : diasSemana;
+
     // BUG FIX #1: Use transaction for reliable persistence
     const os = await prisma.$transaction(async (tx) => {
       const createdOs = await tx.ordemServico.create({
         data: {
           ...rest,
           codigo,
+          clienteId: proposta.clienteId, // explicitly set from the proposal
+          diasSemana: diasSemanaStr,
           propostaId: propostaId || undefined,
           minimoHoras: proposta.franquiaHoras ? Number(proposta.franquiaHoras) : undefined,
           dataInicial: dataInicial ? new Date(dataInicial) : new Date(),
@@ -163,9 +168,12 @@ export const createOS = async (req: AuthRequest, res: Response) => {
 
       // T09: Validate ASO and Integração before Escala
       if (Array.isArray(escala) && escala.length > 0) {
+        // Handle both array of strings (legacy) and array of objects (new UI)
+        const escalaIds = escala.map((e: any) => typeof e === 'object' ? e.id : e).filter(Boolean);
+
         // Fetch employee details to save in JSON format as required by the Escala model
         const funcs = await tx.funcionario.findMany({
-          where: { id: { in: escala } },
+          where: { id: { in: escalaIds } },
           select: { id: true, nome: true, cargo: true }
         });
 
@@ -206,6 +214,17 @@ export const createOS = async (req: AuthRequest, res: Response) => {
           (createdOs as any).avisosEscala = avisos;
         }
 
+        const funcsEnriched = funcs.map(f => {
+          const frontMatch = escala.find((e: any) => (e.id || e) === f.id);
+          return {
+            id: f.id,
+            nome: f.nome,
+            cargo: f.cargo,
+            statusOperacional: frontMatch?.statusOperacional || 'NORMAL',
+            ausente: !!frontMatch?.ausente
+          };
+        });
+
         await tx.escala.create({
           data: {
             codigoOS: codigo,
@@ -214,7 +233,7 @@ export const createOS = async (req: AuthRequest, res: Response) => {
             empresa: rest.empresa || "NACIONAL HIDROSANEAMENTO EIRELI EPP",
             status: "AGENDADO",
             tipoAgendamento: "CONFIRMADO",
-            funcionarios: funcs as any,
+            funcionarios: funcsEnriched as any,
             veiculoId: veiculosEscala?.[0]?.veiculoId || undefined,
             observacoes: observacoesEscala || undefined,
           }

@@ -87,14 +87,25 @@ export const listPropostas = async (req: AuthRequest, res: Response) => {
       prisma.proposta.count({ where })
     ]);
 
-    // Enrich with expiration info
+    // Enrich with expiration info and resolve contact UUID
     const now = new Date();
-    const enriched = propostas.map((p: any) => ({
-      ...p,
-      vendedorNome: p.vendedorUser?.name || p.vendedor || null,
-      // Proteção contra dataValidade nula
-      expirada: p.dataValidade ? (new Date(p.dataValidade) < now && p.status !== 'ACEITA') : false,
-      totalUnidades: p.unidades?.length || 0,
+    const enriched = await Promise.all(propostas.map(async (p: any) => {
+      let finalContato = p.contato;
+      if (finalContato && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(finalContato)) {
+          try {
+              const ctt = await (prisma as any).clienteContato.findUnique({ where: { id: finalContato }, select: { nome: true } });
+              if (ctt) finalContato = ctt.nome;
+          } catch (e) {}
+      }
+
+      return {
+        ...p,
+        contato: finalContato,
+        vendedorNome: p.vendedorUser?.name || p.vendedor || null,
+        // Proteção contra dataValidade nula
+        expirada: p.dataValidade ? (new Date(p.dataValidade) < now && p.status !== 'ACEITA') : false,
+        totalUnidades: p.unidades?.length || 0,
+      };
     }));
 
     res.json({
@@ -1132,6 +1143,20 @@ export const dispararEquipe = async (req: AuthRequest, res: Response) => {
     const cliente = proposta.cliente || {};
     const itensNomes = proposta.itens?.map((i: any) => i.equipamento).filter(Boolean).join('\n') || 'Não especificado';
     
+    let contatoNome = proposta.contato || 'Ver proposta';
+    if (proposta.contato && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(proposta.contato)) {
+        try {
+            const contatoObj = await (prisma as any).clienteContato.findUnique({
+                where: { id: proposta.contato }
+            });
+            if (contatoObj) {
+                contatoNome = contatoObj.nome;
+            }
+        } catch (e) {
+            // ignore
+        }
+    }
+
     const fmtDate = (d: string) => d ? moment(d).format('DD/MM/YYYY') : 'A definir';
 
     // Formatação da mensagem estilo "🚩 Bom dia!!"
@@ -1157,7 +1182,7 @@ INICIO: ${fmtDate(inicio)} ${horario ? `AS ${horario}HS` : ''}
 TERMINO: ${fmtDate(termino)}
 
 *Contatos:*
-${proposta.contato || 'Ver proposta'}
+${contatoNome}
 
 *OBS / Diferencial:*
 ${algoDiferente || 'Nenhum'}
