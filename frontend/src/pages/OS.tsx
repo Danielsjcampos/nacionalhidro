@@ -848,7 +848,7 @@ export default function OS() {
                           {prop.cliente?.nome || '—'}
                         </td>
                         <td className="px-4 py-3 text-slate-600 text-xs">
-                          {prop.responsavel || prop.vendedor || '—'}
+                          {prop.vendedorNome || prop.vendedor || '—'}
                         </td>
                         <td className="px-4 py-3 text-slate-500 text-xs">
                           {prop.createdAt ? new Date(prop.createdAt).toLocaleDateString('pt-BR') : '—'}

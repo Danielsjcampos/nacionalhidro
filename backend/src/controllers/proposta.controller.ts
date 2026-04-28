@@ -91,6 +91,10 @@ export const listPropostas = async (req: AuthRequest, res: Response) => {
     const now = new Date();
     const enriched = await Promise.all(propostas.map(async (p: any) => {
       let finalContato = p.contato;
+      let finalEmpresa = p.empresa;
+      let finalVendedor = p.vendedor;
+
+      // Resolver UUID de contato
       if (finalContato && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(finalContato)) {
           try {
               const ctt = await (prisma as any).clienteContato.findUnique({ where: { id: finalContato }, select: { nome: true } });
@@ -98,10 +102,28 @@ export const listPropostas = async (req: AuthRequest, res: Response) => {
           } catch (e) {}
       }
 
+      // Resolver UUID de empresa
+      if (finalEmpresa && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(finalEmpresa)) {
+          try {
+              const emp = await (prisma as any).empresaCNPJ.findUnique({ where: { id: finalEmpresa }, select: { razaoSocial: true } });
+              if (emp) finalEmpresa = emp.razaoSocial;
+          } catch (e) {}
+      }
+
+      // Resolver UUID de vendedor se estiver no campo texto
+      if (finalVendedor && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(finalVendedor)) {
+          try {
+              const usr = await prisma.user.findUnique({ where: { id: finalVendedor }, select: { name: true } });
+              if (usr) finalVendedor = usr.name;
+          } catch (e) {}
+      }
+
       return {
         ...p,
+        empresa: finalEmpresa,
+        vendedor: finalVendedor,
         contato: finalContato,
-        vendedorNome: p.vendedorUser?.name || p.vendedor || null,
+        vendedorNome: p.vendedorUser?.name || finalVendedor || null,
         // Proteção contra dataValidade nula
         expirada: p.dataValidade ? (new Date(p.dataValidade) < now && p.status !== 'ACEITA') : false,
         totalUnidades: p.unidades?.length || 0,
