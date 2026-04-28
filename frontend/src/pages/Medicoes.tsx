@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import ModalNovaMedicao from '../components/ModalNovaMedicao';
 import ModalEdicaoMedicao from '../components/ModalEdicaoMedicao';
+import ModalPrecificarOS from '../components/ModalPrecificarOS';
 import {
     FileText, Plus, Search, Loader2, X, CheckCircle2, Clock,
     DollarSign, Send, Ban, List, Columns, Printer, Pencil,
@@ -82,23 +83,40 @@ const Td = ({ children, className = '' }: { children: React.ReactNode; className
     <td className={`px-3 py-2.5 whitespace-nowrap ${className}`}>{children}</td>
 );
 
-// ─── STATUS BADGE ───────────────────────────────────────────────
-const StatusBadge = ({ status, dataCobranca }: { status: string; dataCobranca?: any }) => {
-    const isAtrasado = dataCobranca && daysSince(dataCobranca) > DIAS_VENCIMENTO && 
-        !['APROVADA', 'FINALIZADA', 'CANCELADA'].includes(status);
-    
-    const label = STATUS_LABEL[status] || status;
-    const baseColor = STATUS_COLOR[status] || 'bg-slate-400';
-    
+// ─── LEGACY STATUS INDICATORS ──────────────────────────────────
+const LegacyStatusIndicator = ({ status, dataBaixa, periodo }: { status: string; dataBaixa?: string; periodo?: string }) => {
+    if (['BAIXADA', 'APROVADA', 'FINALIZADA', 'EM_CONFERENCIA', 'AGUARDANDO_APROVACAO'].includes(status)) {
+        return (
+            <div className="flex items-center justify-center">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm" title={status} />
+            </div>
+        );
+    }
+
+    if (status === 'EM_PRECIFICACAO' || status === 'PENDENTE') {
+        return (
+            <div className="flex items-center justify-center">
+                <AlertTriangle className="w-4 h-4 text-orange-500 fill-orange-500/10" title="Fora do período de medição" />
+            </div>
+        );
+    }
+
+    if (status === 'PRECIFICADA') {
+        return (
+            <div className="flex items-center justify-center">
+                <div className="w-2.5 h-2.5 rounded-full bg-orange-400 shadow-sm" title="Precificada" />
+            </div>
+        );
+    }
+
     return (
-        <div className="flex flex-col items-center gap-1">
-            <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black text-white uppercase shadow-sm ${isAtrasado ? 'bg-red-500 animate-pulse' : baseColor}`}>
-                {isAtrasado ? 'ATRASADO' : label}
-            </span>
-            {isAtrasado && <span className="text-[7px] font-black text-red-500 uppercase">Verificar!</span>}
+        <div className="flex items-center justify-center">
+            <div className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-sm" title="Em aberto" />
         </div>
     );
 };
+
+
 
 export default function Medicoes() {
     const { showToast } = useToast();
@@ -129,33 +147,8 @@ export default function Medicoes() {
     // ─── MODALS / FORMS ───
     const [showCreate, setShowCreate] = useState(false);
     const [editMedicaoId, setEditMedicaoId] = useState<string | null>(null);
-    const [showItemForm, setShowItemForm] = useState(false);
-    const [itemForm, setItemForm] = useState({ 
-        descricao: '', 
-        quantidade: '1', 
-        valorUnitario: '', 
-        percentualAdicional: '',
-        centroCustoId: '',
-        tipoCobranca: 'HORA', // OU 'SERVICO_FECHADO', 'TONELADA', 'VIAGEM', 'M3'
-        areaServico: '',
-        horaInicio: '',
-        horaFim: ''
-    });
-    const [showAutoCalc, setShowAutoCalc] = useState(false);
-    const [autoCalcForm, setAutoCalcForm] = useState({ 
-        valorDiaria: '', 
-        valorHora: '', 
-        toleranciaHoras: '',
-        entradaData: '',
-        entradaHora: '',
-        saidaData: '',
-        saidaHora: '',
-        almoco: '00:00',
-        franquia: '08:00',
-        valorHoraExtra: '',
-        aplicarMinimoHE: true
-    });
-    const [calculo, setCalculo] = useState<any>(null);
+    const [showPricingModal, setShowPricingModal] = useState(false);
+    const [pricingOSId, setPricingOSId] = useState<string | null>(null);
 
     const [submitting, setSubmitting] = useState(false);
     const [centrosCusto, setCentrosCusto] = useState<any[]>([]);
@@ -200,30 +193,9 @@ export default function Medicoes() {
     }, [fetchData, fetchCC]);
 
     // ─── OS PRICING ACTIONS ───
-    const openPricing = async (os: any) => {
-        try {
-            const pricingRes = await api.get(`/precificacao/${os.id}`);
-            setSelectedOS(pricingRes.data);
-            setSelectedMedicao(null);
-            setCalculo(null);
-        } catch {}
-    };
-
-    const handleAddItem = async () => {
-        if (!selectedOS) return;
-        try {
-            await api.post(`/precificacao/${selectedOS.id}/itens`, itemForm);
-            setItemForm({ 
-                descricao: '', quantidade: '1', valorUnitario: '', percentualAdicional: '', 
-                centroCustoId: '', tipoCobranca: 'HORA', areaServico: '', horaInicio: '', horaFim: '' 
-            });
-            setShowItemForm(false);
-            openPricing(selectedOS);
-            fetchData();
-            showToast('Item adicionado');
-        } catch (err: any) {
-            showToast(err.response?.data?.error || 'Erro ao adicionar item', 'error');
-        }
+    const openPricing = (os: any) => {
+        setPricingOSId(os.id);
+        setShowPricingModal(true);
     };
 
     const handleCorrigirOS = async (osId: string) => {
@@ -233,7 +205,6 @@ export default function Medicoes() {
             await api.post(`/precificacao/${osId}/corrigir`, { observacoes: obs });
             showToast('OS retornada para a Logística com sucesso.', 'success');
             fetchData();
-            setSelectedOS(null);
         } catch (err: any) {
             showToast(err.response?.data?.error || 'Erro ao retornar OS.', 'error');
         }
@@ -251,41 +222,6 @@ export default function Medicoes() {
         }
     };
 
-
-    const handlePrecificar = async () => {
-
-
-        if (!selectedOS) return;
-        try {
-            await api.post(`/precificacao/${selectedOS.id}/precificar`);
-            setSelectedOS(null);
-            fetchData();
-            showToast('OS precificada com sucesso!');
-        } catch (err: any) {
-            showToast(err.response?.data?.error || 'Erro ao finalizar precificação', 'error');
-        }
-    };
-
-    const handleAutoCalcular = async () => {
-        if (!selectedOS) return;
-        try {
-            const autoCalcRes = await api.post(`/precificacao/${selectedOS.id}/auto-calcular`, {
-                valorDiaria: autoCalcForm.valorDiaria ? parseFloat(autoCalcForm.valorDiaria) : null,
-                valorHora: autoCalcForm.valorHora ? parseFloat(autoCalcForm.valorHora) : null,
-                toleranciaHoras: autoCalcForm.toleranciaHoras ? parseFloat(autoCalcForm.toleranciaHoras) : null,
-                entrada: autoCalcForm.entradaData && autoCalcForm.entradaHora ? `${autoCalcForm.entradaData}T${autoCalcForm.entradaHora}` : null,
-                saida: autoCalcForm.saidaData && autoCalcForm.saidaHora ? `${autoCalcForm.saidaData}T${autoCalcForm.saidaHora}` : null,
-                almoco: autoCalcForm.almoco,
-                franquia: autoCalcForm.franquia,
-                valorHoraExtra: autoCalcForm.valorHoraExtra ? parseFloat(autoCalcForm.valorHoraExtra) : null,
-                aplicarMinimoHE: autoCalcForm.aplicarMinimoHE
-            });
-            setSelectedOS(autoCalcRes.data.os);
-            setCalculo(autoCalcRes.data.calculo);
-            showToast('Cálculo realizado com sucesso!');
-            setShowAutoCalc(false);
-        } catch (err: any) { showToast(err.response?.data?.error || 'Erro no cálculo'); }
-    };
 
     // ─── MEDICAO ACTIONS ───
     const openMedicao = async (m: any) => {
@@ -348,12 +284,7 @@ export default function Medicoes() {
         if (!window.confirm('Deseja recalcular automaticamente todos os itens das OS desta medição seguindo as regras de proposta atual?')) return;
         setSubmitting(true);
         try {
-            await api.post(`/medicoes/${id}/recalcular`, {
-                valorDiaria: autoCalcForm.valorDiaria ? parseFloat(autoCalcForm.valorDiaria) : null,
-                valorHora: autoCalcForm.valorHora ? parseFloat(autoCalcForm.valorHora) : null,
-                toleranciaHoras: autoCalcForm.toleranciaHoras ? parseFloat(autoCalcForm.toleranciaHoras) : null,
-                aplicarMinimoHE: autoCalcForm.aplicarMinimoHE
-            });
+            await api.post(`/medicoes/${id}/recalcular`);
             showToast('Medição recalculada com sucesso!');
             openMedicao({ id });
             fetchData();
@@ -363,21 +294,6 @@ export default function Medicoes() {
             setSubmitting(false);
         }
     };
-
-    const handleEnviarDocumentacao = async (id: string) => {
-        if (!window.confirm('Deseja enviar a documentação final (Medição + Nota Fiscal) para o cliente agora?')) return;
-        setSubmitting(true);
-        try {
-            await api.post(`/medicoes/${id}/enviar-documentacao`);
-            showToast('Documentação enviada com sucesso!');
-        } catch (err: any) {
-            showToast(err.response?.data?.error || 'Falha ao enviar documentação. Verifique se a nota fiscal já foi autorizada.');
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-
 
     // ─── CREATE MEDIÇÃO ───
     const openCreateMedicao = async () => {
@@ -442,44 +358,45 @@ export default function Medicoes() {
     return (
         <div className="h-full flex flex-col gap-4">
 
-            {/* ── HEADER ── */}
-            <div className="bg-[#1e3a5f] rounded-xl p-6 text-white shadow-lg flex flex-col gap-6 relative overflow-hidden">
-                <div className="flex items-center justify-between z-10">
-                    <h1 className="text-xl font-black uppercase tracking-tighter">Medição</h1>
-                    <div className="flex bg-white/10 p-1 rounded-full border border-white/20">
-                        <button className="px-3 py-1 text-[10px] font-black uppercase rounded-full bg-blue-600">BR</button>
-                    </div>
-                </div>
-
-                {/* Tab Progress Bar */}
-                <div className="relative flex justify-between items-center px-10 z-10">
-                    <div className="absolute left-10 right-10 h-0.5 bg-white/20 top-1/2 -translate-y-1/2"></div>
-                    
+            {/* ── LEGACY STATUS PROGRESS BAR ── */}
+            <div className="bg-[#1e3a5f] p-8 rounded-xl shadow-xl border border-white/5 relative overflow-hidden mb-6">
+                <div className="absolute top-0 left-0 w-full h-1 bg-white/10" />
+                
+                <div className="flex items-center justify-between relative z-10">
                     {[
-                        { id: 'precificacao', label: 'Precificação (OS Pendentes)', color: 'bg-orange-500', count: stats.precificacao },
-                        { id: 'medicao',      label: 'Medição (Em Aberto/Fila)', color: 'bg-yellow-400', count: stats.medicao },
-                        { id: 'finalizadas',  label: 'Histórico (Finalizadas)',  color: 'bg-green-500',  count: stats.finalizadas },
-                        { id: 'cancelados',   label: 'Canceladas',             color: 'bg-red-600',    count: stats.cancelados },
-                    ].map(step => (
-                        <button 
-                            key={step.id} 
-                            onClick={() => { setActiveTab(step.id as ActiveTab); setStatusFilter(''); }}
-                            className="flex flex-col items-center gap-3 relative group"
-                        >
-                            <div className="flex items-center gap-1.5 z-10 transition-transform group-hover:scale-110">
-                                <div className={`w-5 h-5 rounded-full ${step.color} border-4 border-[#1e3a5f] shadow-lg ${activeTab === step.id ? 'ring-4 ring-white/30' : ''}`}></div>
-                                <span className="text-[10px] font-black bg-white/10 px-2 py-0.5 rounded-full">{step.count}</span>
-                            </div>
-                            <span className={`text-[10px] font-black uppercase tracking-wider transition-all ${activeTab === step.id ? 'text-white border-b-2 border-white pb-1' : 'text-white/40 hover:text-white'}`}>
-                                {step.label}
-                            </span>
-                        </button>
+                        { id: 'precificacao', label: 'Status da Precificação', color: 'bg-orange-400' },
+                        { id: 'medicao', label: 'Status da Medição', color: 'bg-yellow-400' },
+                        { id: 'finalizadas', label: 'Medições Finalizadas', color: 'bg-emerald-500' },
+                        { id: 'cancelados', label: 'Cancelados', color: 'bg-red-500' }
+                    ].map((step, idx, arr) => (
+                        <React.Fragment key={step.id}>
+                            <button 
+                                onClick={() => setActiveTab(step.id as any)}
+                                className="flex flex-col items-center group transition-all duration-300"
+                            >
+                                <div className={`w-3.5 h-3.5 rounded-full ${activeTab === step.id ? step.color : 'bg-white/20'} mb-3 shadow-lg group-hover:scale-125 transition-transform`} />
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${activeTab === step.id ? 'text-white' : 'text-white/40 group-hover:text-white/60'}`}>
+                                    {step.label}
+                                </span>
+                            </button>
+                            {idx < arr.length - 1 && (
+                                <div className="flex-1 h-px bg-white/10 mx-4 mt-[-24px]" />
+                            )}
+                        </React.Fragment>
                     ))}
                 </div>
             </div>
 
             {/* ── FILTERS + LEGENDS ── */}
             <div className="flex items-end justify-between gap-4 flex-wrap">
+                <div className="flex gap-4 items-center">
+                    <div className="flex items-center gap-3 text-[9px] font-black uppercase tracking-tighter text-slate-400">
+                        <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500" /> Em aberto</span>
+                        <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-orange-400" /> Precificada</span>
+                        <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500" /> Em Medição</span>
+                        <span className="flex items-center gap-1"><AlertTriangle className="w-3 h-3 text-orange-500" /> Fora do período de medição</span>
+                    </div>
+                </div>
                 <div className="flex gap-4 items-end">
                     <div className="flex flex-col gap-1">
                         <label className="text-[10px] font-black text-slate-400 uppercase">Filtrar Data</label>
@@ -504,23 +421,6 @@ export default function Medicoes() {
                 </div>
 
                 <div className="flex items-center gap-4">
-                    {/* Legends */}
-                    {activeTab === 'medicao' && (
-                        <div className="flex gap-3 text-[10px] font-bold text-slate-500">
-                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400"></span>Em aberto</span>
-                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-fuchsia-400"></span>Em conferência</span>
-                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span>Validado</span>
-                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"></span>Aguardando cliente</span>
-                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-400"></span>Aprovado parcial</span>
-                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span>Atrasado</span>
-                        </div>
-                    )}
-                    {activeTab === 'finalizadas' && (
-                        <div className="flex gap-3 text-[10px] font-bold text-slate-500">
-                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span>Aprovada no Prazo</span>
-                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400"></span>Aprovada com Atraso</span>
-                        </div>
-                    )}
                     <button 
                         onClick={openCreateMedicao}
                         className="bg-[#1e3a5f] hover:bg-slate-700 text-white px-6 py-2.5 rounded text-xs font-black uppercase shadow-lg transition-all active:scale-95"
@@ -532,7 +432,7 @@ export default function Medicoes() {
 
             {/* ── CONTENT ── */}
             <div className="flex-1 flex gap-4 min-h-0">
-                <div className={`${(selectedOS || selectedMedicao) ? 'w-1/2' : 'w-full'} bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col transition-all`}>
+                <div className={`${(selectedMedicao) ? 'w-1/2' : 'w-full'} bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col transition-all`}>
                     <div className="overflow-auto flex-1 custom-scrollbar">
                         <table className="w-full text-[11px] border-collapse min-w-[1200px]">
                             <thead className="sticky top-0 z-10">
@@ -556,6 +456,7 @@ export default function Medicoes() {
                                     {/* ─── ABA 2: STATUS MEDIÇÃO ─── */}
                                     {activeTab === 'medicao' && (<>
                                         <Th>Nº MEDIÇÃO</Th>
+                                        <Th>PERÍODO</Th>
                                         <Th className="text-center">REVISÃO</Th>
                                         <Th>DATA CRIAÇÃO</Th>
                                         <Th>EMPRESA</Th>
@@ -573,6 +474,7 @@ export default function Medicoes() {
                                     {/* ─── ABA 3: FINALIZADAS ─── */}
                                     {activeTab === 'finalizadas' && (<>
                                         <Th>Nº MEDIÇÃO</Th>
+                                        <Th>PERÍODO</Th>
                                         <Th className="text-center">REVISÃO</Th>
                                         <Th>DATA CRIAÇÃO</Th>
                                         <Th>EMPRESA</Th>
@@ -591,6 +493,7 @@ export default function Medicoes() {
                                     {/* ─── ABA 4: CANCELADAS ─── */}
                                     {activeTab === 'cancelados' && (<>
                                         <Th>Nº MEDIÇÃO</Th>
+                                        <Th>PERÍODO</Th>
                                         <Th className="text-center">REVISÃO</Th>
                                         <Th>DATA CRIAÇÃO</Th>
                                         <Th>EMPRESA</Th>
@@ -616,7 +519,7 @@ export default function Medicoes() {
                                         key={item.id} 
                                         onClick={() => activeTab === 'precificacao' ? openPricing(item) : openMedicao(item)}
                                         className={`border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors group ${
-                                            (selectedOS?.id === item.id || selectedMedicao?.id === item.id) ? 'bg-blue-50/50' : ''
+                                            (selectedMedicao?.id === item.id) ? 'bg-blue-50/50' : ''
                                         }`}
                                     >
                                         {/* ─── ACTIONS COLUMN ─── */}
@@ -651,7 +554,7 @@ export default function Medicoes() {
                                                     >
                                                         <ArrowLeftCircle className="w-3.5 h-3.5" />
                                                     </button>
-                                                    <button title="Visualizar PDF" className="hover:text-slate-900 transition-colors" onClick={e => { e.stopPropagation(); downloadPdf(item); }}>
+                                                    <button title="Visualizar PDF" className="hover:text-slate-900 transition-colors" onClick={e => { e.stopPropagation(); handleVerPDF(item); }}>
                                                         <Eye className="w-4 h-4" />
                                                     </button>
                                                     <button title="Histórico" className="hover:text-blue-600 transition-colors" onClick={e => { e.stopPropagation(); openMedicao(item); }}>
@@ -663,17 +566,12 @@ export default function Medicoes() {
                                         </Td>
 
                                         {/* ─── STATUS COLUMN ─── */}
-                                        <Td className="text-center">
-                                            {activeTab === 'precificacao' ? (
-                                                <span className="bg-orange-100 text-orange-600 text-[9px] px-2 py-0.5 rounded-full font-black uppercase">PENDENTE</span>
-                                            ) : activeTab === 'finalizadas' ? (
-                                                <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase ${
-                                                    diffDays(item.dataCobranca, item.aprovadaEm) <= DIAS_VENCIMENTO 
-                                                        ? 'bg-emerald-100 text-emerald-600' : 'bg-yellow-100 text-yellow-600'
-                                                }`}>{diffDays(item.dataCobranca, item.aprovadaEm) <= DIAS_VENCIMENTO ? 'NO PRAZO' : 'ATRASADO'}</span>
-                                            ) : (
-                                                <StatusBadge status={item.status} dataCobranca={item.dataCobranca} />
-                                            )}
+                                        <Td className="text-center border-r border-slate-100">
+                                            <LegacyStatusIndicator 
+                                                status={item.status} 
+                                                dataBaixa={item.dataBaixa} 
+                                                periodo={item.periodo} 
+                                            />
                                         </Td>
 
                                         {/* ─── DATA COLUMNS ─── */}
@@ -697,6 +595,7 @@ export default function Medicoes() {
                                         {/* ─── DATA ABA 2: STATUS MEDIÇÃO ─── */}
                                         {activeTab === 'medicao' && (<>
                                             <Td className="font-black text-slate-700">{item.codigo}</Td>
+                                            <Td className="text-slate-500 font-bold uppercase">{item.periodo || '-'}</Td>
                                             <Td className="text-center font-bold text-slate-400">R{item.revisao || 0}</Td>
                                             <Td className="text-slate-500">{fmtDate(item.createdAt)}</Td>
                                             <Td className="uppercase text-[10px] font-bold text-slate-500">{item.empresa || 'NACIONAL HIDRO'}</Td>
@@ -722,6 +621,7 @@ export default function Medicoes() {
                                         {/* ─── DATA ABA 3: FINALIZADAS ─── */}
                                         {activeTab === 'finalizadas' && (<>
                                             <Td className="font-black text-slate-700">{item.codigo}</Td>
+                                            <Td className="text-slate-500 font-bold uppercase">{item.periodo || '-'}</Td>
                                             <Td className="text-center font-black text-slate-400">R{item.revisao || 0}</Td>
                                             <Td className="text-slate-500">{fmtDate(item.createdAt)}</Td>
                                             <Td className="uppercase text-[10px] font-bold text-slate-500">{item.empresa || 'NACIONAL HIDRO'}</Td>
@@ -740,6 +640,7 @@ export default function Medicoes() {
                                         {/* ─── DATA ABA 4: CANCELADOS ─── */}
                                         {activeTab === 'cancelados' && (<>
                                             <Td className="font-black text-slate-700">{item.codigo}</Td>
+                                            <Td className="text-slate-500 font-bold uppercase">{item.periodo || '-'}</Td>
                                             <Td className="text-center font-black text-slate-400">R{item.revisao || 0}</Td>
                                             <Td className="text-slate-500">{fmtDate(item.createdAt)}</Td>
                                             <Td className="uppercase text-[10px] font-bold text-slate-500">{item.empresa || 'NACIONAL HIDRO'}</Td>
@@ -767,150 +668,6 @@ export default function Medicoes() {
                         <span className="text-[10px] font-bold text-slate-300">Página 1 de 1</span>
                     </div>
                 </div>
-
-                {/* ── SIDE PANEL: PRECIFICAÇÃO DETALHADA ── */}
-                {selectedOS && (
-                    <div className="w-1/2 bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden flex flex-col animate-in slide-in-from-right duration-300">
-                        <div className="bg-[#1e3a5f] p-4 text-white flex items-center justify-between">
-                            <div className="flex flex-col">
-                                <h2 className="text-sm font-black uppercase tracking-tight flex items-center gap-2">
-                                    <Calculator className="w-4 h-4 text-orange-400" />
-                                    Precificar OS: {selectedOS.codigo}
-                                </h2>
-                                <p className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">{selectedOS.cliente?.nome}</p>
-                            </div>
-                            <button onClick={() => setSelectedOS(null)} className="hover:bg-white/10 p-1.5 rounded-lg"><X className="w-4 h-4" /></button>
-                        </div>
-
-                        <div className="p-4 overflow-y-auto flex-1 bg-slate-50/50 custom-scrollbar space-y-6">
-                            
-                            {/* CALCULATOR SECTION */}
-                            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-                                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                    <Clock className="w-3.5 h-3.5 text-blue-500" /> Registro de Horas
-                                </h3>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-slate-400 uppercase">Entrada</label>
-                                        <div className="flex gap-1.5">
-                                            <input type="date" value={autoCalcForm.entradaData} onChange={e => setAutoCalcForm({...autoCalcForm, entradaData: e.target.value})} className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-bold" />
-                                            <input type="time" value={autoCalcForm.entradaHora} onChange={e => setAutoCalcForm({...autoCalcForm, entradaHora: e.target.value})} className="w-20 bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-bold" />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-slate-400 uppercase">Saída</label>
-                                        <div className="flex gap-1.5">
-                                            <input type="date" value={autoCalcForm.saidaData} onChange={e => setAutoCalcForm({...autoCalcForm, saidaData: e.target.value})} className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-bold" />
-                                            <input type="time" value={autoCalcForm.saidaHora} onChange={e => setAutoCalcForm({...autoCalcForm, saidaHora: e.target.value})} className="w-20 bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-bold" />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-slate-400 uppercase">Almoço</label>
-                                        <input type="time" value={autoCalcForm.almoco} onChange={e => setAutoCalcForm({...autoCalcForm, almoco: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-bold" />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-slate-400 uppercase">Franquia</label>
-                                        <input type="time" value={autoCalcForm.franquia} onChange={e => setAutoCalcForm({...autoCalcForm, franquia: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-bold" />
-                                    </div>
-                                    <div className="col-span-2 space-y-1 pt-2">
-                                        <div className="flex items-center gap-2">
-                                            <input 
-                                                type="checkbox" 
-                                                id="minHe"
-                                                className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                                                checked={autoCalcForm.aplicarMinimoHE}
-                                                onChange={e => setAutoCalcForm({ ...autoCalcForm, aplicarMinimoHE: e.target.checked })}
-                                            />
-                                            <label htmlFor="minHe" className="text-[9px] font-black text-slate-500 uppercase cursor-pointer">
-                                                Mínimo de 2h de Hora Extra (Regra Legado)
-                                            </label>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <button 
-                                    onClick={handleAutoCalcular}
-                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white h-10 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2"
-                                >
-                                    <Zap className="w-3.5 h-3.5" /> Calcular Automático
-                                </button>
-                            </div>
-
-                            {/* ITEMS SECTION */}
-                            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                        <List className="w-3.5 h-3.5 text-emerald-500" /> Itens de Cobrança
-                                    </h3>
-                                    <button onClick={() => setShowItemForm(!showItemForm)} className="text-[9px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full hover:bg-blue-100 transition-all flex items-center gap-1.5"><Plus className="w-3 h-3" /> {showItemForm ? 'FECHAR' : 'NOVO'}</button>
-                                </div>
-
-                                {showItemForm && (
-                                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-3 animate-in slide-in-from-top-2 duration-200">
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div className="col-span-2 space-y-1">
-                                                <label className="text-[8px] font-black text-slate-400 uppercase">Descrição</label>
-                                                <input value={itemForm.descricao} onChange={e => setItemForm({...itemForm, descricao: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-bold" />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="text-[8px] font-black text-slate-400 uppercase">Quantidade</label>
-                                                <input type="number" step="0.01" value={itemForm.quantidade} onChange={e => setItemForm({...itemForm, quantidade: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-bold" />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="text-[8px] font-black text-slate-400 uppercase">Valor</label>
-                                                <input type="number" step="0.01" value={itemForm.valorUnitario} onChange={e => setItemForm({...itemForm, valorUnitario: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-bold" />
-                                            </div>
-                                        </div>
-                                        <button onClick={handleAddItem} className="bg-slate-800 text-white w-full h-9 rounded-lg text-[10px] font-black uppercase">Adicionar Item</button>
-                                    </div>
-                                )}
-
-                                <div className="space-y-2">
-                                    {selectedOS.itensCobranca?.map((it: any) => (
-                                        <div key={it.id} className="flex items-center justify-between p-3 bg-slate-50/50 border border-slate-100 rounded-xl group hover:border-blue-200 transition-all">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center text-blue-600 border border-slate-200 font-black text-[10px]">{it.quantidade}x</div>
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold text-slate-700 text-xs uppercase leading-tight">{it.descricao}</span>
-                                                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{fmt(it.valorUnitario)}</span>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-black text-emerald-600 text-xs">{fmt(it.valorTotal)}</span>
-                                                <button className="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {!selectedOS.itensCobranca?.length && (
-                                        <div className="text-center py-6 border-2 border-dashed border-slate-100 rounded-2xl text-slate-300 text-[10px] font-bold italic">Nenhum item lançado</div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* SUMMARY & SUBMIT */}
-                            <div className="bg-[#1e3a5f] p-6 rounded-3xl text-white space-y-6 shadow-xl shadow-blue-900/20">
-                                <div className="flex items-center justify-between">
-                                    <div className="space-y-0.5">
-                                        <p className="text-[9px] font-black text-white/40 uppercase tracking-widest">Valor Total Precificado</p>
-                                        <h3 className="text-2xl font-black">{fmt(selectedOS.valorPrecificado)}</h3>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-[9px] font-black text-white/40 uppercase tracking-widest">Horas</p>
-                                        <p className="text-sm font-black">{selectedOS.horasTotais || '0.00'}h (+{selectedOS.horasExtras || '0.00'} HE)</p>
-                                    </div>
-                                </div>
-
-                                <button 
-                                    onClick={handlePrecificar}
-                                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-white h-12 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-emerald-500/30 transition-all"
-                                >
-                                    Finalizar & Baixar OS
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 {/* ── DETAIL PANEL: MEDIÇÃO ── */}
                 {selectedMedicao && (
@@ -1062,14 +819,6 @@ export default function Medicoes() {
                                                     <span className="font-black text-slate-500">{fmt(it.valorTotal)}</span>
                                                 </div>
                                             ))}
-                                            <div className="pt-2 flex justify-end">
-                                                <button 
-                                                    onClick={() => { setSelectedOS(os); setSelectedMedicao(null); }}
-                                                    className="text-[9px] font-black text-blue-600 uppercase hover:underline"
-                                                >
-                                                    Editar Itens da OS
-                                                </button>
-                                            </div>
                                         </div>
                                     </details>
                                 ))}
@@ -1101,12 +850,21 @@ export default function Medicoes() {
                 onClose={() => setShowCreate(false)} 
                 onSuccess={() => { fetchData(); setActiveTab('medicao'); }} 
             />
-            <ModalEdicaoMedicao
-                isOpen={!!editMedicaoId}
-                medicaoId={editMedicaoId}
+            <ModalEdicaoMedicao 
+                isOpen={!!editMedicaoId} 
                 onClose={() => setEditMedicaoId(null)}
-                onSuccess={() => { fetchData(); if (selectedMedicao) openMedicao(selectedMedicao); }}
+                medicaoId={editMedicaoId!}
+                onSuccess={fetchData}
             />
+
+            {showPricingModal && pricingOSId && (
+                <ModalPrecificarOS 
+                    isOpen={showPricingModal}
+                    onClose={() => setShowPricingModal(false)}
+                    osId={pricingOSId}
+                    onSuccess={fetchData}
+                />
+            )}
         </div>
     );
 }

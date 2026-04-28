@@ -55,7 +55,8 @@ export const getOSPrecificacao = async (req: AuthRequest, res: Response) => {
                 cliente: true,
                 servicos: true,
                 itensCobranca: { orderBy: { createdAt: 'asc' } },
-                proposta: { select: { id: true, codigo: true, valorTotal: true } }
+                proposta: { select: { id: true, codigo: true, valorTotal: true } },
+                vendedor: { select: { id: true, nome: true, email: true } }
             }
         });
         if (!os) return res.status(404).json({ error: 'OS not found' });
@@ -134,6 +135,7 @@ export const removeItemCobranca = async (req: AuthRequest, res: Response) => {
 export const precificarOS = async (req: AuthRequest, res: Response) => {
     try {
         const id = req.params.id as string;
+        const { valorDesconto, valorAdicional, observacaoPrecificacao, tipoPrecificacao } = req.body;
 
         // Check if has items
         const items = await prisma.itemCobranca.findMany({ where: { osId: id } });
@@ -141,16 +143,21 @@ export const precificarOS = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ error: 'A OS precisa ter pelo menos um item de cobrança' });
         }
 
-        const total = items.reduce((sum: number, i: any) => sum + parseFloat(i.valorTotal.toString()), 0);
+        const itemsTotal = items.reduce((sum: number, i: any) => sum + parseFloat(i.valorTotal.toString()), 0);
+        const total = itemsTotal + (parseFloat(valorAdicional) || 0) - (parseFloat(valorDesconto) || 0);
 
         const os = await prisma.ordemServico.update({
             where: { id },
             data: {
                 status: 'PRECIFICADA',
                 statusPrecificacao: 'PRECIFICADA',
-                valorPrecificado: total
+                valorPrecificado: total,
+                valorDesconto: valorDesconto ? parseFloat(valorDesconto) : 0,
+                valorAdicional: valorAdicional ? parseFloat(valorAdicional) : 0,
+                observacaoPrecificacao: observacaoPrecificacao || null,
+                tipoPrecificacao: tipoPrecificacao || 'Servico'
             },
-            include: { cliente: true, itensCobranca: true }
+            include: { cliente: true, itensCobranca: true, proposta: true }
         });
 
         res.json(os);

@@ -320,6 +320,10 @@ model OrdemServico {
   medicaoId                 String?
   dataBaixa                 DateTime?
   valorPrecificado          Decimal?       @db.Decimal(10, 2)
+  valorDesconto             Decimal?       @db.Decimal(10, 2) @default(0)
+  valorAdicional            Decimal?       @db.Decimal(10, 2) @default(0)
+  observacaoPrecificacao    String?
+  tipoPrecificacao          String?        @default("Servico") // "Servico" | "Hora"
   statusPrecificacao        String?
   assinaturaCliente         String?
   justificativaFalha        String?
