@@ -56,7 +56,7 @@ export const getOSPrecificacao = async (req: AuthRequest, res: Response) => {
                 servicos: true,
                 itensCobranca: { orderBy: { createdAt: 'asc' } },
                 proposta: { select: { id: true, codigo: true, valorTotal: true } },
-                vendedor: { select: { id: true, nome: true, email: true } }
+                vendedor: { select: { id: true, name: true, email: true } }
             }
         });
         if (!os) return res.status(404).json({ error: 'OS not found' });
