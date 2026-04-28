@@ -20,7 +20,12 @@ export const listPropostas = async (req: AuthRequest, res: Response) => {
 
     // Status filter
     if (status) {
-      where.status = status as string;
+      const s = status as string;
+      if (s.includes(',')) {
+        where.status = { in: s.split(',') };
+      } else {
+        where.status = s;
+      }
     }
 
     // Date range filter
@@ -110,11 +115,23 @@ export const listPropostas = async (req: AuthRequest, res: Response) => {
 // ─── STATS ──────────────────────────────────────────────────────
 export const getPropostasStats = async (req: AuthRequest, res: Response) => {
   try {
+    const { dataInicio, dataFim } = req.query;
+    const dateFilter: any = {};
+    if (dataInicio || dataFim) {
+       dateFilter.dataProposta = {};
+       if (dataInicio) dateFilter.dataProposta.gte = new Date(dataInicio as string);
+       if (dataFim) {
+          const d = new Date(dataFim as string);
+          d.setHours(23,59,59,999);
+          dateFilter.dataProposta.lte = d;
+       }
+    }
+
     const stats = await Promise.all([
-      prisma.proposta.count({ where: { propostaGlobalId: null, status: { notIn: ['ACEITA', 'RECUSADA', 'CANCELADA'] } } }),
-      prisma.proposta.count({ where: { propostaGlobalId: null, status: 'ACEITA' } }),
-      prisma.proposta.count({ where: { propostaGlobalId: null, status: 'RECUSADA' } }),
-      prisma.proposta.count({ where: { propostaGlobalId: null, status: 'CANCELADA' } }),
+      prisma.proposta.count({ where: { propostaGlobalId: null, ...dateFilter, status: { notIn: ['ACEITA', 'RECUSADA', 'CANCELADA'] } } }),
+      prisma.proposta.count({ where: { propostaGlobalId: null, ...dateFilter, status: 'ACEITA' } }),
+      prisma.proposta.count({ where: { propostaGlobalId: null, ...dateFilter, status: 'RECUSADA' } }),
+      prisma.proposta.count({ where: { propostaGlobalId: null, ...dateFilter, status: 'CANCELADA' } }),
     ]);
 
     res.json({
