@@ -266,10 +266,19 @@ export const updateOS = async (req: AuthRequest, res: Response) => {
     const id = req.params.id as string;
     const {
       servicos, dataInicial, entrada, saida, almoco, escala, justificativaCancelamento,
-      materiaisUtilizados, // [{ produtoId, quantidade, darBaixaEstoque? }]
-      veiculosEscala, observacoesEscala,
+      materiaisUtilizados, veiculosEscala, observacoesEscala,
+      // Exclude ALL relation objects and frontend-only fields
+      cliente, proposta, vendedor, logistica, manutencao, itensCobranca, rdos, agendamentos,
+      servicosOS, materiais, hospedagens, passagens, medicao,
+      clienteNome, equipamento,
+      createdAt, updatedAt,
       ...rest
     } = req.body;
+
+    // Convert empty strings to undefined to avoid Prisma validation errors
+    Object.keys(rest).forEach(key => {
+      if (rest[key] === "") rest[key] = undefined;
+    });
 
     // Capture before state for audit
     const before = await prisma.ordemServico.findUnique({ where: { id } });
