@@ -21,7 +21,7 @@ const PIPELINE = [
 ];
 
 const STATUS_API: Record<string,string> = {
-  'Em Aberto':'ABERTA', 'Aprovadas':'ACEITA',
+  'Em Aberto':'RASCUNHO,ENVIADA,EM_NEGOCIACAO', 'Aprovadas':'ACEITA',
   'Reprovadas':'RECUSADA', 'Canceladas':'CANCELADA'
 };
 
@@ -69,7 +69,7 @@ export default function Propostas() {
 
       const [res, statsRes] = await Promise.all([
         api.get('/propostas', { params }),
-        api.get('/propostas/stats')
+        api.get('/propostas/stats', { params: { dataInicio, dataFim } })
       ]);
       
       setPropostas(res.data.data || []);
