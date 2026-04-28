@@ -4,11 +4,12 @@ import api from '../services/api';
 import ModalNovaMedicao from '../components/ModalNovaMedicao';
 import ModalEdicaoMedicao from '../components/ModalEdicaoMedicao';
 import ModalPrecificarOS from '../components/ModalPrecificarOS';
+import ModalFaturamentoMedicao from '../components/ModalFaturamentoMedicao';
 import {
     FileText, Plus, Search, Loader2, X, CheckCircle2, Clock,
     DollarSign, Send, Ban, List, Columns, Printer, Pencil,
     ChevronRight, Mail, RefreshCw, AlertTriangle, Eye, ThumbsUp, ThumbsDown,
-    Calculator, Save, Zap, Trash2, Package, ArrowLeftCircle, History, Snowflake, XCircle
+    Calculator, Save, Zap, Trash2, Package, ArrowLeftCircle, History, Snowflake, XCircle, Receipt
 } from 'lucide-react';
 
 // ─── HELPERS ────────────────────────────────────────────────────
@@ -126,6 +127,7 @@ export default function Medicoes() {
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [faturarMedicao, setFaturarMedicao] = useState<any>(null);
 
     // ─── DATA ───
     const [osPricing, setOsPricing] = useState<any[]>([]);
@@ -561,6 +563,9 @@ export default function Medicoes() {
                                                 </>)}
 
                                                 {activeTab === 'finalizadas' && (<>
+                                                    <button title="Gerar Faturamento" className="hover:text-emerald-600 transition-colors" onClick={e => { e.stopPropagation(); setFaturarMedicao(item); }}>
+                                                        <Receipt className="w-4 h-4" />
+                                                    </button>
                                                     <button title="Cancelar / Retornar" className="hover:text-red-600 transition-colors" onClick={e => { e.stopPropagation(); handleCorrigirMedicao(item.id); }}>
                                                         <XCircle className="w-4 h-4" />
                                                     </button>
@@ -913,6 +918,13 @@ export default function Medicoes() {
                     onClose={() => setShowPricingModal(false)}
                     osId={pricingOSId}
                     onSuccess={fetchData}
+                />
+            )}
+            {faturarMedicao && (
+                <ModalFaturamentoMedicao 
+                    medicao={faturarMedicao} 
+                    onClose={() => setFaturarMedicao(null)} 
+                    onSuccess={fetchData} 
                 />
             )}
         </div>
