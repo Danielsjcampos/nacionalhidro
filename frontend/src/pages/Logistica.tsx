@@ -4,7 +4,7 @@ import api from '../services/api';
 import {
    Plus, Settings, Save, X,
    Loader2, Wrench, ClipboardList, Send,
-   Truck, Gauge
+   Truck, Gauge, Copy
 } from 'lucide-react';
 
 export default function Logistica() {
@@ -142,14 +142,15 @@ export default function Logistica() {
       }
    };
 
-   const handleDeleteVeiculo = async (id: string) => {
-      if (!window.confirm('Deseja realmente excluir este veículo? Esta ação não pode ser desfeita.')) return;
+   const handleDuplicate = async (id: string) => {
+      if (!window.confirm('Deseja duplicar esta escala para o próximo dia?')) return;
       try {
-         await api.delete(`/logistica/veiculos/${id}`);
+         await api.post(`/logistica/escalas/${id}/duplicar`);
+         showToast('Escala duplicada com sucesso!');
          fetchData();
       } catch (err) {
-         console.error('Error deleting vehicle', err);
-         showToast('Erro ao excluir veículo. Verifique se ele não está vinculado a nenhuma escala.');
+         console.error('Error duplicating scale', err);
+         showToast('Erro ao duplicar escala.');
       }
    };
 
@@ -165,8 +166,8 @@ export default function Logistica() {
             <>
                <div className="flex items-center justify-between">
                   <div>
-                     <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tighter italic">Logística & Escalas</h1>
-                     <p className="text-sm text-slate-500 font-medium italic">Gestão de frota e agendamento de equipes em campo</p>
+                     <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tighter italic">Escala Diária</h1>
+                     <p className="text-sm text-slate-500 font-medium italic">Gestão operacional de equipes e equipamentos</p>
                   </div>
                   <div className="flex gap-2">
                      <button
@@ -214,8 +215,9 @@ export default function Logistica() {
                                  <tr key={escala.id} className="hover:bg-slate-50 transition-colors group">
                                     <td className="px-4 py-3">
                                        <div className="flex gap-1">
-                                          <button onClick={() => handleEdit(escala)} className="p-2 text-slate-300 hover:text-blue-600 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100"><Settings className="w-3.5 h-3.5" /></button>
-                                          <button className="p-2 text-slate-300 hover:text-blue-600 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100"><X className="w-3.5 h-3.5" /></button>
+                                          <button onClick={() => handleEdit(escala)} title="Editar" className="p-2 text-slate-300 hover:text-blue-600 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100"><Settings className="w-3.5 h-3.5" /></button>
+                                          <button onClick={() => handleDuplicate(escala.id)} title="Duplicar para amanhã" className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100"><Copy className="w-3.5 h-3.5" /></button>
+                                          <button onClick={() => { if(window.confirm('Excluir escala?')) api.delete(`/logistica/escalas/${escala.id}`).then(fetchData) }} title="Excluir" className="p-2 text-slate-300 hover:text-red-600 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100"><X className="w-3.5 h-3.5" /></button>
                                        </div>
                                     </td>
                                     <td className="px-4 py-3 font-black text-slate-700 uppercase italic tracking-tighter">{escala.codigoOS}</td>

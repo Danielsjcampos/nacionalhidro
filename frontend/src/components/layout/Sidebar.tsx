@@ -41,13 +41,11 @@ const menuGroups: MenuGroup[] = [
   {
     icon: Truck, label: 'Logística',
     children: [
-      { label: 'Ordens de Serviço', path: '/os' },
-      { label: 'Agendamento Logístico', path: '/agendamentos' },
-      { label: 'Logística Diária', path: '/logistica' },
-      { label: 'Hospedagem & Viagens', path: '/hospedagens' },
       { label: 'Painel Logística', path: '/dashboard-logistica' },
-      { label: 'Escala', path: '/escala' },
-      { label: 'Escalas & RDO', path: '/rdo' },
+      { label: 'Ordens de Serviço', path: '/os' },
+      { label: 'Escala Diária', path: '/logistica' },
+      { label: 'Histograma', path: '/escala' },
+      { label: 'Hospedagem & Viagens', path: '/hospedagens' },
       { label: 'Painel Motorista', path: '/painel-motorista' },
     ]
   },

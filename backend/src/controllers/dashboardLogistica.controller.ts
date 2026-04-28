@@ -38,10 +38,44 @@ export const getDashboardLogistica = async (req: AuthRequest, res: Response) => 
             where: { status: 'MANUTENCAO' }
         });
 
-        // 4. Veículos disponíveis
+        // 4. Veículos em uso (calculado por status ou por OS ativa hoje)
         const veiculosTotal = await prisma.veiculo.count();
         const veiculosDisponiveis = await prisma.veiculo.count({ where: { status: 'DISPONIVEL' } });
-        const veiculosEmUso = await prisma.veiculo.count({ where: { status: 'EM_USO' } });
+        
+        // Buscar veículos vinculados a escalas de hoje que possuem OS em execução
+        const escalasComOSAtiva = await prisma.escala.findMany({
+            where: {
+                data: { gte: today, lt: tomorrow },
+                codigoOS: { not: null }
+            },
+            select: { veiculoId: true, codigoOS: true }
+        });
+
+        const codigosOSAtivas = await prisma.ordemServico.findMany({
+            where: {
+                codigo: { in: escalasComOSAtiva.map(e => e.codigoOS).filter(Boolean) as string[] },
+                status: 'EM_EXECUCAO'
+            },
+            select: { codigo: true }
+        });
+
+        const setCodigosAtivos = new Set(codigosOSAtivas.map(os => os.codigo));
+        const veiculosIdsPorOS = new Set(
+            escalasComOSAtiva
+                .filter(e => e.codigoOS && setCodigosAtivos.has(e.codigoOS))
+                .map(e => e.veiculoId)
+                .filter(Boolean)
+        );
+
+        // O status EM_USO pode vir do GPS ou dessa trava de OS
+        const veiculosStatusEmUso = await prisma.veiculo.findMany({
+            where: { status: 'EM_USO' },
+            select: { id: true }
+        });
+        
+        veiculosStatusEmUso.forEach(v => veiculosIdsPorOS.add(v.id));
+        
+        const veiculosEmUsoCount = veiculosIdsPorOS.size;
 
         // 5. Funcionários
         const funcTotal = await prisma.funcionario.count();
@@ -94,8 +128,8 @@ export const getDashboardLogistica = async (req: AuthRequest, res: Response) => 
             escalasHoje,
             veiculos: {
                 total: veiculosTotal,
-                disponiveis: veiculosDisponiveis,
-                emUso: veiculosEmUso,
+                disponiveis: Math.max(0, veiculosTotal - veiculosEmUsoCount - veiculosManutencao.length),
+                emUso: veiculosEmUsoCount,
                 emManutencao: veiculosManutencao.length,
                 listaManutencao: veiculosManutencao
             },
