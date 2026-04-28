@@ -100,7 +100,7 @@ export default function ModalPrecificarOS({ isOpen, onClose, osId, onSuccess }: 
     const handleRemoveItem = async (itemId: string) => {
         if (!window.confirm('Excluir este item?')) return;
         try {
-            await api.delete(`/precificacao/itens/${itemId}`);
+            await api.delete(`/precificacao/${osId}/itens/${itemId}`);
             fetchOS();
         } catch (err) { console.error(err); }
     };
