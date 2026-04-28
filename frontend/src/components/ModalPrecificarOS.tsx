@@ -77,6 +77,30 @@ export default function ModalPrecificarOS({ isOpen, onClose, osId, onSuccess }: 
             setValorDesconto(res.data.valorDesconto?.toString() || '0');
             setValorAdicional(res.data.valorAdicional?.toString() || '0');
             setObservacao(res.data.observacaoPrecificacao || '');
+
+            // Pré-preenchimento inteligente para OS sem itens
+            if (!res.data.itensCobranca || res.data.itensCobranca.length === 0) {
+                let defaultDesc = '';
+                if (res.data.servicos && res.data.servicos.length > 0) {
+                    defaultDesc = res.data.servicos.map((s: any) => 
+                        [s.equipamento, s.descricao].filter(Boolean).join(' - ')
+                    ).filter(Boolean).join(' / ');
+                }
+
+                let defaultValor = '';
+                if (res.data.valorPrecificado) {
+                    defaultValor = res.data.valorPrecificado.toString();
+                } else if (res.data.proposta && res.data.proposta.valorTotal) {
+                    defaultValor = res.data.proposta.valorTotal.toString();
+                }
+
+                setItemForm(prev => ({
+                    ...prev,
+                    descricao: defaultDesc || prev.descricao,
+                    valorUnitario: defaultValor || prev.valorUnitario
+                }));
+                setShowItemForm(true);
+            }
         } catch (err) {
             console.error(err);
         } finally {
