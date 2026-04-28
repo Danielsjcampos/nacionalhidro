@@ -454,13 +454,21 @@ export const gerarPdfProposta = async (proposta: any, cliente: any, itens: any[]
         }
     });
 
-    const equipamentosParaView = await Promise.all(uniqueEquips.map(async item => ({
-        Equipamento: {
-            UrlImagem: await getBase64(item.imagem || item.equipamentoImg || 'https://prodnhidro.blob.core.windows.net/storage/proposta.png'),
-            Equipamento: item.equipamento,
-            Descricao: item.descricao || ''
-        }
-    })));
+    const equipamentosParaView = await Promise.all(uniqueEquips.map(async item => {
+        // Fetch real description and image from Equipamento table using the equipment name
+        const dbEquip = await prisma.equipamento.findFirst({
+            where: { nome: { equals: item.equipamento, mode: 'insensitive' } },
+            select: { descricao: true, imagem: true }
+        });
+
+        return {
+            Equipamento: {
+                UrlImagem: await getBase64(item.imagem || item.equipamentoImg || dbEquip?.imagem || 'https://prodnhidro.blob.core.windows.net/storage/proposta.png'),
+                Equipamento: item.equipamento,
+                Descricao: item.descricao || dbEquip?.descricao || ''
+            }
+        };
+    }));
 
     const equipeRaw = proposta.equipe || [];
     const groupedEquipe: any[] = [];
