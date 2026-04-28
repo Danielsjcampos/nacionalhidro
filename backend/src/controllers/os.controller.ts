@@ -404,8 +404,11 @@ export const updateOS = async (req: AuthRequest, res: Response) => {
         await tx.escala.deleteMany({ where: { codigoOS: updatedOs.codigo } });
 
         if (escala.length > 0) {
+          // Extract IDs if frontend sent objects
+          const escalaIds = escala.map((e: any) => typeof e === 'object' ? e.id : e).filter(Boolean);
+
           const funcs = await tx.funcionario.findMany({
-            where: { id: { in: escala } },
+            where: { id: { in: escalaIds } },
             select: { id: true, nome: true, cargo: true }
           });
 
