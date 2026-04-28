@@ -156,6 +156,7 @@ export const checkEmployeeAvailability = async (
   }
 
   // 6. Verificar Conflito de OS Ativa (Trava Hard até a Baixa)
+  // NOTE: Only block if OS is truly IN EXECUTION — ABERTA means created, not in field
   const escalasAtivas = await prisma.escala.findMany({
     where: {
       status: { notIn: ['CANCELADO', 'CANCELADA'] },
@@ -167,7 +168,7 @@ export const checkEmployeeAvailability = async (
   const activeOSs = await prisma.ordemServico.findMany({
     where: {
       codigo: { in: codigosOS },
-      status: { in: ['EM_EXECUCAO', 'EM_ANDAMENTO'] } // Somente trava se estiver REALMENTE em execução
+      status: { in: ['EM_EXECUCAO', 'EM_ANDAMENTO'] } // NOT 'ABERTA' — that would block everyone
     },
     select: { codigo: true }
   });

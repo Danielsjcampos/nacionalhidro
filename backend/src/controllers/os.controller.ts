@@ -663,6 +663,27 @@ export const createOSLote = async (req: AuthRequest, res: Response) => {
     // 'escala' can come as employee IDs array or full objects
     const rawEscala = req.body.escala || req.body.veiculosEscala || req.body.EscalaFuncionarios || [];
 
+    // ─── Sanitize DateTime fields — empty strings must become undefined ──
+    // Prisma rejects '' for DateTime columns (expects ISO-8601 or null)
+    const DATETIME_FIELDS = ['almoco', 'entrada', 'saida', 'dataBaixa'];
+    DATETIME_FIELDS.forEach(field => {
+      if (sanitizedData[field] === '' || sanitizedData[field] === null) {
+        sanitizedData[field] = undefined;
+      } else if (sanitizedData[field]) {
+        sanitizedData[field] = new Date(sanitizedData[field]);
+      }
+    });
+    // Also sanitize numeric strings that may come empty
+    const NUMERIC_FIELDS = ['minimoHoras', 'qtdBicos', 'qtdPessoas', 'horaTolerancia'];
+    NUMERIC_FIELDS.forEach(field => {
+      if (sanitizedData[field] === '' || sanitizedData[field] === undefined) {
+        sanitizedData[field] = undefined;
+      } else {
+        const n = Number(sanitizedData[field]);
+        sanitizedData[field] = isNaN(n) ? undefined : n;
+      }
+    });
+
     for (let d = new Date(inicio); d <= fim; d.setDate(d.getDate() + 1)) {
       // Check if day is in allowed week days (0=Sunday, 1=Monday, etc)
       if (diasFiltro.length > 0 && !diasFiltro.includes(d.getDay())) {

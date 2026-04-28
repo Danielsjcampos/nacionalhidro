@@ -51,64 +51,64 @@ export const getQuadroFuncionarios = async (
     orderBy: { nome: 'asc' }
   });
 
-  // 2. Buscar escalas do dia OU escalas de OSs ainda ativas (Trava Hard)
+  // 2. Buscar escalas do dia para saber quem está escalado hoje
   const startOfDay = new Date(data);
   startOfDay.setHours(0, 0, 0, 0);
   const endOfDay = new Date(data);
   endOfDay.setHours(23, 59, 59, 999);
 
-  // Buscar escalas que:
-  // a) São para o dia solicitado
-  // b) Ou estão vinculadas a uma OS que ainda não foi finalizada/cancelada (Lock until Baixa)
-  const escalasConflitantes = await prisma.escala.findMany({
+  const escalasDoDia = await prisma.escala.findMany({
     where: {
-      status: { notIn: ['CANCELADO', 'CANCELADA'] },
-      OR: [
-        { data: { gte: startOfDay, lte: endOfDay } },
-        { 
-          codigoOS: { not: null },
-          // Note: Since we don't have a direct relation, we'll filter OS status in memory or via subquery if possible.
-          // For now, let's get all non-cancelled escalas and filter by OS status below.
-        }
-      ]
+      data: { gte: startOfDay, lte: endOfDay },
+      status: { notIn: ['CANCELADO', 'CANCELADA'] }
     },
     include: { cliente: { select: { nome: true } } }
   });
 
-  // Fetch statuses of relevant OSs
-  const codigosOS = escalasConflitantes.map(e => e.codigoOS).filter(Boolean) as string[];
-  const activeOSs = await prisma.ordemServico.findMany({
+  // Also find anyone locked in an actively RUNNING OS (EM_EXECUCAO / EM_ANDAMENTO only)
+  // NOTE: ABERTA = OS created but not yet in field — do NOT lock for this status
+  const escalasComOSAtiva = await prisma.escala.findMany({
     where: {
-      codigo: { in: codigosOS },
-      status: { in: ['ABERTA', 'EM_EXECUCAO', 'EM_ANDAMENTO'] }
+      status: { notIn: ['CANCELADO', 'CANCELADA'] },
+      codigoOS: { not: null },
+      data: { lt: startOfDay } // only past escalas could still be running
     },
-    select: { codigo: true, status: true, dataInicial: true }
+    include: { cliente: { select: { nome: true } } }
   });
-  const activeOSMap = new Map(activeOSs.map(os => [os.codigo, os]));
 
-  // Map: funcionarioId -> cliente/motivo indisponibilidade
+  const codigosOSAtiva = escalasComOSAtiva.map(e => e.codigoOS).filter(Boolean) as string[];
+  const ossEmExecucao = codigosOSAtiva.length > 0 ? await prisma.ordemServico.findMany({
+    where: {
+      codigo: { in: codigosOSAtiva },
+      status: { in: ['EM_EXECUCAO', 'EM_ANDAMENTO'] } // Only truly in-field statuses
+    },
+    select: { codigo: true }
+  }) : [];
+  const codigosEmExecucao = new Set(ossEmExecucao.map(os => os.codigo));
+
+  // Build locked map: funcionarioId -> reason
   const funcionariosEscalados = new Map<string, { cliente: string; motivo?: string }>();
   
-  for (const esc of escalasConflitantes) {
-    const osAtiva = esc.codigoOS ? activeOSMap.get(esc.codigoOS) : null;
-    
-    // Bloqueia se:
-    // 1. É uma escala para o próprio dia
-    // 2. É uma OS em execução (Trava Hard até a Baixa)
-    const isToday = esc.data >= startOfDay && esc.data <= endOfDay;
-    const isRunning = osAtiva?.status === 'EM_EXECUCAO' || osAtiva?.status === 'EM_ANDAMENTO';
-
-    if (isToday || isRunning) {
-      if (Array.isArray(esc.funcionarios)) {
-        for (const f of esc.funcionarios as any[]) {
-          const fId = typeof f === 'object' ? f.id : null;
-          if (fId) {
-            const motivo = isRunning ? `Ocupado em OS em Execução (${esc.codigoOS})` : undefined;
-            funcionariosEscalados.set(fId, { 
-              cliente: esc.cliente?.nome || 'Outro cliente',
-              motivo 
-            });
-          }
+  // Layer 1: scheduled today
+  for (const esc of escalasDoDia) {
+    if (Array.isArray(esc.funcionarios)) {
+      for (const f of esc.funcionarios as any[]) {
+        const fId = typeof f === 'object' ? f.id : null;
+        if (fId) funcionariosEscalados.set(fId, { cliente: esc.cliente?.nome || 'Cliente' });
+      }
+    }
+  }
+  // Layer 2: locked due to running OS (hard lock until baixa)
+  for (const esc of escalasComOSAtiva) {
+    if (!esc.codigoOS || !codigosEmExecucao.has(esc.codigoOS)) continue;
+    if (Array.isArray(esc.funcionarios)) {
+      for (const f of esc.funcionarios as any[]) {
+        const fId = typeof f === 'object' ? f.id : null;
+        if (fId && !funcionariosEscalados.has(fId)) {
+          funcionariosEscalados.set(fId, {
+            cliente: esc.cliente?.nome || 'Cliente',
+            motivo: `Em campo na OS ${esc.codigoOS} (aguardando baixa)`
+          });
         }
       }
     }
@@ -230,38 +230,47 @@ export const getQuadroVeiculos = async (data: Date): Promise<VeiculoQuadro[]> =>
   const endOfDay = new Date(data);
   endOfDay.setHours(23, 59, 59, 999);
 
-  const escalasConflitantes = await prisma.escala.findMany({
+  // Escalas do dia
+  const escalasDoDia = await prisma.escala.findMany({
     where: {
+      data: { gte: startOfDay, lte: endOfDay },
       status: { notIn: ['CANCELADO', 'CANCELADA'] },
       veiculoId: { not: null }
     },
     include: { cliente: { select: { nome: true } } }
   });
 
-  // Fetch statuses of relevant OSs
-  const codigosOS = escalasConflitantes.map(e => e.codigoOS).filter(Boolean) as string[];
-  const activeOSs = await prisma.ordemServico.findMany({
+  // Hard lock: vehicles in a running OS (EM_EXECUCAO only, NOT ABERTA)
+  const escalasComOS = await prisma.escala.findMany({
     where: {
-      codigo: { in: codigosOS },
-      status: { in: ['ABERTA', 'EM_EXECUCAO', 'EM_ANDAMENTO'] }
+      status: { notIn: ['CANCELADO', 'CANCELADA'] },
+      veiculoId: { not: null },
+      codigoOS: { not: null },
+      data: { lt: startOfDay }
     },
-    select: { codigo: true, status: true }
+    include: { cliente: { select: { nome: true } } }
   });
-  const activeOSMap = new Map(activeOSs.map(os => [os.codigo, os]));
+
+  const codigosOSV = escalasComOS.map(e => e.codigoOS).filter(Boolean) as string[];
+  const ossEmExecucaoV = codigosOSV.length > 0 ? await prisma.ordemServico.findMany({
+    where: {
+      codigo: { in: codigosOSV },
+      status: { in: ['EM_EXECUCAO', 'EM_ANDAMENTO'] }
+    },
+    select: { codigo: true }
+  }) : [];
+  const codigosEmExecucaoV = new Set(ossEmExecucaoV.map(os => os.codigo));
 
   const veiculosEscalados = new Map<string, { cliente: string; motivo?: string }>();
-  for (const esc of escalasConflitantes) {
-    if (!esc.veiculoId) continue;
-
-    const osAtiva = esc.codigoOS ? activeOSMap.get(esc.codigoOS) : null;
-    const isToday = esc.data >= startOfDay && esc.data <= endOfDay;
-    const isRunning = osAtiva?.status === 'EM_EXECUCAO' || osAtiva?.status === 'EM_ANDAMENTO';
-
-    if (isToday || isRunning) {
-      const motivo = isRunning ? `Ocupado em OS em Execução (${esc.codigoOS})` : undefined;
-      veiculosEscalados.set(esc.veiculoId, { 
-        cliente: esc.cliente?.nome || 'Outro cliente',
-        motivo 
+  for (const esc of escalasDoDia) {
+    if (esc.veiculoId) veiculosEscalados.set(esc.veiculoId, { cliente: esc.cliente?.nome || 'Outro' });
+  }
+  for (const esc of escalasComOS) {
+    if (!esc.veiculoId || !esc.codigoOS) continue;
+    if (codigosEmExecucaoV.has(esc.codigoOS) && !veiculosEscalados.has(esc.veiculoId)) {
+      veiculosEscalados.set(esc.veiculoId, {
+        cliente: esc.cliente?.nome || 'Outro',
+        motivo: `Em campo na OS ${esc.codigoOS}`
       });
     }
   }
