@@ -732,24 +732,22 @@ export default function OS() {
       } else {
         // Geração em Lote ou Simples
         if (form.dataFinal) {
-          const DIA_MAP: Record<string, number> = {
-            'Domingo': 0, 'Segunda-feira': 1, 'Terça-feira': 2, 'Quarta-feira': 3,
-            'Quinta-feira': 4, 'Sexta-feira': 5, 'Sábado': 6
-          };
           const batchPayload = {
             ...payload,
             dataInicio: form.dataInicial,
             dataFim: form.dataFinal,
-            diasSemana: form.diasSemana.map((d: string) => DIA_MAP[d]).filter((d: any) => d !== undefined),
+            // Send Portuguese names directly — backend handles both strings and numbers
+            diasSemana: Array.isArray(form.diasSemana) ? form.diasSemana : [],
             quantidadeDia: Number(form.quantidadeDia) || 1,
-            servicos: form.servicos.map((s: any) => ({
+            servicos: (form.servicos || []).map((s: any) => ({
               equipamento: s.equipamento,
               descricao: s.descricao
             })),
-            escala: form.escala.map((e: any) => e.id || e),
+            escala: (form.veiculosEscala || []).map((e: any) => e.id || e),
           };
+          console.log('[OS Lote] Payload enviado:', batchPayload);
           const res = await api.post('/os/lote', batchPayload);
-          showToast(res.data.message || 'Lote de OSs gerado com sucesso!', 'success');
+          showToast(res.data.message || `${res.data.criadas || 0} OS(s) gerada(s) com sucesso!`, 'success');
           setForm((f: any) => ({ ...f, dataFinal: '', diasSemana: [], quantidadeDia: '' }));
         } else {
           await api.post('/os', payload);

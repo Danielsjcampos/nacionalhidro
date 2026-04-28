@@ -602,9 +602,15 @@ export const createOSLote = async (req: AuthRequest, res: Response) => {
       'Sábado': 6
     };
 
-    const diasFiltro = Array.isArray(diasSemana) 
-      ? diasSemana.map(d => typeof d === 'string' ? WEEKDAY_MAP[d] : Number(d)).filter(n => n !== undefined && !isNaN(n))
+    // diasSemana can be: numbers [1,2,5] or Portuguese strings ['Segunda-feira',...]
+    // Frontend already converts to numbers via DIA_MAP before sending, but we handle both cases.
+    const parsedDias = Array.isArray(diasSemana)
+      ? diasSemana.map(d => (typeof d === 'string' && isNaN(Number(d))) ? (WEEKDAY_MAP[d] ?? null) : Number(d))
       : [];
+    const diasFiltro = parsedDias.filter(n => n !== null && n !== undefined && !isNaN(n as number)) as number[];
+    
+    console.log('[OS Lote] diasSemana recebido:', diasSemana, '→ diasFiltro:', diasFiltro);
+    console.log('[OS Lote] Período:', dataInicio, 'a', dataFim, '| qtdPorDia:', qtdPorDia);
 
     if (fim < inicio) {
       return res.status(400).json({ error: 'dataFim deve ser maior ou igual a dataInicio.' });
@@ -635,7 +641,8 @@ export const createOSLote = async (req: AuthRequest, res: Response) => {
 
     // Normalize services and scale data from various possible frontend casings
     const rawServicos = req.body.servicos || req.body.Servicos || [];
-    const rawEscala = req.body.escala || req.body.EscalaFuncionarios || [];
+    // 'escala' can come as employee IDs array or full objects
+    const rawEscala = req.body.escala || req.body.veiculosEscala || req.body.EscalaFuncionarios || [];
 
     for (let d = new Date(inicio); d <= fim; d.setDate(d.getDate() + 1)) {
       // Check if day is in allowed week days (0=Sunday, 1=Monday, etc)
