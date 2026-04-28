@@ -25,7 +25,7 @@ const TIPOS_COBRANCA = ['Hora', 'Diária', 'Frete', 'Fechada'];
 
 const DIAS_SEMANA_OPTIONS = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo'];
 
-type OsTab = 'abrir' | 'em_aberto' | 'em_execucao' | 'executadas' | 'canceladas';
+type OsTab = 'abrir' | 'em_aberto' | 'executadas' | 'canceladas';
 
 function calcHorasTotais(entrada: string, saida: string, almoco: string, descontarAlmoco: boolean, horaPadrao: string) {
   const getMinutes = (val: string) => {
@@ -412,8 +412,7 @@ export default function OS() {
   // Proposals marked as accepted/approved (used for highlighting in the list)
 
   const OS_STATUS_GROUPS = {
-    ABERTA: ['ABERTA'],
-    EM_EXECUCAO: ['EM_EXECUCAO', 'EM_ANDAMENTO'],
+    ABERTA: ['ABERTA', 'EM_EXECUCAO', 'EM_ANDAMENTO'],
     CONCLUIDA: ['CONCLUIDA', 'BAIXADA', 'FINALIZADA'],
     CANCELADA: ['CANCELADA'],
   };
@@ -423,7 +422,6 @@ export default function OS() {
     
     let statuses: string[] = [];
     if (activeTab === 'em_aberto') statuses = OS_STATUS_GROUPS.ABERTA;
-    else if (activeTab === 'em_execucao') statuses = OS_STATUS_GROUPS.EM_EXECUCAO;
     else if (activeTab === 'executadas') statuses = OS_STATUS_GROUPS.CONCLUIDA;
     else if (activeTab === 'canceladas') statuses = OS_STATUS_GROUPS.CANCELADA;
 
@@ -777,8 +775,7 @@ export default function OS() {
   // ── Tab config ──────────────────────────────────────────────────
   const tabs: { id: OsTab; label: string; color: string; dotColor: string; count: number }[] = [
     { id: 'abrir', label: 'Abrir', color: 'text-blue-600', dotColor: 'bg-blue-500', count: propostasFiltroData.length },
-    { id: 'em_aberto', label: 'Abertas', color: 'text-blue-500', dotColor: 'bg-blue-400', count: (osList || []).filter(o => OS_STATUS_GROUPS.ABERTA.includes(o.status)).length },
-    { id: 'em_execucao', label: 'Em Execução', color: 'text-amber-500', dotColor: 'bg-amber-400', count: (osList || []).filter(o => OS_STATUS_GROUPS.EM_EXECUCAO.includes(o.status)).length },
+    { id: 'em_aberto', label: 'Em Aberto', color: 'text-blue-500', dotColor: 'bg-blue-400', count: (osList || []).filter(o => OS_STATUS_GROUPS.ABERTA.includes(o.status)).length },
     { id: 'executadas', label: 'Executadas', color: 'text-emerald-600', dotColor: 'bg-emerald-500', count: (osList || []).filter(o => OS_STATUS_GROUPS.CONCLUIDA.includes(o.status)).length },
     { id: 'canceladas', label: 'Canceladas', color: 'text-slate-500', dotColor: 'bg-slate-800', count: (osList || []).filter(o => OS_STATUS_GROUPS.CANCELADA.includes(o.status)).length },
   ];
