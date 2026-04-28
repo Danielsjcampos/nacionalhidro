@@ -89,11 +89,11 @@ export const getDrePorCnpj = async (req: AuthRequest, res: Response) => {
 
         // Receitas classified
         const receitaLocacao = faturamentos
-            .filter((f: any) => (!empresa || f.cnpjFaturamento?.includes(empresa as string)) && f.tipo === 'RL')
+            .filter((f: any) => (!empresa || f.cnpjFaturamento?.includes(empresa as string)) && (f.tipo === 'RL' || f.tipo === 'ND'))
             .reduce((s: number, f: any) => s + toNum(f.valorBruto), 0);
 
         const receitaServicos = faturamentos
-            .filter((f: any) => (!empresa || f.cnpjFaturamento?.includes(empresa as string)) && f.tipo !== 'RL')
+            .filter((f: any) => (!empresa || f.cnpjFaturamento?.includes(empresa as string)) && f.tipo !== 'RL' && f.tipo !== 'ND')
             .reduce((s: number, f: any) => s + toNum(f.valorBruto), 0);
 
         // Calculate sums by plano de contas groups (código prefix)

@@ -454,9 +454,21 @@ export default function ModalNovaMedicao({ isOpen, onClose, onSuccess }: ModalNo
 
                                     {!cte && (
                                         <div className="space-y-4 p-6 bg-emerald-50/50 rounded-2xl border border-emerald-100">
-                                            <div className="flex items-center justify-between">
-                                                <h5 className="text-xs font-black uppercase text-emerald-800 tracking-tight">Recibo de Locação (RL)</h5>
-                                                <span className="text-sm font-black text-emerald-600">{porcentagemRL}%</span>
+                                            <div className="flex flex-col gap-2">
+                                                <div className="flex items-center justify-between">
+                                                    <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipo de Doc. Não-Fiscal</h5>
+                                                    <span className="text-sm font-black text-emerald-600">{porcentagemRL}%</span>
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                                                        <input type="radio" value="RL" checked={tipoDocumento === 'RL'} onChange={() => setTipoDocumento('RL')} className="accent-emerald-600" />
+                                                        Recibo de Locação (RL)
+                                                    </label>
+                                                    <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                                                        <input type="radio" value="ND" checked={tipoDocumento === 'ND'} onChange={() => setTipoDocumento('ND')} className="accent-emerald-600" />
+                                                        Nota de Débito (ND)
+                                                    </label>
+                                                </div>
                                             </div>
                                             <input 
                                                 type="range" 

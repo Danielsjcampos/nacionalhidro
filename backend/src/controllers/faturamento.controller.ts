@@ -350,6 +350,7 @@ export const gerarFaturamentoRL = async (req: AuthRequest, res: Response) => {
         let finalValorTotal = Number(valorTotal) || 0;
         let finalClienteId = clienteId;
         let finalObservacoes = '';
+        let tipoDoc = 'RL';
 
         // 1. If medicaoId is provided, enrich billing with details
         if (medicaoId) {
@@ -360,6 +361,7 @@ export const gerarFaturamentoRL = async (req: AuthRequest, res: Response) => {
             if (medicao) {
                 finalValorTotal = Number(medicao.valorTotal);
                 finalClienteId = medicao.clienteId;
+                if (medicao.tipoDocumento === 'ND') tipoDoc = 'ND';
                 
                 // Construct detailed observation from subitens
                 if (medicao.subitens && Array.isArray(medicao.subitens)) {
@@ -413,7 +415,7 @@ export const gerarFaturamentoRL = async (req: AuthRequest, res: Response) => {
         const rl = await (prisma as any).faturamento.create({
             data: {
                 ...baseData,
-                tipo: 'RL',
+                tipo: tipoDoc,
                 valorBruto: valorRL,
                 valorLiquido: valorRL,
                 percentualINSS: 0,
@@ -623,9 +625,10 @@ export const enviarFaturamentoAoCliente = async (req: AuthRequest, res: Response
         let nfseLink = '';
         const attachments: any[] = [];
         
-        if (fat.tipo === 'RL') {
+        if (fat.tipo === 'RL' || fat.tipo === 'ND') {
              const pdfBuffer = await gerarPdfReciboLocacao(fat, fat.cliente, config);
-             const filename = `Recibo_Locacao_${fat.numero || fat.id.substring(0,6)}.pdf`;
+             const prefix = fat.tipo === 'ND' ? 'Nota_Debito' : 'Recibo_Locacao';
+             const filename = `${prefix}_${fat.numero || fat.id.substring(0,6)}.pdf`;
              attachments.push({ filename, content: pdfBuffer, contentType: 'application/pdf' });
         } else if (fat.tipo === 'NFSE' && fat.numero && fat.nfseCodVerificacao) {
              // Link oficial prefeitura Campinas

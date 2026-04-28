@@ -27,6 +27,7 @@ export default function ModalEdicaoMedicao({ isOpen, medicaoId, onClose, onSucce
   const [observacoes, setObservacoes] = useState('');
   const [porcentagemRL, setPorcentagemRL] = useState(90);
   const [cte, setCte] = useState(false);
+  const [tipoDocumento, setTipoDocumento] = useState('RL');
 
   // Status change
   const [showStatusModal, setShowStatusModal] = useState<string | null>(null);
@@ -46,6 +47,7 @@ export default function ModalEdicaoMedicao({ isOpen, medicaoId, onClose, onSucce
       setObservacoes(data.observacoes || '');
       setPorcentagemRL(Number(data.porcentagemRL || 90));
       setCte(!!data.cte);
+      setTipoDocumento(data.tipoDocumento || 'RL');
     } catch { showToast('Erro ao carregar medição', 'error'); }
     finally { setLoading(false); }
   };
@@ -53,7 +55,7 @@ export default function ModalEdicaoMedicao({ isOpen, medicaoId, onClose, onSucce
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.put(`/medicoes/${medicaoId}`, { periodo, observacoes, porcentagemRL, cte });
+      await api.put(`/medicoes/${medicaoId}`, { periodo, observacoes, porcentagemRL, cte, tipoDocumento });
       showToast('Medição atualizada', 'success');
       fetchMedicao();
       onSuccess();
@@ -207,7 +209,14 @@ export default function ModalEdicaoMedicao({ isOpen, medicaoId, onClose, onSucce
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] font-black text-slate-400 uppercase">Tipo Documento</label>
-                          <p className="text-sm font-bold text-slate-700">{med.tipoDocumento || 'RL'}</p>
+                          {isEditable ? (
+                            <select value={tipoDocumento} onChange={e => setTipoDocumento(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm font-bold outline-none focus:border-blue-500">
+                              <option value="RL">Recibo de Locação (RL)</option>
+                              <option value="ND">Nota de Débito (ND)</option>
+                            </select>
+                          ) : (
+                            <p className="text-sm font-bold text-slate-700">{med.tipoDocumento || 'RL'}</p>
+                          )}
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] font-black text-slate-400 uppercase">Vendedor</label>

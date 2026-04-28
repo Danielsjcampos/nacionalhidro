@@ -77,6 +77,7 @@ export default function ModalFaturamentoMedicao({ medicao, onClose, onSuccess }:
     };
 
     const fmt = (v: number) => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const tipoDoc = medicao?.tipoDocumento === 'ND' ? 'ND' : 'RL';
 
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
@@ -86,7 +87,7 @@ export default function ModalFaturamentoMedicao({ medicao, onClose, onSuccess }:
                         <Receipt className="w-5 h-5 text-emerald-400" />
                         <div>
                             <h2 className="font-black uppercase tracking-widest text-sm">Gerar Faturamento</h2>
-                            <p className="text-[10px] text-white/60 font-bold uppercase tracking-tight">RL + NFS-e (Split)</p>
+                            <p className="text-[10px] text-white/60 font-bold uppercase tracking-tight">{tipoDoc} + NFS-e (Split)</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl transition-all">
@@ -119,7 +120,7 @@ export default function ModalFaturamentoMedicao({ medicao, onClose, onSuccess }:
                     </div>
 
                     <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-500 uppercase">Split RL / NFS-e (%)</label>
+                        <label className="text-[10px] font-black text-slate-500 uppercase">Split {tipoDoc} / NFS-e (%)</label>
                         <div className="flex items-center gap-3">
                             <input type="range" min="50" max="100" step="5" value={form.percentualRL}
                                 onChange={e => setForm({ ...form, percentualRL: e.target.value })}
@@ -133,7 +134,7 @@ export default function ModalFaturamentoMedicao({ medicao, onClose, onSuccess }:
                     {form.valorTotal && (
                         <div className="bg-slate-50 rounded-xl border border-slate-100 p-4 text-xs space-y-2">
                             <p className="flex justify-between font-bold text-slate-600">
-                                <span>📄 RL ({form.percentualRL}%):</span> 
+                                <span>📄 {tipoDoc} ({form.percentualRL}%):</span> 
                                 <span className="text-blue-600">{fmt(Number(form.valorTotal) * Number(form.percentualRL) / 100)}</span>
                             </p>
                             <div className="h-px bg-slate-200 w-full" />
