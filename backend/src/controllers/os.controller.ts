@@ -100,8 +100,18 @@ export const createOS = async (req: AuthRequest, res: Response) => {
   try {
     const {
       servicos, dataInicial, entrada, saida, almoco, propostaId, escala,
-      veiculosEscala, observacoesEscala, clienteNome, diasSemana, ...rest
+      veiculosEscala, observacoesEscala, diasSemana,
+      // Exclude ALL relation objects and frontend-only fields
+      cliente, proposta: _pObj, vendedor, logistica, manutencao, itensCobranca, rdos, agendamentos,
+      servicosOS, materiais, hospedagens, passagens, medicao,
+      clienteNome, equipamento, horaPadrao,
+      ...rest
     } = req.body;
+
+    // Convert empty strings to undefined to avoid Prisma validation errors
+    Object.keys(rest).forEach(key => {
+      if (rest[key] === "") rest[key] = undefined;
+    });
 
     // NOVA REGRA: Toda O.S. deve ser gerada a partir de uma Proposta Aprovada
     if (!propostaId) {
