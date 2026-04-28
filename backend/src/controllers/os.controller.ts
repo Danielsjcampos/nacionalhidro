@@ -98,20 +98,27 @@ async function gerarCodigoOS(): Promise<string> {
 // ─── BUG FIX #11: Validação de proposta antes de criar OS ────────
 export const createOS = async (req: AuthRequest, res: Response) => {
   try {
-    const {
-      servicos, dataInicial, entrada, saida, almoco, propostaId, escala,
-      veiculosEscala, observacoesEscala, diasSemana,
-      // Exclude ALL relation objects and frontend-only fields
-      cliente, proposta: _pObj, vendedor, logistica, manutencao, itensCobranca, rdos, agendamentos,
-      servicosOS, materiais, hospedagens, passagens, medicao,
-      clienteNome, equipamento, horaPadrao,
-      ...rest
-    } = req.body;
+    const body = req.body;
 
-    // Convert empty strings to undefined to avoid Prisma validation errors
-    Object.keys(rest).forEach(key => {
-      if (rest[key] === "") rest[key] = undefined;
-    });
+    // Extract special fields handled separately
+    const servicos = body.servicos;
+    const dataInicial = body.dataInicial;
+    const entrada = body.entrada;
+    const saida = body.saida;
+    const almoco = body.almoco;
+    const propostaId = body.propostaId;
+    const escala = body.escala;
+    const veiculosEscala = body.veiculosEscala;
+    const observacoesEscala = body.observacoesEscala;
+    const diasSemana = body.diasSemana;
+
+    // Build sanitized data object using WHITELIST only
+    const sanitizedData: Record<string, any> = {};
+    for (const field of OS_ALLOWED_FIELDS) {
+      if (body[field] !== undefined && body[field] !== '') {
+        sanitizedData[field] = body[field];
+      }
+    }
 
     // NOVA REGRA: Toda O.S. deve ser gerada a partir de uma Proposta Aprovada
     if (!propostaId) {
@@ -128,7 +135,7 @@ export const createOS = async (req: AuthRequest, res: Response) => {
     }
 
     const STATUS_VALIDOS = ['APROVADA', 'ACEITA', 'VIGENTE'];
-    const isLegacy = proposta.codigo?.includes('LEGADO') || rest.codigo?.includes('LEGADO');
+    const isLegacy = proposta.codigo?.includes('LEGADO') || sanitizedData.codigo?.includes('LEGADO');
     if (!isLegacy && !STATUS_VALIDOS.includes(proposta.status)) {
       return res.status(400).json({
         error: `Proposta não está aprovada (status atual: ${proposta.status}). Apenas propostas aprovadas/aceitas podem gerar OS.`
@@ -136,14 +143,15 @@ export const createOS = async (req: AuthRequest, res: Response) => {
     }
 
     // Validate client match
-    if (rest.clienteId && proposta.clienteId !== rest.clienteId) {
+    if (sanitizedData.clienteId && proposta.clienteId !== sanitizedData.clienteId) {
       return res.status(400).json({
         error: 'O cliente da OS não corresponde ao cliente da proposta selecionada.'
       });
     }
 
     // BUG FIX #5: Generate sequential code without gaps
-    const codigo = rest.codigo || await gerarCodigoOS();
+    const codigo = sanitizedData.codigo || await gerarCodigoOS();
+    delete sanitizedData.codigo; // will be set explicitly below
 
     // Transform diasSemana to string if it's an array
     const diasSemanaStr = Array.isArray(diasSemana) ? diasSemana.join(',') : diasSemana;
@@ -152,9 +160,9 @@ export const createOS = async (req: AuthRequest, res: Response) => {
     const os = await prisma.$transaction(async (tx) => {
       const createdOs = await tx.ordemServico.create({
         data: {
-          ...rest,
+          ...sanitizedData,
           codigo,
-          clienteId: proposta.clienteId, // explicitly set from the proposal
+          clienteId: proposta.clienteId,
           diasSemana: diasSemanaStr,
           propostaId: propostaId || undefined,
           minimoHoras: proposta.franquiaHoras ? Number(proposta.franquiaHoras) : undefined,
@@ -168,7 +176,7 @@ export const createOS = async (req: AuthRequest, res: Response) => {
               descricao: s.descricao
             }))
           }
-        },
+        } as any,
         include: {
           servicos: true,
           cliente: true,
@@ -239,8 +247,8 @@ export const createOS = async (req: AuthRequest, res: Response) => {
           data: {
             codigoOS: codigo,
             data: dataInicial ? new Date(dataInicial) : new Date(),
-            clienteId: rest.clienteId || undefined,
-            empresa: rest.empresa || "NACIONAL HIDROSANEAMENTO EIRELI EPP",
+            clienteId: sanitizedData.clienteId || undefined,
+            empresa: sanitizedData.empresa || "NACIONAL HIDROSANEAMENTO EIRELI EPP",
             status: "AGENDADO",
             tipoAgendamento: "CONFIRMADO",
             funcionarios: funcsEnriched as any,
@@ -271,24 +279,47 @@ export const createOS = async (req: AuthRequest, res: Response) => {
 };
 
 // ─── BUG FIX #7: Isolação de edição individual na transaction ────
+// WHITELIST approach: only pick fields that exist in the OrdemServico model
+const OS_ALLOWED_FIELDS = [
+  'clienteId', 'propostaId', 'vendedorId', 'prioridade', 'status',
+  'tecnicos', 'acompanhante', 'contato', 'diasSemana', 'empresa',
+  'horaInicial', 'horasAdicionais', 'horasTotais', 'minimoHoras',
+  'horaTolerancia', 'descontarAlmoco', 'observacoes', 'quantidadeDia',
+  'tipoCobranca', 'medicaoId', 'dataBaixa', 'valorPrecificado',
+  'statusPrecificacao', 'assinaturaCliente', 'justificativaFalha',
+  'qtdBicos', 'qtdPessoas', 'turnos', 'checkpoints',
+  'justificativaCancelamento',
+];
+
 export const updateOS = async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
-    const {
-      servicos, dataInicial, entrada, saida, almoco, escala, justificativaCancelamento,
-      materiaisUtilizados, veiculosEscala, observacoesEscala,
-      // Exclude ALL relation objects and frontend-only fields
-      cliente, proposta, vendedor, logistica, manutencao, itensCobranca, rdos, agendamentos,
-      servicosOS, materiais, hospedagens, passagens, medicao,
-      clienteNome, equipamento, horaPadrao,
-      createdAt, updatedAt,
-      ...rest
-    } = req.body;
+    const body = req.body;
 
-    // Convert empty strings to undefined to avoid Prisma validation errors
-    Object.keys(rest).forEach(key => {
-      if (rest[key] === "") rest[key] = undefined;
-    });
+    // Extract special fields handled separately
+    const servicos = body.servicos;
+    const dataInicial = body.dataInicial;
+    const entrada = body.entrada;
+    const saida = body.saida;
+    const almoco = body.almoco;
+    const escala = body.escala;
+    const justificativaCancelamento = body.justificativaCancelamento;
+    const materiaisUtilizados = body.materiaisUtilizados;
+    const veiculosEscala = body.veiculosEscala;
+    const observacoesEscala = body.observacoesEscala;
+
+    // Build sanitized data object using WHITELIST only
+    const sanitizedData: Record<string, any> = {};
+    for (const field of OS_ALLOWED_FIELDS) {
+      if (body[field] !== undefined) {
+        sanitizedData[field] = body[field] === '' ? undefined : body[field];
+      }
+    }
+
+    // Override justificativaCancelamento explicitly
+    if (justificativaCancelamento) {
+      sanitizedData.justificativaCancelamento = justificativaCancelamento;
+    }
 
     // Capture before state for audit
     const before = await prisma.ordemServico.findUnique({ where: { id } });
@@ -303,8 +334,7 @@ export const updateOS = async (req: AuthRequest, res: Response) => {
       const updatedOs = await tx.ordemServico.update({
         where: { id },
         data: {
-          ...rest,
-          justificativaCancelamento: justificativaCancelamento || undefined,
+          ...sanitizedData,
           dataInicial: dataInicial ? new Date(dataInicial) : undefined,
           entrada: (entrada && entrada !== '') ? new Date(entrada) : null,
           saida: (saida && saida !== '') ? new Date(saida) : null,
@@ -315,7 +345,7 @@ export const updateOS = async (req: AuthRequest, res: Response) => {
               descricao: s.descricao
             }))
           } : undefined
-        },
+        } as any,
         include: {
           servicos: true,
           cliente: true
@@ -323,7 +353,7 @@ export const updateOS = async (req: AuthRequest, res: Response) => {
       });
 
       // ── Baixa de Estoque: ao efetuar baixa da OS, registrar materiais utilizados ──
-      if (rest.status === 'BAIXADA' && Array.isArray(materiaisUtilizados) && materiaisUtilizados.length > 0) {
+      if (sanitizedData.status === 'BAIXADA' && Array.isArray(materiaisUtilizados) && materiaisUtilizados.length > 0) {
         for (const item of materiaisUtilizados) {
           const produto = await tx.produto.findUnique({ where: { id: item.produtoId } });
           if (!produto) continue;
@@ -400,23 +430,23 @@ export const updateOS = async (req: AuthRequest, res: Response) => {
 
     // Audit log with changes
     const changedFields: string[] = [];
-    if (rest.status && rest.status !== before.status) changedFields.push('status');
-    if (rest.clienteId && rest.clienteId !== before.clienteId) changedFields.push('clienteId');
+    if (sanitizedData.status && sanitizedData.status !== before.status) changedFields.push('status');
+    if (sanitizedData.clienteId && sanitizedData.clienteId !== before.clienteId) changedFields.push('clienteId');
 
     await registrarLog({
       entidade: 'OS',
       entidadeId: id,
-      acao: rest.status && rest.status !== before.status ? 'STATUS_CHANGE' : 'ATUALIZAR',
+      acao: sanitizedData.status && sanitizedData.status !== before.status ? 'STATUS_CHANGE' : 'ATUALIZAR',
       campo: changedFields.join(', ') || undefined,
-      valorAnterior: rest.status !== before.status ? before.status : undefined,
-      valorNovo: rest.status !== before.status ? rest.status : undefined,
-      descricao: `OS ${before.codigo} atualizada${rest.status ? ` (status: ${before.status} → ${rest.status})` : ''}`,
+      valorAnterior: sanitizedData.status !== before.status ? before.status : undefined,
+      valorNovo: sanitizedData.status !== before.status ? sanitizedData.status : undefined,
+      descricao: `OS ${before.codigo} atualizada${sanitizedData.status ? ` (status: ${before.status} → ${sanitizedData.status})` : ''}`,
       usuarioId: req.user?.userId,
       usuarioNome: req.user?.userId,
     });
 
     // T11: WhatsApp automático ao mudar status da OS
-    if (rest.status && rest.status !== before.status) {
+    if (sanitizedData.status && sanitizedData.status !== before.status) {
       const statusLabels: Record<string, string> = {
         'ABERTA': '📋 Aberta',
         'EM_ANDAMENTO': '🔧 Em Andamento',
@@ -429,7 +459,7 @@ export const updateOS = async (req: AuthRequest, res: Response) => {
         'PAUSADA': '⏸️ Pausada',
       };
       
-      const statusLabel = statusLabels[rest.status] || rest.status;
+      const statusLabel = statusLabels[sanitizedData.status] || sanitizedData.status;
       const osCodigo = (result as any).codigo || before.codigo;
 
       import('../services/whatsapp.service').then(async ({ enviarMensagemWhatsApp }) => {
@@ -440,7 +470,7 @@ export const updateOS = async (req: AuthRequest, res: Response) => {
         }
 
         // 2. Notificar Equipe/Motorista (quando entrar em Execução)
-        if (rest.status === 'EM_EXECUCAO') {
+        if (sanitizedData.status === 'EM_EXECUCAO') {
           const escala = await prisma.escala.findFirst({ 
             where: { codigoOS: osCodigo },
             orderBy: { createdAt: 'desc' }
@@ -586,32 +616,29 @@ export const printLoteOSPdf = async (req: AuthRequest, res: Response) => {
 // ─── CRIAÇÃO DE OS EM LOTE (intervalo de datas) ─────────────────
 export const createOSLote = async (req: AuthRequest, res: Response) => {
   try {
-    // Destructure everything from req.body to separate loop control from OS data
-    const { 
-      dataInicio, 
-      dataFim, 
-      diasSemana, 
-      quantidadeDia,
-      // Frontend-only fields that must NOT go into the OS model
-      dataInicial: _discard1, 
-      dataFinal: _discard2, 
-      servicos: _discard5,
-      veiculosEscala: _discard6,
-      escala: _discard7,
-      clienteNome: _discard8,
-      equipamentoEscala: _discard9,
-      observacoesEscala: _discard10,
-      horaPadrao: _discard11,
-      cliente: _discard12,
-      proposta: _discard13,
-      vendedor: _discard14,
-      ...osData 
-    } = req.body;
+    const body = req.body;
+    
+    // Extract special fields handled separately
+    const dataInicio = body.dataInicio;
+    const dataFim = body.dataFim;
+    const diasSemana = body.diasSemana;
+    const quantidadeDia = body.quantidadeDia;
+    const _discard1 = body.dataInicial; 
+    const _discard2 = body.dataFinal; 
+    const _discard5 = body.servicos;
+    const _discard6 = body.veiculosEscala;
+    const _discard7 = body.escala;
+    const _discard8 = body.clienteNome;
+    const _discard9 = body.equipamentoEscala;
+    const _discard10 = body.observacoesEscala;
 
-    // Convert empty strings to undefined to avoid Prisma validation errors
-    Object.keys(osData).forEach(key => {
-      if (osData[key] === "") osData[key] = undefined;
-    });
+    // Build sanitized data object using WHITELIST only
+    const sanitizedData: Record<string, any> = {};
+    for (const field of OS_ALLOWED_FIELDS) {
+      if (body[field] !== undefined && body[field] !== '') {
+        sanitizedData[field] = body[field];
+      }
+    }
 
     if (!dataInicio || !dataFim) {
       return res.status(400).json({ error: 'dataInicio e dataFim são obrigatórios para criação em lote.' });
@@ -654,21 +681,7 @@ export const createOSLote = async (req: AuthRequest, res: Response) => {
     const createdOSs: any[] = [];
     const errors: string[] = [];
 
-    // Fields that belong to OrdemServico model
-    const VALID_OS_FIELDS = [
-      'clienteId', 'propostaId', 'vendedorId', 'prioridade', 'status', 'tecnicos',
-      'materiais', 'acompanhante', 'almoco', 'contato', 'empresa', 'entrada',
-      'horaInicial', 'horasAdicionais', 'horasTotais', 'minimoHoras', 'horaTolerancia',
-      'descontarAlmoco', 'observacoes', 'saida', 'tipoCobranca', 'medicaoId',
-      'valorPrecificado', 'statusPrecificacao', 'qtdBicos', 'qtdPessoas', 'turnos',
-      'checkpoints', 'justificativaCancelamento'
-    ];
-
-    const sanitizedData: any = {};
-    VALID_OS_FIELDS.forEach(field => {
-      if (req.body[field] !== undefined) sanitizedData[field] = req.body[field];
-    });
-
+    // Use the global sanitizedData that was built at the start of the function
     // ─── CRITICAL: Resolve clienteId if missing ──────────────────
     // clienteId is non-nullable in OrdemServico — without it every create fails
     if (!sanitizedData.clienteId && sanitizedData.propostaId) {
@@ -749,7 +762,7 @@ export const createOSLote = async (req: AuthRequest, res: Response) => {
                     descricao: s.descricao || s.discriminacao?.split(':')[1]?.trim() || ''
                   }))
                 } : undefined
-              },
+              } as any,
               include: { servicos: true, cliente: true }
             });
 
