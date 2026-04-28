@@ -592,8 +592,16 @@ export const createOSLote = async (req: AuthRequest, res: Response) => {
       equipamentoEscala: _discard9,
       observacoesEscala: _discard10,
       horaPadrao: _discard11,
+      cliente: _discard12,
+      proposta: _discard13,
+      vendedor: _discard14,
       ...osData 
     } = req.body;
+
+    // Convert empty strings to undefined to avoid Prisma validation errors
+    Object.keys(osData).forEach(key => {
+      if (osData[key] === "") osData[key] = undefined;
+    });
 
     if (!dataInicio || !dataFim) {
       return res.status(400).json({ error: 'dataInicio e dataFim são obrigatórios para criação em lote.' });
