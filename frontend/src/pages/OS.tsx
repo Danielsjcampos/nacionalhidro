@@ -539,11 +539,13 @@ export default function OS() {
   const openNewModal = (prop?: any) => {
     const base: any = {
       propostaId: prop?.id || '',
+      // clienteId is REQUIRED by the database — must be copied from proposal
+      clienteId: prop?.clienteId || prop?.cliente?.id || '',
       codigo: '',
       dataInicial: new Date().toISOString().split('T')[0],
       dataFinal: '',
       horaInicial: '',
-      tipoCobranca: 'Fechada',
+      tipoCobranca: prop?.tipoCobranca || 'Fechada',
       empresa: prop?.empresa || EMPRESAS[0],
       diasSemana: [] as string[],
       quantidadeDia: '1',
@@ -747,8 +749,13 @@ export default function OS() {
           };
           console.log('[OS Lote] Payload enviado:', batchPayload);
           const res = await api.post('/os/lote', batchPayload);
-          showToast(res.data.message || `${res.data.criadas || 0} OS(s) gerada(s) com sucesso!`, 'success');
-          setForm((f: any) => ({ ...f, dataFinal: '', diasSemana: [], quantidadeDia: '' }));
+          if (res.data.criadas > 0) {
+            showToast(res.data.message || `${res.data.criadas} OS(s) gerada(s) com sucesso!`, 'success');
+            setForm((f: any) => ({ ...f, dataFinal: '', diasSemana: [], quantidadeDia: '' }));
+          } else {
+            const errMsg = res.data.detalhesErros?.[0] || 'Nenhuma OS criada. Verifique os dados e tente novamente.';
+            showToast(`Erro no lote: ${errMsg}`, 'error');
+          }
         } else {
           await api.post('/os', payload);
         }

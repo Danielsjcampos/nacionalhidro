@@ -639,6 +639,25 @@ export const createOSLote = async (req: AuthRequest, res: Response) => {
       if (req.body[field] !== undefined) sanitizedData[field] = req.body[field];
     });
 
+    // ─── CRITICAL: Resolve clienteId if missing ──────────────────
+    // clienteId is non-nullable in OrdemServico — without it every create fails
+    if (!sanitizedData.clienteId && sanitizedData.propostaId) {
+      const proposta = await prisma.proposta.findUnique({
+        where: { id: sanitizedData.propostaId },
+        select: { clienteId: true }
+      });
+      if (proposta?.clienteId) {
+        sanitizedData.clienteId = proposta.clienteId;
+        console.log('[OS Lote] clienteId resolvido via proposta:', sanitizedData.clienteId);
+      }
+    }
+
+    if (!sanitizedData.clienteId) {
+      return res.status(400).json({ error: 'clienteId é obrigatório. Selecione uma proposta válida com cliente associado.' });
+    }
+
+    console.log('[OS Lote] sanitizedData.clienteId:', sanitizedData.clienteId);
+
     // Normalize services and scale data from various possible frontend casings
     const rawServicos = req.body.servicos || req.body.Servicos || [];
     // 'escala' can come as employee IDs array or full objects
