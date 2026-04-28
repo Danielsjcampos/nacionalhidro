@@ -1,5 +1,5 @@
 import { useToast } from '../contexts/ToastContext';
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import ModalNovaMedicao from '../components/ModalNovaMedicao';
 import ModalEdicaoMedicao from '../components/ModalEdicaoMedicao';
