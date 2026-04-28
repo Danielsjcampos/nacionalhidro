@@ -883,7 +883,21 @@ export const enviarEmailProposta = async (req: AuthRequest, res: Response) => {
       ccEmails.push(...parsed);
     }
 
-    const nomeCliente = proposta.contato || proposta.cliente?.nome || proposta.cliente?.razaoSocial || 'Cliente';
+    let nomeCliente = proposta.contato || proposta.cliente?.nome || proposta.cliente?.razaoSocial || 'Cliente';
+
+    // Se o contato for um UUID, tenta buscar o nome real no banco (Paridade com o PDF)
+    if (proposta.contato && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(proposta.contato)) {
+      try {
+        const contatoObj = await (prisma as any).clienteContato.findUnique({
+          where: { id: proposta.contato }
+        });
+        if (contatoObj) {
+          nomeCliente = contatoObj.nome;
+        }
+      } catch (e) {
+        console.error('[Email] Erro ao buscar nome do contato:', e);
+      }
+    }
 
     const result = await sendPropostaComercial({
       to: emailDestino,
