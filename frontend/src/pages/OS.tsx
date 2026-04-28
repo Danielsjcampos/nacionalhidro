@@ -738,15 +738,20 @@ export default function OS() {
             ...payload,
             dataInicio: form.dataInicial,
             dataFim: form.dataFinal,
-            // Send Portuguese names directly — backend handles both strings and numbers
             diasSemana: Array.isArray(form.diasSemana) ? form.diasSemana : [],
             quantidadeDia: Number(form.quantidadeDia) || 1,
             servicos: (form.servicos || []).map((s: any) => ({
               equipamento: s.equipamento,
               descricao: s.descricao
             })),
-            escala: (form.veiculosEscala || []).map((e: any) => e.id || e),
+            // veiculosEscala are VEHICLES, not employees — extract veiculoId properly
+            veiculosEscala: (form.veiculosEscala || []).map((v: any) => ({
+              veiculoId: v.veiculoId || v.id,
+              manutencao: v.manutencao || false
+            })),
           };
+          // Remove fields that don't belong in the batch payload
+          delete batchPayload.escala;
           console.log('[OS Lote] Payload enviado:', batchPayload);
           const res = await api.post('/os/lote', batchPayload);
           if (res.data.criadas > 0) {

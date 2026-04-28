@@ -573,13 +573,16 @@ export const createOSLote = async (req: AuthRequest, res: Response) => {
       dataFim, 
       diasSemana, 
       quantidadeDia,
-      // Destructure fields that shouldn't go directly into the OS model's 'data' object
+      // Frontend-only fields that must NOT go into the OS model
       dataInicial: _discard1, 
       dataFinal: _discard2, 
-      diasSemana: _discard3, 
-      quantidadeDia: _discard4,
       servicos: _discard5,
-      escala: _discard6,
+      veiculosEscala: _discard6,
+      escala: _discard7,
+      clienteNome: _discard8,
+      equipamentoEscala: _discard9,
+      observacoesEscala: _discard10,
+      horaPadrao: _discard11,
       ...osData 
     } = req.body;
 
@@ -658,10 +661,8 @@ export const createOSLote = async (req: AuthRequest, res: Response) => {
 
     console.log('[OS Lote] sanitizedData.clienteId:', sanitizedData.clienteId);
 
-    // Normalize services and scale data from various possible frontend casings
+    // Normalize services data from various possible frontend casings
     const rawServicos = req.body.servicos || req.body.Servicos || [];
-    // 'escala' can come as employee IDs array or full objects
-    const rawEscala = req.body.escala || req.body.veiculosEscala || req.body.EscalaFuncionarios || [];
 
     // ─── Sanitize DateTime fields — empty strings must become undefined ──
     // Prisma rejects '' for DateTime columns (expects ISO-8601 or null)
@@ -725,22 +726,25 @@ export const createOSLote = async (req: AuthRequest, res: Response) => {
               include: { servicos: true, cliente: true }
             });
 
-            // Create escala for this day if crew provided
-            if (Array.isArray(rawEscala) && rawEscala.length > 0) {
-              const funcs = await tx.funcionario.findMany({
-                where: { id: { in: rawEscala.map((f: any) => f.id || f) } },
-                select: { id: true, nome: true, cargo: true }
-              });
+            // Create escala for this day with vehicle info
+            const veiculos = req.body.veiculosEscala || [];
+            if (Array.isArray(veiculos) && veiculos.length > 0) {
+              // Pick first vehicle for this escala entry (or cycle through if qtdPorDia > 1)
+              const veiculoIdx = i % veiculos.length;
+              const veiculoData = veiculos[veiculoIdx];
+              const veiculoId = veiculoData?.veiculoId || veiculoData?.id || null;
 
               await tx.escala.create({
                 data: {
                   codigoOS: codigo,
                   data: new Date(d),
                   clienteId: sanitizedData.clienteId || undefined,
+                  veiculoId: veiculoId || undefined,
+                  equipamento: sanitizedData.equipamentoEscala || undefined,
                   empresa: sanitizedData.empresa || "NACIONAL HIDROSANEAMENTO EIRELI EPP",
                   status: "AGENDADO",
                   tipoAgendamento: "CONFIRMADO",
-                  funcionarios: funcs
+                  observacoes: sanitizedData.observacoesEscala || undefined,
                 }
               });
             }
