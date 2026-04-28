@@ -8,7 +8,7 @@ export const listOSPrecificacao = async (req: AuthRequest, res: Response) => {
     try {
         const { clienteId, search } = req.query;
         const where: any = {
-            status: { in: ['BAIXADA', 'EM_PRECIFICACAO', 'PRECIFICADA'] }
+            status: { in: ['BAIXADA', 'CONCLUIDA', 'EM_PRECIFICACAO', 'PRECIFICADA'] }
         };
 
         if (clienteId) where.clienteId = clienteId as string;
@@ -33,7 +33,7 @@ export const listOSPrecificacao = async (req: AuthRequest, res: Response) => {
 
         // Group by kanban columns
         const kanban = {
-            EM_ABERTO: list.filter((os: any) => os.status === 'BAIXADA' || os.statusPrecificacao === 'PENDENTE'),
+            EM_ABERTO: list.filter((os: any) => os.status === 'BAIXADA' || os.status === 'CONCLUIDA' || os.statusPrecificacao === 'PENDENTE'),
             PRECIFICADAS: list.filter((os: any) => os.statusPrecificacao === 'PRECIFICADA' && os.status === 'PRECIFICADA'),
             EM_NEGOCIACAO: list.filter((os: any) => os.statusPrecificacao === 'EM_NEGOCIACAO'),
         };
