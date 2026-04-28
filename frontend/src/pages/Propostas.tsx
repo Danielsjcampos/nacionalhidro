@@ -31,7 +31,7 @@ export default function Propostas() {
   const [loading, setLoading]         = useState(true);
   const [selectedTipo, setSelectedTipo] = useState<'Em Aberto'|'Aprovadas'|'Reprovadas'|'Canceladas'>('Em Aberto');
   const [searchTerm, setSearchTerm]   = useState('');
-  const [dataInicio, setDataInicio]   = useState(moment().subtract(3,'months').format('YYYY-MM-DD'));
+  const [dataInicio, setDataInicio]   = useState(moment().subtract(2,'years').format('YYYY-MM-DD'));
   const [dataFim,    setDataFim]      = useState(moment().add(3,'months').format('YYYY-MM-DD'));
   const [isEditing,  setIsEditing]    = useState(false);
   const [selectedProposta, setSelectedProposta] = useState<any>(null);

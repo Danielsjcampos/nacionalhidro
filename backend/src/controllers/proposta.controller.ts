@@ -20,11 +20,12 @@ export const listPropostas = async (req: AuthRequest, res: Response) => {
 
     // Status filter
     if (status) {
-      const s = status as string;
-      if (s.includes(',')) {
-        where.status = { in: s.split(',') };
-      } else {
-        where.status = s;
+      const s = String(status);
+      const statusList = s.split(',').map(x => x.trim()).filter(Boolean);
+      if (statusList.length > 1) {
+        where.status = { in: statusList };
+      } else if (statusList.length === 1) {
+        where.status = statusList[0];
       }
     }
 
