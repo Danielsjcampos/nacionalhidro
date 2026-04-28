@@ -541,11 +541,12 @@ export default function OS() {
       propostaId: prop?.id || '',
       codigo: '',
       dataInicial: new Date().toISOString().split('T')[0],
+      dataFinal: '',
       horaInicial: '',
       tipoCobranca: 'Fechada',
       empresa: prop?.empresa || EMPRESAS[0],
       diasSemana: [] as string[],
-      quantidadeDia: '',
+      quantidadeDia: '1',
       clienteNome: prop?.cliente?.nome || '',
       contato: prop?.contato || '',
       acompanhante: '',
@@ -720,14 +721,41 @@ export default function OS() {
         veiculosEscala: form.veiculosEscala?.length > 0 ? form.veiculosEscala : undefined,
         observacoesEscala: form.observacoesEscala || undefined,
       };
+
       // Incluir materiais utilizados se estiver baixando com estoque
       if (action === 'BAIXAR_ESTOQUE' && materiaisUtilizados.length > 0) {
         payload.materiaisUtilizados = materiaisUtilizados.filter((m: any) => m.produtoId && m.quantidade > 0);
       }
+
       if (selectedOS) {
         await api.patch(`/os/${selectedOS.id}`, payload);
       } else {
-        await api.post('/os', payload);
+        // Geração em Lote ou Simples
+        if (form.dataFinal) {
+          const DIA_MAP: Record<string, number> = {
+            'Domingo': 0,
+            'Segunda-feira': 1,
+            'Terça-feira': 2,
+            'Quarta-feira': 3,
+            'Quinta-feira': 4,
+            'Sexta-feira': 5,
+            'Sábado': 6
+          };
+          const batchPayload = {
+            ...payload,
+            dataInicio: form.dataInicial,
+            dataFim: form.dataFinal,
+            diasSemana: form.diasSemana.map((d: string) => DIA_MAP[d]).filter((d: any) => d !== undefined),
+            quantidadeDia: Number(form.quantidadeDia) || 1,
+            Servicos: form.servicos.map((s: any) => ({ discriminacao: `${s.equipamento}: ${s.descricao}` })),
+            EscalaVeiculos: form.veiculosEscala.map((v: any) => ({ veiculoId: v.veiculoId })),
+            EscalaFuncionarios: [], // No lote geralmente não escala fixo, ou escala o mesmo
+          };
+          await api.post('/os/lote', batchPayload);
+          showToast('Lote de OSs gerado com sucesso!', 'success');
+        } else {
+          await api.post('/os', payload);
+        }
       }
       setShowModal(false);
       setMateriaisUtilizados([]);
@@ -1105,6 +1133,17 @@ export default function OS() {
                     />
                   </FormField>
 
+                  {!selectedOS && (
+                    <FormField label="Data Final (Lote)">
+                      <input
+                        type="date"
+                        value={form.dataFinal}
+                        onChange={e => setForm((f: any) => ({ ...f, dataFinal: e.target.value }))}
+                        className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400 bg-amber-50"
+                      />
+                    </FormField>
+                  )}
+
                   <FormField label="Hora Inicial">
                     <div className="relative">
                       <input
@@ -1144,53 +1183,56 @@ export default function OS() {
                   </FormField>
                 </div>
 
-                {/* Row 2: Dias da Semana (chips) | Quantidade p/ dia */}
-                <div className="grid grid-cols-[2fr_1fr] gap-3">
-                  <FormField label="Dias da Semana">
-                    <div className="flex items-center gap-1.5 flex-wrap min-h-[34px] border border-slate-300 rounded px-2 py-1.5 bg-white">
-                      {(form.diasSemana || []).map((d: string) => (
-                        <span key={d} className="inline-flex items-center gap-1 bg-[#1e3a5f] text-white text-[10px] font-bold px-2 py-0.5 rounded">
-                          {d}
-                          <button type="button" onClick={() => setForm((f: any) => ({ ...f, diasSemana: (f.diasSemana || []).filter((x: string) => x !== d) }))} className="hover:text-red-300 transition-colors">
-                            <X className="w-3 h-3" />
+                {/* Row 2: Dias da Semana (chips) | Quantidade p/ dia - ONLY IF BATCH */}
+                {form.dataFinal && (
+                  <div className="grid grid-cols-[2fr_1fr] gap-3 bg-amber-50/50 p-3 rounded-xl border border-amber-100 animate-in fade-in slide-in-from-top-1">
+                    <FormField label="Dias da Semana (Geração em Lote)">
+                      <div className="flex items-center gap-1.5 flex-wrap min-h-[34px] border border-amber-200 rounded px-2 py-1.5 bg-white">
+                        {(form.diasSemana || []).map((d: string) => (
+                          <span key={d} className="inline-flex items-center gap-1 bg-amber-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                            {d}
+                            <button type="button" onClick={() => setForm((f: any) => ({ ...f, diasSemana: (f.diasSemana || []).filter((x: string) => x !== d) }))} className="hover:text-red-200 transition-colors">
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                        {(form.diasSemana || []).length > 0 && (
+                          <button type="button" onClick={() => setForm((f: any) => ({ ...f, diasSemana: [] }))} className="p-0.5 text-amber-400 hover:text-red-500 ml-auto flex items-center justify-center bg-amber-50 rounded hover:bg-red-50">
+                            <X className="w-3.5 h-3.5" />
                           </button>
-                        </span>
-                      ))}
-                      {(form.diasSemana || []).length > 0 && (
-                        <button type="button" onClick={() => setForm((f: any) => ({ ...f, diasSemana: [] }))} className="p-0.5 text-slate-400 hover:text-red-500 ml-auto flex items-center justify-center bg-slate-100 rounded hover:bg-red-50">
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      <div className="relative ml-1">
-                        <select
-                          value=""
-                          onChange={e => {
-                            const val = e.target.value;
-                            if (val && !(form.diasSemana || []).includes(val)) {
-                              setForm((f: any) => ({ ...f, diasSemana: [...(f.diasSemana || []), val] }));
-                            }
-                          }}
-                          className="text-[10px] text-slate-500 font-medium border-none outline-none bg-transparent cursor-pointer appearance-none pr-4"
-                        >
-                          <option value="">Dias</option>
-                          {DIAS_SEMANA_OPTIONS.filter(d => !(form.diasSemana || []).includes(d)).map(d => (
-                            <option key={d} value={d}>{d}</option>
-                          ))}
-                        </select>
-                        <ChevronDown className="absolute right-0 top-0.5 w-3 h-3 text-slate-400 pointer-events-none" />
+                        )}
+                        <div className="relative ml-1">
+                          <select
+                            value=""
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (val && !(form.diasSemana || []).includes(val)) {
+                                setForm((f: any) => ({ ...f, diasSemana: [...(f.diasSemana || []), val] }));
+                              }
+                            }}
+                            className="text-[10px] text-amber-600 font-bold border-none outline-none bg-transparent cursor-pointer appearance-none pr-4"
+                          >
+                            <option value="">+ Adicionar Dia</option>
+                            {DIAS_SEMANA_OPTIONS.filter(d => !(form.diasSemana || []).includes(d)).map(d => (
+                              <option key={d} value={d}>{d}</option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-0 top-0.5 w-3 h-3 text-amber-400 pointer-events-none" />
+                        </div>
                       </div>
-                    </div>
-                  </FormField>
-                  <FormField label="Quantidade p/ dia">
-                    <input
-                      type="text"
-                      value={form.quantidadeDia}
-                      onChange={e => setForm((f: any) => ({ ...f, quantidadeDia: e.target.value }))}
-                      placeholder="Quantidade p/ dia"
-                      className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none focus:border-blue-400"
-                    />
-                  </FormField>
-                </div>
+                    </FormField>
+                    <FormField label="Quantidade de Veículos p/ dia">
+                      <input
+                        type="number"
+                        min="1"
+                        value={form.quantidadeDia}
+                        onChange={e => setForm((f: any) => ({ ...f, quantidadeDia: e.target.value }))}
+                        placeholder="Ex: 1"
+                        className="w-full border border-amber-200 rounded px-2 py-2 text-xs outline-none focus:border-amber-400"
+                      />
+                    </FormField>
+                  </div>
+                )}
 
                 {/* Row 3: Cliente | Contato | Acompanhante */}
                 <div className="grid grid-cols-[2fr_1fr_1fr] gap-3">
