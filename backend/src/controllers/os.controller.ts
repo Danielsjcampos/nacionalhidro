@@ -590,7 +590,21 @@ export const createOSLote = async (req: AuthRequest, res: Response) => {
     const inicio = new Date(dataInicio);
     const fim = new Date(dataFim);
     const qtdPorDia = Number(quantidadeDia) || 1;
-    const diasFiltro = Array.isArray(diasSemana) ? diasSemana.map(Number) : [];
+    
+    // Map Portuguese week day names to JS day numbers (0=Sunday, 1=Monday...)
+    const WEEKDAY_MAP: Record<string, number> = {
+      'Domingo': 0,
+      'Segunda-feira': 1,
+      'Terça-feira': 2,
+      'Quarta-feira': 3,
+      'Quinta-feira': 4,
+      'Sexta-feira': 5,
+      'Sábado': 6
+    };
+
+    const diasFiltro = Array.isArray(diasSemana) 
+      ? diasSemana.map(d => typeof d === 'string' ? WEEKDAY_MAP[d] : Number(d)).filter(n => n !== undefined && !isNaN(n))
+      : [];
 
     if (fim < inicio) {
       return res.status(400).json({ error: 'dataFim deve ser maior ou igual a dataInicio.' });
