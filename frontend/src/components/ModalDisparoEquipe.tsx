@@ -27,13 +27,13 @@ export default function ModalDisparoEquipe({ proposta, onClose, onSuccess }: Mod
   
   // Custom tasks per area (pre-filled with the user's template)
   const [tarefas, setTarefas] = useState([
-    { area: 'Josi', tarefa: 'Separar Hotel' },
-    { area: 'VIVI', tarefa: 'Documentos e integração' },
+    { area: 'Hospedagem e Passagens', tarefa: 'Separar Hotel' },
+    { area: 'Integração', tarefa: 'Documentos e integração' },
     { area: 'Segurança do Trabalho', tarefa: 'Conferir EPIs e documentação da equipe e buscar procedimentos de atendimento' },
     { area: 'Supervisão', tarefa: 'Separar os nomes da equipe que vai para o atendimento, conferir caminhão' },
     { area: 'Logística', tarefa: 'Enviar placa no e-mail para liberação e gerar ordem de serviço' },
-    { area: 'Adriano', tarefa: 'Montar equipamentos' },
-    { area: 'Harada', tarefa: 'Conferir os itens da equipe operacional' },
+    { area: 'Montagem', tarefa: 'Montar equipamentos' },
+    { area: 'Operacional', tarefa: 'Conferir os itens da equipe operacional' },
   ]);
 
   const handleUpdateTarefa = (index: number, value: string) => {
