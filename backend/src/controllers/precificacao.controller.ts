@@ -244,3 +244,49 @@ export const corrigirOS = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ error: 'Failed to return OS to logistics', details: error.message });
     }
 };
+
+// ─── PRECIFICAÇÃO EM LOTE FRACIONADA ─────────────────────────────
+export const precificarLote = async (req: AuthRequest, res: Response) => {
+    try {
+        const { osIds, valorTotalLote, descricaoItem } = req.body;
+
+        if (!osIds || !osIds.length || !valorTotalLote) {
+            return res.status(400).json({ error: 'Missing required fields for batch precification' });
+        }
+
+        const valorFracionado = parseFloat(valorTotalLote) / osIds.length;
+
+        // Process each OS
+        for (const osId of osIds) {
+            // Create item cobranca
+            await prisma.itemCobranca.create({
+                data: {
+                    osId,
+                    descricao: descricaoItem || 'Serviço Fracionado (Lote)',
+                    quantidade: 1,
+                    valorUnitario: valorFracionado,
+                    valorTotal: valorFracionado,
+                    tipoCobranca: 'EXECUCAO'
+                }
+            });
+
+            // Recalculate OS total
+            const allItems = await prisma.itemCobranca.findMany({ where: { osId } });
+            const total = allItems.reduce((sum: number, i: any) => sum + parseFloat(i.valorTotal.toString()), 0);
+
+            // Update OS status and total
+            await prisma.ordemServico.update({
+                where: { id: osId },
+                data: { 
+                    valorPrecificado: total,
+                    status: 'PRECIFICADA'
+                }
+            });
+        }
+
+        res.status(200).json({ success: true, message: `Lote de ${osIds.length} OSs precificado com sucesso.` });
+    } catch (error: any) {
+        console.error('Precificacao lote error:', error);
+        res.status(500).json({ error: 'Failed to batch precify OSs', details: error.message });
+    }
+};

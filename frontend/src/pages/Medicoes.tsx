@@ -4,6 +4,7 @@ import api from '../services/api';
 import ModalNovaMedicao from '../components/ModalNovaMedicao';
 import ModalEdicaoMedicao from '../components/ModalEdicaoMedicao';
 import ModalPrecificarOS from '../components/ModalPrecificarOS';
+import ModalPrecificacaoLote from '../components/ModalPrecificacaoLote';
 import ModalFaturamentoMedicao from '../components/ModalFaturamentoMedicao';
 import {
     FileText, Plus, Search, Loader2, X, CheckCircle2, Clock,
@@ -147,12 +148,14 @@ export default function Medicoes() {
     // ─── SELECTION ───
     const [selectedOS, setSelectedOS] = useState<any>(null);
     const [selectedMedicao, setSelectedMedicao] = useState<any>(null);
+    const [selectedLote, setSelectedLote] = useState<any[]>([]);
 
     // ─── MODALS / FORMS ───
     const [showCreate, setShowCreate] = useState(false);
     const [editMedicaoId, setEditMedicaoId] = useState<string | null>(null);
     const [showPricingModal, setShowPricingModal] = useState(false);
     const [pricingOSId, setPricingOSId] = useState<string | null>(null);
+    const [showPricingLoteModal, setShowPricingLoteModal] = useState(false);
 
     const [submitting, setSubmitting] = useState(false);
     const [centrosCusto, setCentrosCusto] = useState<any[]>([]);
@@ -431,6 +434,14 @@ export default function Medicoes() {
                 </div>
 
                 <div className="flex items-center gap-4">
+                    {activeTab === 'precificacao' && selectedLote.length > 0 && (
+                        <button 
+                            onClick={() => setShowPricingLoteModal(true)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded text-xs font-black uppercase shadow-lg transition-all active:scale-95 flex items-center gap-2"
+                        >
+                            Precificar Lote ({selectedLote.length})
+                        </button>
+                    )}
                     <button 
                         onClick={openCreateMedicao}
                         className="bg-[#1e3a5f] hover:bg-slate-700 text-white px-6 py-2.5 rounded text-xs font-black uppercase shadow-lg transition-all active:scale-95"
@@ -452,6 +463,7 @@ export default function Medicoes() {
 
                                     {/* ─── ABA 1: PRECIFICAÇÃO ─── */}
                                     {activeTab === 'precificacao' && (<>
+                                        <Th className="w-10 text-center">LOTE</Th>
                                         <Th>Nº OS</Th>
                                         <Th className="text-center">DIAS EM ABERTO</Th>
                                         <Th>EMPRESA</Th>
@@ -592,6 +604,18 @@ export default function Medicoes() {
                                         {/* ─── DATA COLUMNS ─── */}
                                         {/* ─── DATA ABA 1: PRECIFICAÇÃO ─── */}
                                         {activeTab === 'precificacao' && (<>
+                                            <Td className="text-center">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={selectedLote.some(l => l.id === item.id)}
+                                                    onChange={(e) => {
+                                                        e.stopPropagation();
+                                                        if (e.target.checked) setSelectedLote([...selectedLote, item]);
+                                                        else setSelectedLote(selectedLote.filter(l => l.id !== item.id));
+                                                    }}
+                                                    className="w-4 h-4 rounded border-slate-300 text-[#1e3a5f] focus:ring-[#1e3a5f]"
+                                                />
+                                            </Td>
                                             <Td className="font-black text-slate-700">{item.codigo}</Td>
                                             <Td className="text-center font-bold text-slate-500">
                                                 <span className={daysSince(item.dataBaixa || item.createdAt) > 2 ? 'text-red-500' : ''}>
@@ -925,6 +949,17 @@ export default function Medicoes() {
                     medicao={faturarMedicao} 
                     onClose={() => setFaturarMedicao(null)} 
                     onSuccess={fetchData} 
+                />
+            )}
+            {showPricingLoteModal && (
+                <ModalPrecificacaoLote 
+                    isOpen={showPricingLoteModal}
+                    onClose={() => setShowPricingLoteModal(false)}
+                    osList={selectedLote}
+                    onSuccess={() => {
+                        setSelectedLote([]);
+                        fetchData();
+                    }}
                 />
             )}
         </div>
