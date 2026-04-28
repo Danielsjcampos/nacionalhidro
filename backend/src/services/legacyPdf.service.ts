@@ -504,17 +504,41 @@ export const gerarPdfProposta = async (proposta: any, cliente: any, itens: any[]
         }
     }
 
+    // Resolve contato if it's a UUID
+    let contatoNome = proposta.contato || c.nome || c.razaoSocial || '';
+    let setorContato = '';
+    let telefoneContato = c.telefone || '';
+    let celularContato = c.celular || '';
+    let emailContato = c.email || '';
+
+    if (proposta.contato && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(proposta.contato)) {
+        try {
+            const contatoObj = await (prisma as any).clienteContato.findUnique({
+                where: { id: proposta.contato }
+            });
+            if (contatoObj) {
+                contatoNome = contatoObj.nome;
+                setorContato = contatoObj.setor || contatoObj.tipo || '';
+                telefoneContato = contatoObj.telefone || c.telefone || '';
+                celularContato = contatoObj.celular || c.celular || '';
+                emailContato = contatoObj.email || c.email || '';
+            }
+        } catch (e) {
+            console.error('[PDF] Erro ao buscar contato:', e);
+        }
+    }
+
     const view = {
         Id: `${proposta.codigo}${proposta.revisao > 0 ? '/REV ' + proposta.revisao : ''}`,
         Cidade: empresa.cidade || 'Campinas',
         Data: moment(proposta.dataProposta || new Date()).utc().format("DD/MM/YYYY"),
         Cliente: c.razaoSocial || c.nome || 'Cliente',
         EnderecoCliente: [c.endereco, c.cidade, c.estado].filter(Boolean).join(', '),
-        Contato: proposta.contato || c.nome || c.razaoSocial || '',
-        SetorContato: '',
-        TelefoneContato: c.telefone || '',
-        CelularContato: c.celular || '',
-        EmailContato: c.email || '',
+        Contato: contatoNome,
+        SetorContato: setorContato,
+        TelefoneContato: telefoneContato,
+        CelularContato: celularContato,
+        EmailContato: emailContato,
         Empresa: {
             Descricao: emp.razaoSocial || emp.nome,
             CNPJ: emp.cnpj
