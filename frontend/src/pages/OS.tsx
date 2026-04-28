@@ -27,33 +27,69 @@ const DIAS_SEMANA_OPTIONS = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Q
 
 type OsTab = 'abrir' | 'em_aberto' | 'em_execucao' | 'executadas' | 'canceladas';
 
-function calcHorasTotais(entrada: string, saida: string, almoco: string, descontarAlmoco: boolean, minimoHorasStr: string): { total: string, adicional: string, diffRaw: number, adicRaw: number } {
-  if (!entrada || !saida) return { total: '---', adicional: '---', diffRaw: 0, adicRaw: 0 };
-  const e = new Date(entrada).getTime();
-  const s = new Date(saida).getTime();
-  if (isNaN(e) || isNaN(s) || s <= e) return { total: '---', adicional: '---', diffRaw: 0, adicRaw: 0 };
-  
-  let diff = (s - e) / 3600000;
-  if (descontarAlmoco && almoco) diff -= 1;
-  const h = Math.floor(diff);
-  const m = Math.round((diff - h) * 60);
-  const totalStr = `${h}h${m > 0 ? m + 'm' : ''}`;
+function calcHorasTotais(entrada: string, saida: string, almoco: string, descontarAlmoco: boolean, horaPadrao: string) {
+  const getMinutes = (val: string) => {
+    if (!val) return 0;
+    if (val.includes('T') || val.includes('-')) {
+      const d = new Date(val);
+      if (isNaN(d.getTime())) return 0;
+      return d.getHours() * 60 + d.getMinutes();
+    }
+    const parts = val.split(':');
+    return Number(parts[0]) * 60 + Number(parts[1] || 0);
+  };
 
-  let adicionalStr = '---';
-  let adicRaw = 0;
-  const minHoras = Number(minimoHorasStr);
-  if (!isNaN(minHoras) && minHoras > 0) {
-    if (diff > minHoras) {
-      adicRaw = diff - minHoras;
-      const ha = Math.floor(adicRaw);
-      const ma = Math.round((adicRaw - ha) * 60);
-      adicionalStr = `${ha}h${ma > 0 ? ma + 'm' : ''}`;
-    } else {
-      adicionalStr = '0h';
+  const formatMinutes = (m: number) => {
+    if (m < 0) m = 0;
+    const hrs = Math.floor(m / 60);
+    const mins = Math.round(m % 60);
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+  };
+
+  let minEntrada = getMinutes(entrada);
+  let minSaida = getMinutes(saida);
+  let minAlmoco = descontarAlmoco ? getMinutes(almoco) : 0;
+
+  let minPadrao = 0;
+  if (horaPadrao) {
+    if (String(horaPadrao).includes(':')) {
+       minPadrao = getMinutes(String(horaPadrao));
+    } else if (!isNaN(Number(horaPadrao))) {
+       minPadrao = Number(horaPadrao) * 60;
     }
   }
 
-  return { total: totalStr, adicional: adicionalStr, diffRaw: diff, adicRaw };
+  if (minSaida < minEntrada && minEntrada > 0 && minSaida > 0) {
+     minSaida += 24 * 60;
+  }
+
+  const calculoTotalHora = (minSaida - minEntrada) - minAlmoco;
+
+  if (!entrada || !saida) {
+    return { 
+      total: '---', 
+      adicional: '---', 
+      diffRaw: 0, 
+      adicRaw: 0
+    };
+  }
+
+  let totalTempoHora = 0;
+  let totalTempoHoraAdicional = 0;
+
+  if (calculoTotalHora < minPadrao) {
+     totalTempoHora = minPadrao;
+  } else {
+     totalTempoHora = minPadrao;
+     totalTempoHoraAdicional = calculoTotalHora - minPadrao;
+  }
+
+  return {
+     total: formatMinutes(totalTempoHora),
+     adicional: formatMinutes(totalTempoHoraAdicional),
+     diffRaw: calculoTotalHora / 60,
+     adicRaw: totalTempoHoraAdicional / 60
+  };
 }
 
 export default function OS() {
@@ -589,6 +625,7 @@ export default function OS() {
         empresa: prop.empresa || f.empresa,
         servicos: [{ equipamento: firstItem.equipamento || '', descricao: firstItem.descricao || '' }],
         tipoCobranca: firstItem.tipoCobranca || prop.tipoCobranca || 'Fechada',
+        horaPadrao: firstItem.horasPorDia ? `${String(firstItem.horasPorDia).padStart(2, '0')}:00` : prop.franquiaHoras ? `${String(prop.franquiaHoras).padStart(2, '0')}:00` : '',
         minimoHoras: firstItem.horasPorDia || prop.franquiaHoras || 0,
         quantidadeDia: firstItem.quantidade ? String(firstItem.quantidade) : '',
         diasSemana: prop.diasSemana ? (typeof prop.diasSemana === 'string' ? prop.diasSemana.split(',') : prop.diasSemana) : [],
@@ -678,6 +715,7 @@ export default function OS() {
       const payload: any = { 
         ...form, 
         status,
+        horaPadrao: form.horaPadrao || undefined,
         diasSemana: Array.isArray(form.diasSemana) ? form.diasSemana.join(',') : (form.diasSemana || ''),
         horasTotais: horas.diffRaw > 0 ? Number(horas.diffRaw.toFixed(2)) : undefined,
         horasAdicionais: horas.adicRaw > 0 ? Number(horas.adicRaw.toFixed(2)) : undefined,
@@ -734,7 +772,7 @@ export default function OS() {
     }
   };
 
-  const horas = calcHorasTotais(form.entrada, form.saida, form.almoco, form.descontarAlmoco, form.minimoHoras);
+  const horas = calcHorasTotais(form.entrada, form.saida, form.almoco, form.descontarAlmoco, form.horaPadrao || String(form.minimoHoras || ''));
 
   // ── Tab config ──────────────────────────────────────────────────
   const tabs: { id: OsTab; label: string; color: string; dotColor: string; count: number }[] = [
@@ -1281,13 +1319,12 @@ export default function OS() {
                             Efetuar Baixa
                           </p>
                           <div className="grid grid-cols-6 gap-3 items-end">
-                            <FormField label="Mínimo de Horas">
+                            <FormField label={form.tipoCobranca !== 'Frete' ? "Mínimo de Horas" : "Tolerância"}>
                               <div className="relative">
                                 <input
-                                  type="number"
-                                  min={0}
-                                  value={form.minimoHoras}
-                                  onChange={e => setForm((f: any) => ({ ...f, minimoHoras: e.target.value }))}
+                                  type="time"
+                                  value={form.horaPadrao || ''}
+                                  onChange={e => setForm((f: any) => ({ ...f, horaPadrao: e.target.value }))}
                                   className="w-full border border-slate-300 rounded px-2 py-2 text-xs outline-none"
                                 />
                                 <Clock className="absolute right-2 top-2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
