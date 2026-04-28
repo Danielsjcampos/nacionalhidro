@@ -4,9 +4,10 @@ import api from '../services/api';
 import {
   Plus, Search, X, Loader2, Mail, AlertTriangle,
   CheckCircle2, Eye, Copy, Ban, ThumbsDown, ThumbsUp,
-  FileText, Send, ChevronLeft, ChevronRight, Power
+  FileText, Send, ChevronLeft, ChevronRight, Power, Megaphone
 } from 'lucide-react';
 import ModalCadastroProposta from '../components/ModalCadastroProposta';
+import ModalDisparoEquipe from '../components/ModalDisparoEquipe';
 import moment from 'moment';
 
 const fmtDate = (d: string) => d ? moment(d).format('DD/MM/YY') : '—';
@@ -39,6 +40,7 @@ export default function Propostas() {
   const [totalPages, setTotalPages]   = useState(1);
   const [saving, setSaving]           = useState(false);
   const [viewingPdf, setViewingPdf]   = useState<any | null>(null);
+  const [disparando, setDisparando]   = useState<any | null>(null);
   const [stats, setStats]             = useState<Record<string,number>>({
     'Em Aberto': 0, 'Aprovadas': 0, 'Reprovadas': 0, 'Canceladas': 0
   });
@@ -344,10 +346,16 @@ export default function Propostas() {
                           )}
                           {/* Inativar/Reativar - Aprovadas */}
                           {selectedTipo==='Aprovadas' && (
-                            <button title={p.vigente?'Inativar':'Reativar'} onClick={()=>handleInativar(p)}
-                              className={`p-1.5 rounded transition-colors ${p.vigente?'hover:bg-amber-50 text-amber-400':'hover:bg-emerald-50 text-emerald-400'}`}>
-                              <Power className="w-3.5 h-3.5" />
-                            </button>
+                            <div className="flex gap-1">
+                              <button title="Disparar para Equipe" onClick={()=>setDisparando(p)}
+                                className="p-1.5 rounded hover:bg-amber-50 text-amber-500 hover:text-amber-600 transition-colors">
+                                <Megaphone className="w-3.5 h-3.5" />
+                              </button>
+                              <button title={p.vigente?'Inativar':'Reativar'} onClick={()=>handleInativar(p)}
+                                className={`p-1.5 rounded transition-colors ${p.vigente?'hover:bg-amber-50 text-amber-400':'hover:bg-emerald-50 text-emerald-400'}`}>
+                                <Power className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           )}
                           {/* Editar - sempre em aberto */}
                           {selectedTipo==='Em Aberto' && (
@@ -441,6 +449,14 @@ export default function Propostas() {
             </div>
           </div>
         </div>
+      )}
+
+      {disparando && (
+        <ModalDisparoEquipe 
+          proposta={disparando} 
+          onClose={()=>setDisparando(null)} 
+          onSuccess={()=>{setDisparando(null); fetchPropostas(currentPage);}} 
+        />
       )}
     </div>
   );

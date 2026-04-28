@@ -5,6 +5,7 @@ import nodemailer from 'nodemailer';
 import { SequenceService } from '../services/sequence.service';
 import { enviarMensagemWhatsApp } from '../services/whatsapp.service';
 import { sendEmail } from '../services/email.service';
+import moment from 'moment';
 
 // ─── LIST ───────────────────────────────────────────────────────
 export const listPropostas = async (req: AuthRequest, res: Response) => {
@@ -1080,47 +1081,63 @@ export const gerarRevisao = async (req: AuthRequest, res: Response) => {
 export const dispararEquipe = async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { turnos, qtdPessoas, diaSaida, descricaoAdicional, oQueVaiFazer, algoDiferente } = req.body;
+    const { 
+      acesso, inicio, termino, horario, 
+      turnos, qtdPessoas, oQueVaiFazer, algoDiferente, 
+      tarefas 
+    } = req.body;
 
     const proposta = await prisma.proposta.findUnique({
       where: { id },
       include: {
         cliente: true,
         itens: true,
-        equipe: true,
       }
     }) as any;
 
     if (!proposta) return res.status(404).json({ error: 'Proposta não encontrada' });
 
     const cliente = proposta.cliente || {};
-    const itensNomes = proposta.itens?.map((i: any) => i.equipamento).filter(Boolean).join(', ') || 'Não especificado';
+    const itensNomes = proposta.itens?.map((i: any) => i.equipamento).filter(Boolean).join('\n') || 'Não especificado';
     
-    // Formatação da mensagem estilo legacy
-    const msg = `🚀 *NOVA CHAMADA DE SERVIÇO - ${proposta.codigo}*
+    const fmtDate = (d: string) => d ? moment(d).format('DD/MM/YYYY') : 'A definir';
 
-*CLIENTE:* ${cliente.nome || cliente.razaoSocial || 'N/A'}
-*CONTATO:* ${proposta.contato || 'N/A'}
-*CIDADE:* ${cliente.cidade || 'N/A'} - ${cliente.estado || ''}
-*TRABALHO:* ${itensNomes}
-*QUANTIDADE DE PESSOAS:* ${qtdPessoas || 'A definir'}
-*TURNOS:* ${turnos || '1'}
-*O QUE VAI FAZER:* ${oQueVaiFazer || proposta.objetivo || 'Conforme proposta'}
-*DIFERENCIAL:* ${algoDiferente || 'Nenhum'}
-*DIA DE SAÍDA/VIAGEM:* ${diaSaida || 'A definir'}
+    // Formatação da mensagem estilo "🚩 Bom dia!!"
+    let msg = `🚩 *CHAMADA DE SERVIÇO - ${proposta.codigo}*
+🚨 Agendamento de serviços.
 
-------------------------------------------
-*ORIENTAÇÕES PARA EQUIPE:*
+*Cliente e Cidade:*
+${(cliente.nome || cliente.razaoSocial || 'N/A').toUpperCase()} - ${cliente.cidade || ''} - ${cliente.estado || ''}
 
-*LOGÍSTICA:* Fazer a Ordem de Serviço de acordo com a Proposta ${proposta.codigo}.
-*RH:* Verificar questão da documentação, segurança do trabalho e APR.
-*SUPRIMENTOS (JOSÉ):* Separar hospedagem, alimentação e lavanderia.
+*Equipto:*
+${itensNomes}
+
+*EQUIPE NECESSÁRIA:*
+${qtdPessoas || 'A definir'}
+${turnos ? `TURNO: ${turnos}` : ''}
+
+*Serviço / Escopo:*
+${oQueVaiFazer || proposta.objetivo || 'Conforme proposta'}
+
+*Data Atividade:*
+ACESSO: ${fmtDate(acesso)}
+INICIO: ${fmtDate(inicio)} ${horario ? `AS ${horario}HS` : ''}
+TERMINO: ${fmtDate(termino)}
+
+*Contatos:*
+${proposta.contato || 'Ver proposta'}
+
+*OBS / Diferencial:*
+${algoDiferente || 'Nenhum'}
+
+*Tarefas por área:*
+${(tarefas || []).map((t: any) => `${t.area} → ${t.tarefa}`).join('\n')}
 
 ------------------------------------------
 _Mensagem gerada automaticamente pelo Sistema Nacional Hidro_`;
 
-    // 1. Disparo WhatsApp (Grupo se disponível, se não usa fallback)
-    const groupJid = process.env.WHATSAPP_GROUP_JID || ''; // Idealmente viria de uma config global
+    // 1. Disparo WhatsApp
+    const groupJid = process.env.WHATSAPP_GROUP_JID || '';
     if (groupJid) {
        await enviarMensagemWhatsApp(groupJid, msg);
     }
@@ -1129,38 +1146,65 @@ _Mensagem gerada automaticamente pelo Sistema Nacional Hidro_`;
     const emailsSetores = [
       'rh@nacionalhidro.com.br',
       'logistica@nacionalhidro.com.br',
-      'patio@nacionalhidro.com.br', // Jose / Suprimentos
-      'segtrabalho@nacionalhidro.com.br'
+      'financeiro@nacionalhidro.com.br',
+      'segtrabalho@nacionalhidro.com.br',
+      'contato@nacionalhidro.com.br'
     ];
 
     const emailHtml = `
-      <div style="font-family: sans-serif; max-width: 600px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-        <div style="background: #1a365d; color: white; padding: 20px; text-align: center;">
-          <h2 style="margin: 0;">CHAMADA DE SERVIÇO</h2>
-          <p style="margin: 5px 0 0; opacity: 0.8;">Proposta: ${proposta.codigo}</p>
+      <div style="font-family: sans-serif; max-width: 650px; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #ffffff;">
+        <div style="background: #0f172a; color: white; padding: 30px; text-align: center;">
+          <h1 style="margin: 0; font-size: 24px; letter-spacing: 1px;">CHAMADA DE SERVIÇO</h1>
+          <p style="margin: 10px 0 0; opacity: 0.7; font-size: 16px;">${proposta.codigo} — REV ${proposta.revisao || 0}</p>
         </div>
-        <div style="padding: 20px; color: #334155;">
-          <p><strong>Cliente:</strong> ${cliente.nome || 'N/A'}</p>
-          <p><strong>Cidade:</strong> ${cliente.cidade || 'N/A'}</p>
-          <p><strong>Trabalho:</strong> ${itensNomes}</p>
-          <p><strong>Turnos:</strong> ${turnos || '1'}</p>
-          <p><strong>Qtd Pessoas:</strong> ${qtdPessoas || 'A definir'}</p>
-          <p><strong>Saída:</strong> ${diaSaida || 'A definir'}</p>
-          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
-          <p><strong>Descrição do Trabalho:</strong><br/>${oQueVaiFazer || proposta.objetivo || 'N/A'}</p>
-          ${descricaoAdicional ? `<p><strong>Observações Extras:</strong><br/>${descricaoAdicional}</p>` : ''}
+        <div style="padding: 30px; color: #1e293b;">
+          <div style="display: grid; grid-template-cols: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+            <div>
+              <h3 style="color: #64748b; font-size: 12px; text-transform: uppercase; margin-bottom: 5px;">Cliente</h3>
+              <p style="margin: 0; font-weight: bold;">${cliente.nome || 'N/A'}</p>
+              <p style="margin: 0; font-size: 13px; color: #64748b;">${cliente.cidade || ''} - ${cliente.estado || ''}</p>
+            </div>
+            <div style="text-align: right;">
+              <h3 style="color: #64748b; font-size: 12px; text-transform: uppercase; margin-bottom: 5px;">Datas</h3>
+              <p style="margin: 0; font-weight: bold;">Início: ${fmtDate(inicio)}</p>
+              <p style="margin: 0; font-size: 13px; color: #64748b;">Acesso: ${fmtDate(acesso)}</p>
+            </div>
+          </div>
+
+          <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+            <h3 style="color: #0f172a; font-size: 14px; margin-top: 0;">Escopo do Trabalho</h3>
+            <p style="margin: 0; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${oQueVaiFazer || 'N/A'}</p>
+          </div>
+
+          <h3 style="color: #0f172a; font-size: 14px; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 15px;">Tarefas por Área</h3>
+          <table style="width: 100%; border-collapse: collapse;">
+            ${(tarefas || []).map((t: any) => `
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; width: 150px; font-size: 13px; vertical-align: top;">${t.area}</td>
+                <td style="padding: 8px 0; font-size: 13px; color: #475569;">${t.tarefa}</td>
+              </tr>
+            `).join('')}
+          </table>
+
+          ${algoDiferente ? `
+            <div style="margin-top: 30px; padding: 15px; border-left: 4px solid #fbbf24; background: #fffbeb;">
+              <h4 style="margin: 0 0 5px; color: #92400e; font-size: 13px;">Observações Importantes</h4>
+              <p style="margin: 0; font-size: 13px; color: #b45309;">${algoDiferente}</p>
+            </div>
+          ` : ''}
         </div>
-        <div style="background: #f8fafc; padding: 15px; font-size: 11px; color: #64748b; text-align: center;">
-          Este é um disparo automático do sistema operacional.
+        <div style="background: #f1f5f9; padding: 20px; font-size: 12px; color: #64748b; text-align: center;">
+          Este é um disparo automático para alinhamento operacional.<br/>
+          <strong>Nacional Hidro Operações e Saneamento</strong>
         </div>
       </div>
     `;
 
     await sendEmail({
       to: emailsSetores,
-      subject: `[CHAMADA] ${proposta.codigo} - ${cliente.nome || 'Serviço'}`,
+      subject: `🚩 [CHAMADA OPERACIONAL] ${proposta.codigo} - ${cliente.nome || 'Serviço'}`,
       html: emailHtml,
-      fromName: 'Nacional Hidro Operacional'
+      fromName: 'Nacional Hidro - Sistema'
     });
 
     res.json({ success: true, message: 'Disparo realizado com sucesso para WhatsApp e Setores.' });
