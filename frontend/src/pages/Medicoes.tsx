@@ -160,12 +160,13 @@ export default function Medicoes() {
     const [submitting, setSubmitting] = useState(false);
 
     // --- ACAO MODAL STATE ---
-    const [acaoMedicaoItem, setAcaoMedicaoItem] = useState<any>(null);
-    const [acaoObs, setAcaoObs] = useState('');
-    const [acaoEmailCC, setAcaoEmailCC] = useState('');
-    const [acaoPercentual, setAcaoPercentual] = useState<string>('100');
-    const [acaoEmailComercial, setAcaoEmailComercial] = useState('');
-    const [acaoResponsavel, setAcaoResponsavel] = useState('');
+    const [aprovarMedicaoItem, setAprovarMedicaoItem] = useState<any>(null);
+    const [valorAprovadoParcial, setValorAprovadoParcial] = useState<string>('');
+    const [comprovanteImagem, setComprovanteImagem] = useState<File | null>(null);
+
+    const [reprovarMedicaoItem, setReprovarMedicaoItem] = useState<any>(null);
+    const [motivoReprovacao, setMotivoReprovacao] = useState('');
+
     const [centrosCusto, setCentrosCusto] = useState<any[]>([]);
 
     // ─── FETCH LOGIC ───
@@ -255,38 +256,62 @@ export default function Medicoes() {
         setEditMedicaoId(m.id);
     };
 
-    const openAcaoModal = (m: any) => {
-        setAcaoMedicaoItem(m);
-        setAcaoObs(m.observacoes || '');
-        setAcaoEmailCC(m.emailCobrancaCC || '');
-        setAcaoPercentual('100');
-        setAcaoEmailComercial(m.vendedor?.email || '');
-        setAcaoResponsavel('');
+    const openAprovarModal = (m: any) => {
+        setAprovarMedicaoItem(m);
+        setValorAprovadoParcial('');
+        setComprovanteImagem(null);
     };
 
-    const handleAcaoSubmit = async (status: 'APROVADA' | 'APROVADA_PARCIAL' | 'REPROVADA') => {
-        if (!acaoMedicaoItem) return;
+    const openReprovarModal = (m: any) => {
+        setReprovarMedicaoItem(m);
+        setMotivoReprovacao('');
+    };
+
+    const handleAprovarSubmit = async () => {
+        if (!aprovarMedicaoItem) return;
         setSubmitting(true);
-        const valorAprovado = (Number(acaoMedicaoItem.valorTotal) * Number(acaoPercentual)) / 100;
         
+        let valorAprovadoFinal = Number(aprovarMedicaoItem.valorTotal);
+        let statusToSet = 'APROVADA';
+        
+        if (valorAprovadoParcial && Number(valorAprovadoParcial) > 0 && Number(valorAprovadoParcial) < valorAprovadoFinal) {
+            valorAprovadoFinal = Number(valorAprovadoParcial);
+            statusToSet = 'APROVADA_PARCIAL';
+        }
+
         try {
-            await api.patch(`/medicoes/${acaoMedicaoItem.id}/status`, { 
-                status,
-                observacoes: acaoObs,
-                motivoContestacao: status === 'REPROVADA' ? acaoObs : undefined,
-                percentualAprovado: Number(acaoPercentual),
-                valorAprovado,
-                emailCobrancaCC: acaoEmailCC,
-                emailVendedor: acaoEmailComercial,
-                aprovadaPor: acaoResponsavel
+            // Note: If you have an image upload endpoint, you would append `comprovanteImagem` here using FormData
+            await api.patch(`/medicoes/${aprovarMedicaoItem.id}/status`, { 
+                status: statusToSet,
+                valorAprovado: valorAprovadoFinal
             });
-            showToast(status === 'REPROVADA' ? 'Medição reprovada' : 'Medição aprovada com sucesso!');
-            setAcaoMedicaoItem(null);
+            showToast('Medição aprovada com sucesso!', 'success');
+            setAprovarMedicaoItem(null);
             fetchData();
-            if (selectedMedicao?.id === acaoMedicaoItem.id) {
-                if (status === 'REPROVADA') setSelectedMedicao(null);
-                else openMedicao({ id: acaoMedicaoItem.id });
-            }
+            if (selectedMedicao?.id === aprovarMedicaoItem.id) openMedicao({ id: aprovarMedicaoItem.id });
+        } catch (err: any) {
+            showToast(err.response?.data?.error || 'Erro na operação', 'error');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleReprovarSubmit = async () => {
+        if (!reprovarMedicaoItem) return;
+        if (!motivoReprovacao.trim()) {
+            showToast('O motivo da reprovação é obrigatório.', 'error');
+            return;
+        }
+        setSubmitting(true);
+        try {
+            await api.patch(`/medicoes/${reprovarMedicaoItem.id}/status`, { 
+                status: 'REPROVADA',
+                motivoContestacao: motivoReprovacao
+            });
+            showToast('Medição reprovada!', 'success');
+            setReprovarMedicaoItem(null);
+            fetchData();
+            if (selectedMedicao?.id === reprovarMedicaoItem.id) setSelectedMedicao(null);
         } catch (err: any) {
             showToast(err.response?.data?.error || 'Erro na operação', 'error');
         } finally {
@@ -324,9 +349,15 @@ export default function Medicoes() {
             extra.justificativaCancelamento = motivo;
         }
 
-        if (next === 'REPROVADA' || next === 'APROVADA' || next === 'APROVADA_PARCIAL') {
+        if (next === 'REPROVADA') {
             const med = fullList.find(x => x.id === id) || selectedMedicao;
-            if (med) openAcaoModal(med);
+            if (med) openReprovarModal(med);
+            return;
+        }
+
+        if (next === 'APROVADA' || next === 'APROVADA_PARCIAL') {
+            const med = fullList.find(x => x.id === id) || selectedMedicao;
+            if (med) openAprovarModal(med);
             return;
         }
 
@@ -623,11 +654,14 @@ export default function Medicoes() {
                                                     <button title="Cancelar / Retornar" className="hover:text-red-600 transition-colors" onClick={e => { e.stopPropagation(); handleCorrigirMedicao(item.id); }}>
                                                         <XCircle className="w-4 h-4" />
                                                     </button>
-                                                    <button title="Ações (Aprovar/Reprovar)" className="hover:text-emerald-600 transition-colors" onClick={e => { e.stopPropagation(); openAcaoModal(item); }}>
-                                                        <ThumbsUp className="w-4 h-4" />
-                                                    </button>
-                                                    <button title="Visualizar / Editar" className="hover:text-slate-900 transition-colors" onClick={e => { e.stopPropagation(); openMedicaoModal(item); }}>
+                                                    <button title="Visualizar PDF" className="hover:text-blue-600 transition-colors" onClick={e => { e.stopPropagation(); handleVerPDF(item); }}>
                                                         <Eye className="w-4 h-4" />
+                                                    </button>
+                                                    <button title="Reprovar" className="hover:text-red-600 transition-colors" onClick={e => { e.stopPropagation(); openReprovarModal(item); }}>
+                                                        <ThumbsDown className="w-4 h-4" />
+                                                    </button>
+                                                    <button title="Aprovar" className="hover:text-emerald-600 transition-colors" onClick={e => { e.stopPropagation(); openAprovarModal(item); }}>
+                                                        <ThumbsUp className="w-4 h-4" />
                                                     </button>
                                                     <button title="Contestar" className="hover:text-orange-600 transition-colors" onClick={e => { e.stopPropagation(); openMedicao(item); }}>
                                                         <ThumbsDown className="w-4 h-4" />
@@ -840,7 +874,8 @@ export default function Medicoes() {
                                         <button onClick={() => handleMedicaoAction(selectedMedicao.id, 'ENVIAR_CLIENTE')} title="Enviar p/ Cliente" className="flex-1 bg-blue-600 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-blue-700 text-[10px] font-black uppercase"><Mail className="w-3.5 h-3.5" /> Enviar</button>
                                     )}
                                     {selectedMedicao.status === 'AGUARDANDO_APROVACAO' && (<>
-                                        <button onClick={() => openAcaoModal(selectedMedicao)} title="Ação" className="flex-1 bg-emerald-600 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-emerald-700 text-[10px] font-black uppercase"><ThumbsUp className="w-3.5 h-3.5" /> Ação (Aprovar / Reprovar)</button>
+                                        <button onClick={() => openAprovarModal(selectedMedicao)} title="Aprovar" className="flex-1 bg-emerald-600 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-emerald-700 text-[10px] font-black uppercase"><ThumbsUp className="w-3.5 h-3.5" /> Aprovar</button>
+                                        <button onClick={() => openReprovarModal(selectedMedicao)} title="Reprovar" className="flex-1 bg-red-500 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-red-600 text-[10px] font-black uppercase"><ThumbsDown className="w-3.5 h-3.5" /> Reprovar</button>
                                     </>)}
                                     <button onClick={() => handleMedicaoAction(selectedMedicao.id, 'CONTESTADA')} title="Contestar/Congelar" className="flex-1 bg-orange-500 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-orange-600 text-[10px] font-black uppercase"><Snowflake className="w-3.5 h-3.5" /> Congelar</button>
                                     <button onClick={() => handleMedicaoAction(selectedMedicao.id, 'CANCELADA')} title="Cancelar" className="flex-1 bg-red-600 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-red-700 text-[10px] font-black uppercase"><Ban className="w-3.5 h-3.5" /> Cancelar</button>
@@ -1013,84 +1048,163 @@ export default function Medicoes() {
                     onSuccess={fetchData} 
                 />
             )}
-            {/* MODAL DE AÇÃO DA MEDIÇÃO */}
-            {acaoMedicaoItem && (
+            {/* MODAL DE APROVAÇÃO DA MEDIÇÃO */}
+            {aprovarMedicaoItem && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white w-full max-w-2xl rounded-lg shadow-2xl overflow-hidden flex flex-col">
-                        <div className="bg-[#1e3a5f] p-4 flex items-center justify-between text-white">
-                            <h2 className="text-sm font-bold">Ação da Medição {acaoMedicaoItem.codigo}</h2>
-                            <button onClick={() => setAcaoMedicaoItem(null)} className="hover:bg-white/10 p-1 rounded">
-                                <X className="w-5 h-5" />
+                    <div className="bg-white w-full max-w-5xl rounded shadow-2xl overflow-hidden flex flex-col border border-white/20">
+                        <div className="bg-slate-200 p-3 flex items-center justify-between text-slate-800 border-b border-slate-300">
+                            <h2 className="text-sm font-bold">Aprovar cobrança</h2>
+                            <button onClick={() => setAprovarMedicaoItem(null)} className="hover:bg-slate-300 p-1.5 rounded transition-colors">
+                                <X className="w-4 h-4" />
                             </button>
                         </div>
-                        <div className="p-6 grid grid-cols-2 gap-4">
-                            <div className="col-span-2 flex flex-col gap-1">
-                                <label className="text-xs font-bold text-slate-700">Observações de Faturamento</label>
-                                <textarea 
-                                    rows={3}
-                                    value={acaoObs}
-                                    onChange={e => setAcaoObs(e.target.value)}
-                                    className="bg-white border border-slate-300 rounded px-3 py-2 text-sm outline-none resize-none"
-                                />
-                            </div>
-                            <div className="col-span-2 flex flex-col gap-1">
-                                <label className="text-xs font-bold text-slate-700">E-mail da cópia(CC) - Separar por ';'</label>
-                                <input 
-                                    type="text"
-                                    value={acaoEmailCC}
-                                    onChange={e => setAcaoEmailCC(e.target.value)}
-                                    className="bg-white border border-slate-300 rounded px-3 py-2 text-sm outline-none"
-                                />
+                        <div className="p-6 grid grid-cols-5 gap-4">
+                            {/* ROW 1 */}
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-700">Código Medição</label>
+                                <div className="bg-slate-100 border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-600 font-medium truncate">{aprovarMedicaoItem.codigo}</div>
                             </div>
                             <div className="flex flex-col gap-1">
-                                <label className="text-xs font-bold text-slate-700">Porcentagem Faturada %</label>
+                                <label className="text-[10px] font-bold text-slate-700">Empresa</label>
+                                <div className="bg-slate-100 border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-600 font-medium truncate">{aprovarMedicaoItem.empresa || 'NACIONAL HIDRO'}</div>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-700">Cliente</label>
+                                <div className="bg-slate-100 border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-600 font-medium truncate">{aprovarMedicaoItem.cliente?.nome}</div>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-700">Contato</label>
+                                <div className="bg-slate-100 border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-600 font-medium truncate">{aprovarMedicaoItem.solicitante || aprovarMedicaoItem.contato?.nome || '-'}</div>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-700">Data Cobrança</label>
+                                <div className="bg-slate-100 border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-600 font-medium truncate">{aprovarMedicaoItem.dataCobranca ? new Date(aprovarMedicaoItem.dataCobranca).toLocaleString('pt-BR') : '-'}</div>
+                            </div>
+
+                            {/* ROW 2 */}
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-700">Valor por serviço</label>
+                                <div className="bg-slate-100 border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-600 font-medium truncate">{fmt(aprovarMedicaoItem.totalServico || aprovarMedicaoItem.valorTotal)}</div>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-700">Valor por hora</label>
+                                <div className="bg-slate-100 border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-600 font-medium truncate">{fmt(aprovarMedicaoItem.totalHora || 0)}</div>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-700">Valor adicional</label>
+                                <div className="bg-slate-100 border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-600 font-medium truncate">{fmt(aprovarMedicaoItem.adicional || 0)}</div>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-700">Valor descontado</label>
+                                <div className="bg-slate-100 border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-600 font-medium truncate">{fmt(aprovarMedicaoItem.desconto || 0)}</div>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-700">Valor Total</label>
+                                <div className="bg-slate-100 border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-600 font-medium truncate">{fmt(aprovarMedicaoItem.valorTotal)}</div>
+                            </div>
+
+                            {/* ROW 3 */}
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-700">Aprovado Parcial</label>
                                 <input 
                                     type="number"
-                                    min="0" max="100"
-                                    value={acaoPercentual}
-                                    onChange={e => setAcaoPercentual(e.target.value)}
-                                    className="bg-white border border-slate-300 rounded px-3 py-2 text-sm outline-none"
+                                    value={valorAprovadoParcial}
+                                    onChange={e => setValorAprovadoParcial(e.target.value)}
+                                    className="bg-white border border-slate-300 rounded px-2 py-1.5 text-xs font-medium outline-none focus:border-blue-500"
+                                    placeholder="R$ 0,00"
                                 />
                             </div>
                             <div className="flex flex-col gap-1">
-                                <label className="text-xs font-bold text-slate-700">Valor Aprovado</label>
-                                <div className="bg-slate-100 border border-slate-200 rounded px-3 py-2 text-sm font-bold text-slate-700">
-                                    {fmt((Number(acaoMedicaoItem?.valorTotal || 0) * Number(acaoPercentual || 100)) / 100)}
+                                <label className="text-[10px] font-bold text-slate-700">Valor Restante</label>
+                                <div className="bg-slate-100 border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-600 font-medium truncate">
+                                    {fmt(valorAprovadoParcial ? Number(aprovarMedicaoItem.valorTotal) - Number(valorAprovadoParcial) : aprovarMedicaoItem.valorTotal)}
                                 </div>
                             </div>
                             <div className="flex flex-col gap-1">
-                                <label className="text-xs font-bold text-slate-700">E-mail Comercial</label>
-                                <input 
-                                    type="text"
-                                    value={acaoEmailComercial}
-                                    onChange={e => setAcaoEmailComercial(e.target.value)}
-                                    className="bg-white border border-slate-300 rounded px-3 py-2 text-sm outline-none"
-                                />
+                                <label className="text-[10px] font-bold text-slate-700">Valor Aprovado</label>
+                                <div className="bg-slate-100 border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-600 font-medium truncate">
+                                    {fmt(valorAprovadoParcial ? Number(valorAprovadoParcial) : aprovarMedicaoItem.valorTotal)}
+                                </div>
                             </div>
                             <div className="flex flex-col gap-1">
-                                <label className="text-xs font-bold text-slate-700">Responsável Aprovação</label>
-                                <input 
-                                    type="text"
-                                    value={acaoResponsavel}
-                                    onChange={e => setAcaoResponsavel(e.target.value)}
-                                    className="bg-white border border-slate-300 rounded px-3 py-2 text-sm outline-none"
+                                <label className="text-[10px] font-bold text-slate-700">Valor em RL</label>
+                                <div className="bg-slate-100 border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-600 font-medium truncate">
+                                    {fmt(aprovarMedicaoItem.valorRL || 0)}
+                                </div>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-700">Valor em NF</label>
+                                <div className="bg-slate-100 border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-600 font-medium truncate">
+                                    {fmt(aprovarMedicaoItem.valorNFSe || 0)}
+                                </div>
+                            </div>
+
+                            {/* IMAGE UPLOAD */}
+                            <div className="col-span-5 flex flex-col gap-1 mt-2">
+                                <label className="text-[10px] font-bold text-slate-700">Imagem</label>
+                                <div className="border border-dashed border-slate-300 rounded bg-white p-6 flex flex-col items-center justify-center text-slate-400 text-xs gap-2">
+                                    <FileText className="w-6 h-6" />
+                                    Cole ou carregue aqui sua imagem...
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-4 flex items-center justify-end gap-3 border-t border-slate-200 bg-white">
+                            <button 
+                                onClick={() => setAprovarMedicaoItem(null)}
+                                className="px-6 py-2 bg-slate-400 hover:bg-slate-500 text-white rounded text-sm font-bold transition-all"
+                            >
+                                Fechar
+                            </button>
+                            <button 
+                                onClick={handleAprovarSubmit}
+                                disabled={submitting}
+                                className="px-6 py-2 bg-[#1e3a5f] hover:bg-blue-900 text-white rounded text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {submitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                                Aprovar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL DE REPROVAÇÃO */}
+            {reprovarMedicaoItem && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white w-full max-w-md rounded-lg shadow-2xl overflow-hidden flex flex-col">
+                        <div className="bg-red-600 p-4 flex items-center justify-between text-white">
+                            <h2 className="text-sm font-bold">Reprovar Medição {reprovarMedicaoItem.codigo}</h2>
+                            <button onClick={() => setReprovarMedicaoItem(null)} className="hover:bg-white/10 p-1 rounded">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-6 flex flex-col gap-4">
+                            <p className="text-sm text-slate-600 font-medium">As Ordens de Serviço voltarão para o status de Precificada para que você possa editá-las.</p>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-xs font-bold text-slate-700">Motivo da Reprovação</label>
+                                <textarea 
+                                    rows={4}
+                                    value={motivoReprovacao}
+                                    onChange={e => setMotivoReprovacao(e.target.value)}
+                                    placeholder="Ex: Cliente pediu desconto, valor incorreto..."
+                                    className="bg-white border border-slate-300 rounded px-3 py-2 text-sm outline-none resize-none focus:border-red-500"
                                 />
                             </div>
                         </div>
                         <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
                             <button 
-                                onClick={() => handleAcaoSubmit('REPROVADA')}
-                                disabled={submitting}
-                                className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded text-sm font-bold transition-all disabled:opacity-50"
+                                onClick={() => setReprovarMedicaoItem(null)}
+                                className="px-6 py-2 text-slate-500 hover:text-slate-700 text-sm font-bold transition-all"
                             >
-                                Reprovar
+                                Cancelar
                             </button>
                             <button 
-                                onClick={() => handleAcaoSubmit(Number(acaoPercentual) < 100 ? 'APROVADA_PARCIAL' : 'APROVADA')}
+                                onClick={handleReprovarSubmit}
                                 disabled={submitting}
-                                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-bold transition-all disabled:opacity-50"
+                                className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-bold transition-all disabled:opacity-50"
                             >
-                                Aprovar
+                                Reprovar Medição
                             </button>
                         </div>
                     </div>
