@@ -27,6 +27,11 @@ export const listMedicoes = async (req: AuthRequest, res: Response) => {
             where.OR = [
                 { codigo: { contains: search as string, mode: 'insensitive' as any } },
                 { cliente: { nome: { contains: search as string, mode: 'insensitive' as any } } },
+                { cliente: { codigo: { contains: search as string, mode: 'insensitive' as any } } },
+                { empresa: { contains: search as string, mode: 'insensitive' as any } },
+                { solicitante: { contains: search as string, mode: 'insensitive' as any } },
+                { periodo: { contains: search as string, mode: 'insensitive' as any } },
+                { ordensServico: { some: { codigo: { contains: search as string, mode: 'insensitive' as any } } } }
             ];
         }
         if (dataInicio || dataFim) {

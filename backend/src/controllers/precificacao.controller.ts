@@ -16,6 +16,9 @@ export const listOSPrecificacao = async (req: AuthRequest, res: Response) => {
             where.OR = [
                 { codigo: { contains: search as string, mode: 'insensitive' as any } },
                 { cliente: { nome: { contains: search as string, mode: 'insensitive' as any } } },
+                { cliente: { codigo: { contains: search as string, mode: 'insensitive' as any } } },
+                { empresa: { contains: search as string, mode: 'insensitive' as any } },
+                { contato: { contains: search as string, mode: 'insensitive' as any } },
             ];
         }
 

@@ -410,7 +410,20 @@ export default function Medicoes() {
                         <span className="flex items-center gap-1"><AlertTriangle className="w-3 h-3 text-orange-500" /> Fora do período de medição</span>
                     </div>
                 </div>
-                <div className="flex gap-4 items-end">
+                <div className="flex gap-4 items-end flex-wrap">
+                    <div className="flex flex-col gap-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase">Buscar (OS, Cliente, Empresa...)</label>
+                        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded px-3 py-2 shadow-sm min-w-[200px]">
+                            <Search className="w-3.5 h-3.5 text-slate-400" />
+                            <input 
+                                type="text" 
+                                placeholder="Buscar..." 
+                                value={search} 
+                                onChange={e => setSearch(e.target.value)} 
+                                className="text-xs font-bold outline-none w-full" 
+                            />
+                        </div>
+                    </div>
                     <div className="flex flex-col gap-1">
                         <label className="text-[10px] font-black text-slate-400 uppercase">Filtrar Data</label>
                         <div className="flex items-center gap-2 bg-white border border-slate-200 rounded px-3 py-2 shadow-sm">

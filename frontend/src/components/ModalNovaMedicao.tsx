@@ -174,10 +174,6 @@ export default function ModalNovaMedicao({ isOpen, onClose, onSuccess }: ModalNo
             showToast('Selecione pelo menos uma OS', 'error');
             return;
         }
-        if (!contatoId) {
-            showToast('Selecione um contato', 'error');
-            return;
-        }
 
         setSubmitting(true);
         try {
@@ -404,8 +400,8 @@ export default function ModalNovaMedicao({ isOpen, onClose, onSuccess }: ModalNo
                                             onChange={e => setContatoId(e.target.value)}
                                             className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-bold outline-none focus:border-blue-500 transition-all"
                                         >
-                                            <option value="">Selecione o Contato</option>
-                                            {clienteSelecionado?.contatos?.map((c: any) => (
+                                            <option value="">Nenhum / Selecione</option>
+                                            {clienteSelecionado?.contatosList?.map((c: any) => (
                                                 <option key={c.id} value={c.id}>{c.nome} - {c.email || 'S/E'}</option>
                                             ))}
                                         </select>
@@ -666,7 +662,6 @@ export default function ModalNovaMedicao({ isOpen, onClose, onSuccess }: ModalNo
                                 onClick={() => {
                                     if (step === 1 && !selectedClienteId) return showToast('Selecione um cliente', 'warning');
                                     if (step === 2 && selectedOsIds.length === 0) return showToast('Selecione pelo menos uma OS', 'warning');
-                                    if (step === 3 && !contatoId) return showToast('Selecione um contato', 'warning');
                                     setStep(step + 1);
                                 }}
                                 className="px-10 py-4 bg-[#1e3a5f] hover:bg-slate-700 text-white rounded-xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-blue-900/10 flex items-center gap-2 transition-all active:scale-[0.98]"
