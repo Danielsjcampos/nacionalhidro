@@ -998,6 +998,44 @@ export default function Medicoes() {
                                 </div>
                             )}
 
+                            {/* DOCUMENTOS GERADOS (Faturamento) */}
+                            {selectedMedicao.faturamentos && selectedMedicao.faturamentos.length > 0 && (
+                                <div className="space-y-3 pt-2 border-t border-slate-100">
+                                    <h4 className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2">
+                                        <FileText className="w-3 h-3" /> Documentos de Faturamento
+                                    </h4>
+                                    <div className="grid grid-cols-1 gap-2">
+                                        {selectedMedicao.faturamentos.map((f: any) => (
+                                            <div key={f.id} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-100 hover:border-blue-200 transition-colors">
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-8 h-8 rounded flex items-center justify-center font-black text-[10px] ${
+                                                        f.tipo === 'NFSE' ? 'bg-fuchsia-100 text-fuchsia-700' : 
+                                                        f.tipo === 'CTE' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
+                                                    }`}>
+                                                        {f.tipo}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] font-bold text-slate-700">Doc {f.numero || f.id.slice(0,8)}</p>
+                                                        <p className="text-[9px] text-slate-400">Status: <span className={f.status === 'EMITIDO' ? 'text-emerald-600' : 'text-orange-500'}>{f.status}</span></p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    {f.urlArquivoNota && (
+                                                        <button 
+                                                            onClick={() => window.open(f.urlArquivoNota, '_blank')}
+                                                            className="p-1.5 hover:bg-white rounded border border-transparent hover:border-slate-200 text-blue-600 transition-all"
+                                                            title="Ver PDF"
+                                                        >
+                                                            <Eye className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Cancelamento info */}
                             {selectedMedicao.status === 'CANCELADA' && (
                                 <div className="bg-red-50 border border-red-200 rounded-xl p-3">
