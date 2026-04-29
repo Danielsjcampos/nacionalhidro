@@ -541,6 +541,7 @@ export default function OS() {
       propostaId: prop?.id || '',
       // clienteId is REQUIRED by the database — must be copied from proposal
       clienteId: prop?.clienteId || prop?.cliente?.id || '',
+      vendedorId: prop?.vendedorId || '',
       codigo: '',
       dataInicial: new Date().toISOString().split('T')[0],
       dataFinal: '',

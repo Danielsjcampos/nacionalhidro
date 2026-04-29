@@ -116,7 +116,12 @@ export const createOS = async (req: AuthRequest, res: Response) => {
     const sanitizedData: Record<string, any> = {};
     for (const field of OS_ALLOWED_FIELDS) {
       if (body[field] !== undefined && body[field] !== '') {
-        sanitizedData[field] = body[field];
+        if (field === 'vendedorId' || field === 'clienteId') {
+          const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body[field]);
+          if (isValidUUID) sanitizedData[field] = body[field];
+        } else {
+          sanitizedData[field] = body[field];
+        }
       }
     }
 
@@ -162,7 +167,7 @@ export const createOS = async (req: AuthRequest, res: Response) => {
         data: {
           ...sanitizedData,
           codigo,
-          clienteId: proposta.clienteId,
+          clienteId: proposta.clienteId || sanitizedData.clienteId,
           diasSemana: diasSemanaStr,
           propostaId: propostaId || undefined,
           minimoHoras: proposta.franquiaHoras ? Number(proposta.franquiaHoras) : undefined,
@@ -312,7 +317,17 @@ export const updateOS = async (req: AuthRequest, res: Response) => {
     const sanitizedData: Record<string, any> = {};
     for (const field of OS_ALLOWED_FIELDS) {
       if (body[field] !== undefined) {
-        sanitizedData[field] = body[field] === '' ? undefined : body[field];
+        if (field === 'vendedorId' || field === 'clienteId') {
+          const val = body[field];
+          if (val) {
+            const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+            sanitizedData[field] = isValidUUID ? val : undefined;
+          } else {
+            sanitizedData[field] = undefined;
+          }
+        } else {
+          sanitizedData[field] = body[field] === '' ? undefined : body[field];
+        }
       }
     }
 
