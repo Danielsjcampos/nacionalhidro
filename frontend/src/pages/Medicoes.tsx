@@ -200,7 +200,7 @@ export default function Medicoes() {
             setStats({
                 precificacao: resPricing.data.kanban.EM_ABERTO?.length || 0,
                 medicao: (resMed.data.list || []).filter((m: any) => !['FINALIZADA', 'CANCELADA'].includes(m.status)).length,
-                finalizadas: (resMed.data.list || []).filter((m: any) => ['FINALIZADA', 'APROVADA'].includes(m.status)).length,
+                finalizadas: (resMed.data.list || []).filter((m: any) => m.status === 'FINALIZADA').length,
                 cancelados: (resMed.data.list || []).filter((m: any) => m.status === 'CANCELADA').length,
             });
         } catch (err: any) {
@@ -405,8 +405,8 @@ export default function Medicoes() {
     const getFilteredList = () => {
         let items: any[] = [];
         if (activeTab === 'precificacao') items = osPricing;
-        else if (activeTab === 'medicao') items = medicoesList.filter(m => !['FINALIZADA', 'APROVADA', 'CANCELADA'].includes(m.status));
-        else if (activeTab === 'finalizadas') items = medicoesList.filter(m => ['FINALIZADA', 'APROVADA'].includes(m.status));
+        else if (activeTab === 'medicao') items = medicoesList.filter(m => !['FINALIZADA', 'CANCELADA'].includes(m.status));
+        else if (activeTab === 'finalizadas') items = medicoesList.filter(m => m.status === 'FINALIZADA');
         else if (activeTab === 'cancelados') items = medicoesList.filter(m => m.status === 'CANCELADA');
 
         // Apply status filter
@@ -692,6 +692,11 @@ export default function Medicoes() {
                                                             </button>
                                                         </>
                                                     )}
+                                                    {item.status === 'APROVADA' && (
+                                                        <button title="Gerar Faturamento" className="hover:text-emerald-600 transition-colors" onClick={e => { e.stopPropagation(); setFaturarMedicao(item); }}>
+                                                            <FileText className="w-4 h-4" />
+                                                        </button>
+                                                    )}
                                                 </>)}
 
                                                 {activeTab === 'finalizadas' && (<>
@@ -893,6 +898,11 @@ export default function Medicoes() {
                                 <div className="flex gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
                                     <button onClick={() => openAprovarModal(selectedMedicao)} title="Aprovar" className="flex-1 bg-emerald-600 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-emerald-700 text-[10px] font-black uppercase"><ThumbsUp className="w-3.5 h-3.5" /> Aprovar</button>
                                     <button onClick={() => openReprovarModal(selectedMedicao)} title="Reprovar" className="flex-1 bg-red-500 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-red-600 text-[10px] font-black uppercase"><ThumbsDown className="w-3.5 h-3.5" /> Reprovar</button>
+                                </div>
+                            )}
+                            {selectedMedicao.status === 'APROVADA' && (
+                                <div className="flex gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-200">
+                                    <button onClick={() => setFaturarMedicao(selectedMedicao)} title="Gerar Faturamento" className="flex-1 bg-emerald-600 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-emerald-700 text-[10px] font-black uppercase"><FileText className="w-3.5 h-3.5" /> Gerar Faturamento</button>
                                 </div>
                             )}
 
