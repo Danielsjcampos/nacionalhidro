@@ -445,7 +445,7 @@ export const updateMedicaoStatus = async (req: AuthRequest, res: Response) => {
 
             // ─── GERAÇÃO DE FATURAMENTOS ──────────────────────
             const cnpjMedicao = currentMedicao.cnpjFaturamento || empresa.cnpj; // Fallback para config se não houver na medição
-            const empresaFiscal = await prisma.empresaCNPJ.findUnique({ where: { cnpj: cnpjMedicao } });
+            const empresaFiscal = cnpjMedicao ? await prisma.empresaCNPJ.findUnique({ where: { cnpj: cnpjMedicao } }) : null;
             const configGeneral = await (prisma as any).configuracao.findFirst();
 
             if (currentMedicao.cte) {

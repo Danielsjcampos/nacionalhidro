@@ -31,27 +31,27 @@ const daysSince = (d: any) => {
 };
 
 const STATUS_LABEL: Record<string, string> = {
-    EM_ABERTO:            'Em Aberto',
-    EM_CONFERENCIA:       'Conferência',
-    AGUARDANDO_APROVACAO: 'Aguard. Aprovação',
-    APROVADA:             'Aprovada',
-    APROVADA_PARCIAL:     'Aprov. Parcial',
+    EM_ABERTO:            'Em aberto',
+    EM_CONFERENCIA:       'Em conferência',
+    AGUARDANDO_APROVACAO: 'Aguardando aprovação do cliente',
+    APROVADA:             'Validado',
+    APROVADA_PARCIAL:     'Aprovado parcialmente',
     CONTESTADA:           'Contestada',
-    REPROVADA:            'Reprovada',
+    REPROVADA:            'Atrasado',
     FINALIZADA:           'Finalizada',
     CANCELADA:            'Cancelada',
 };
 
 const STATUS_COLOR: Record<string, string> = {
-    EM_ABERTO:            'bg-yellow-400',
-    EM_CONFERENCIA:       'bg-fuchsia-400',
-    AGUARDANDO_APROVACAO: 'bg-blue-500',
-    APROVADA:             'bg-emerald-500',
+    EM_ABERTO:            'bg-orange-400',
+    EM_CONFERENCIA:       'bg-blue-600',
+    AGUARDANDO_APROVACAO: 'bg-slate-800',
+    APROVADA:             'bg-green-500',
     APROVADA_PARCIAL:     'bg-slate-400',
-    CONTESTADA:           'bg-orange-500',
-    REPROVADA:            'bg-red-600',
-    FINALIZADA:           'bg-emerald-500',
-    CANCELADA:            'bg-red-600',
+    CONTESTADA:           'bg-orange-600',
+    REPROVADA:            'bg-red-500',
+    FINALIZADA:           'bg-green-500',
+    CANCELADA:            'bg-red-500',
 };
 
 const DIAS_VENCIMENTO = 2;
@@ -86,15 +86,19 @@ const Td = ({ children, className = '' }: { children: React.ReactNode; className
 );
 
 // ─── LEGACY STATUS INDICATORS ──────────────────────────────────
-const LegacyStatusIndicator = ({ status, dataBaixa, periodo }: { status: string; dataBaixa?: string; periodo?: string }) => {
-    if (['BAIXADA', 'APROVADA', 'FINALIZADA', 'EM_CONFERENCIA', 'AGUARDANDO_APROVACAO'].includes(status)) {
+// ─── LEGACY STATUS INDICATORS ──────────────────────────────────
+const LegacyStatusIndicator = ({ status, isMedicao }: { status: string; isMedicao?: boolean }) => {
+    if (isMedicao) {
+        const color = STATUS_COLOR[status] || 'bg-slate-300';
+        const label = STATUS_LABEL[status] || status;
         return (
             <div className="flex items-center justify-center">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm" title={status} />
+                <div className={`w-2.5 h-2.5 rounded-full ${color} shadow-sm`} title={label} />
             </div>
         );
     }
 
+    // Para a aba Precificação (OS)
     if (status === 'EM_PRECIFICACAO' || status === 'PENDENTE') {
         return (
             <div className="flex items-center justify-center">
@@ -107,6 +111,14 @@ const LegacyStatusIndicator = ({ status, dataBaixa, periodo }: { status: string;
         return (
             <div className="flex items-center justify-center">
                 <div className="w-2.5 h-2.5 rounded-full bg-orange-400 shadow-sm" title="Precificada" />
+            </div>
+        );
+    }
+
+    if (['BAIXADA', 'APROVADA', 'FINALIZADA', 'EM_CONFERENCIA', 'AGUARDANDO_APROVACAO'].includes(status)) {
+        return (
+            <div className="flex items-center justify-center">
+                <div className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-sm" title="Em Medição" />
             </div>
         );
     }
@@ -482,10 +494,23 @@ export default function Medicoes() {
             <div className="flex items-end justify-between gap-4 flex-wrap">
                 <div className="flex gap-4 items-center">
                     <div className="flex items-center gap-3 text-[9px] font-black uppercase tracking-tighter text-slate-400">
-                        <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500" /> Em aberto</span>
-                        <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-orange-400" /> Precificada</span>
-                        <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500" /> Em Medição</span>
-                        <span className="flex items-center gap-1"><AlertTriangle className="w-3 h-3 text-orange-500" /> Fora do período de medição</span>
+                        {activeTab === 'precificacao' ? (
+                            <>
+                                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500" /> Em aberto</span>
+                                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-orange-400" /> Precificada</span>
+                                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-500" /> Em Medição</span>
+                                <span className="flex items-center gap-1"><AlertTriangle className="w-3 h-3 text-orange-500" /> Fora do período de medição</span>
+                            </>
+                        ) : activeTab === 'medicao' ? (
+                            <>
+                                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-orange-400" /> Em aberto</span>
+                                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-600" /> Em conferência</span>
+                                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-500" /> Validado</span>
+                                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-slate-800" /> Aguardando aprovação</span>
+                                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-slate-400" /> Aprovado parc.</span>
+                                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500" /> Atrasado</span>
+                            </>
+                        ) : null}
                     </div>
                 </div>
                 <div className="flex gap-4 items-end flex-wrap">
@@ -657,18 +682,16 @@ export default function Medicoes() {
                                                     <button title="Visualizar PDF" className="hover:text-blue-600 transition-colors" onClick={e => { e.stopPropagation(); handleVerPDF(item); }}>
                                                         <Eye className="w-4 h-4" />
                                                     </button>
-                                                    <button title="Reprovar" className="hover:text-red-600 transition-colors" onClick={e => { e.stopPropagation(); openReprovarModal(item); }}>
-                                                        <ThumbsDown className="w-4 h-4" />
-                                                    </button>
-                                                    <button title="Aprovar" className="hover:text-emerald-600 transition-colors" onClick={e => { e.stopPropagation(); openAprovarModal(item); }}>
-                                                        <ThumbsUp className="w-4 h-4" />
-                                                    </button>
-                                                    <button title="Contestar" className="hover:text-orange-600 transition-colors" onClick={e => { e.stopPropagation(); openMedicao(item); }}>
-                                                        <ThumbsDown className="w-4 h-4" />
-                                                    </button>
-                                                    <button title="Aprovar" className="hover:text-emerald-600 transition-colors" onClick={e => { e.stopPropagation(); openMedicao(item); }}>
-                                                        <ThumbsUp className="w-4 h-4" />
-                                                    </button>
+                                                    {['EM_ABERTO', 'EM_CONFERENCIA', 'AGUARDANDO_APROVACAO'].includes(item.status) && (
+                                                        <>
+                                                            <button title="Reprovar" className="hover:text-red-600 transition-colors" onClick={e => { e.stopPropagation(); openReprovarModal(item); }}>
+                                                                <ThumbsDown className="w-4 h-4" />
+                                                            </button>
+                                                            <button title="Aprovar" className="hover:text-emerald-600 transition-colors" onClick={e => { e.stopPropagation(); openAprovarModal(item); }}>
+                                                                <ThumbsUp className="w-4 h-4" />
+                                                            </button>
+                                                        </>
+                                                    )}
                                                 </>)}
 
                                                 {activeTab === 'finalizadas' && (<>
@@ -715,6 +738,7 @@ export default function Medicoes() {
                                             </Td>
                                             <Td className="font-black text-slate-700">{item.codigo}</Td>
                                             <Td className="text-center font-bold text-slate-500">
+                                                <LegacyStatusIndicator status={item.status} isMedicao={activeTab !== 'precificacao'} />
                                                 <span className={daysSince(item.dataBaixa || item.createdAt) > 2 ? 'text-red-500' : ''}>
                                                     {daysSince(item.dataBaixa || item.createdAt)}d
                                                 </span>
@@ -865,20 +889,10 @@ export default function Medicoes() {
 
                         <div className="flex-1 overflow-y-auto p-4 space-y-5 custom-scrollbar">
                             {/* Actions bar */}
-                            {!['CANCELADA'].includes(selectedMedicao.status) && (
+                            {['EM_ABERTO', 'AGUARDANDO_APROVACAO'].includes(selectedMedicao.status) && (
                                 <div className="flex gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                                    {(selectedMedicao.status === 'EM_ABERTO' || selectedMedicao.status === 'EM_CONFERENCIA') && (
-                                        <button onClick={() => handleMedicaoAction(selectedMedicao.id, 'EM_CONFERENCIA')} title="Enviar para Conferência" className="flex-1 bg-fuchsia-500 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-fuchsia-600 text-[10px] font-black uppercase"><Send className="w-3.5 h-3.5" /> Conferência</button>
-                                    )}
-                                    {selectedMedicao.status === 'EM_CONFERENCIA' && (
-                                        <button onClick={() => handleMedicaoAction(selectedMedicao.id, 'ENVIAR_CLIENTE')} title="Enviar p/ Cliente" className="flex-1 bg-blue-600 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-blue-700 text-[10px] font-black uppercase"><Mail className="w-3.5 h-3.5" /> Enviar</button>
-                                    )}
-                                    {selectedMedicao.status === 'AGUARDANDO_APROVACAO' && (<>
-                                        <button onClick={() => openAprovarModal(selectedMedicao)} title="Aprovar" className="flex-1 bg-emerald-600 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-emerald-700 text-[10px] font-black uppercase"><ThumbsUp className="w-3.5 h-3.5" /> Aprovar</button>
-                                        <button onClick={() => openReprovarModal(selectedMedicao)} title="Reprovar" className="flex-1 bg-red-500 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-red-600 text-[10px] font-black uppercase"><ThumbsDown className="w-3.5 h-3.5" /> Reprovar</button>
-                                    </>)}
-                                    <button onClick={() => handleMedicaoAction(selectedMedicao.id, 'CONTESTADA')} title="Contestar/Congelar" className="flex-1 bg-orange-500 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-orange-600 text-[10px] font-black uppercase"><Snowflake className="w-3.5 h-3.5" /> Congelar</button>
-                                    <button onClick={() => handleMedicaoAction(selectedMedicao.id, 'CANCELADA')} title="Cancelar" className="flex-1 bg-red-600 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-red-700 text-[10px] font-black uppercase"><Ban className="w-3.5 h-3.5" /> Cancelar</button>
+                                    <button onClick={() => openAprovarModal(selectedMedicao)} title="Aprovar" className="flex-1 bg-emerald-600 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-emerald-700 text-[10px] font-black uppercase"><ThumbsUp className="w-3.5 h-3.5" /> Aprovar</button>
+                                    <button onClick={() => openReprovarModal(selectedMedicao)} title="Reprovar" className="flex-1 bg-red-500 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-red-600 text-[10px] font-black uppercase"><ThumbsDown className="w-3.5 h-3.5" /> Reprovar</button>
                                 </div>
                             )}
 
