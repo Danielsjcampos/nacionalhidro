@@ -72,26 +72,27 @@ export const getOS = async (req: AuthRequest, res: Response) => {
   }
 };
 
-// ─── BUG FIX #5: Numeração sem gaps usando MAX do último código ──
-async function gerarCodigoOS(): Promise<string> {
+// ─── BUG FIX #5: Numeração sem gaps usando MAX numérico real ──
+async function gerarCodigoOS(txClient?: any): Promise<string> {
+  const db = txClient || prisma;
   const ano = new Date().getFullYear();
   const prefix = `OS-${ano}-`;
 
-  // Find the highest existing code for this year
-  const lastOS = await prisma.ordemServico.findFirst({
+  // Fetch ALL codes for this year and extract the max numeric suffix
+  // This works inside Prisma interactive transactions (tx) unlike $queryRawUnsafe
+  const allCodes = await db.ordemServico.findMany({
     where: { codigo: { startsWith: prefix } },
-    orderBy: { codigo: 'desc' },
     select: { codigo: true }
   });
 
-  let nextNumber = 1;
-  if (lastOS?.codigo) {
-    const parts = lastOS.codigo.split('-');
-    const lastNum = parseInt(parts[parts.length - 1]);
-    if (!isNaN(lastNum)) nextNumber = lastNum + 1;
+  let maxNum = 0;
+  for (const row of allCodes) {
+    const parts = row.codigo.split('-');
+    const num = parseInt(parts[parts.length - 1], 10);
+    if (!isNaN(num) && num > maxNum) maxNum = num;
   }
 
-  return `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+  return `${prefix}${(maxNum + 1).toString().padStart(4, '0')}`;
 }
 
 // ─── BUG FIX #1: Persistência confiável com transaction ──────────
@@ -154,19 +155,24 @@ export const createOS = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // BUG FIX #5: Generate sequential code without gaps
-    const codigo = sanitizedData.codigo || await gerarCodigoOS();
     delete sanitizedData.codigo; // will be set explicitly below
 
     // Transform diasSemana to string if it's an array
     const diasSemanaStr = Array.isArray(diasSemana) ? diasSemana.join(',') : diasSemana;
 
-    // BUG FIX #1: Use transaction for reliable persistence
-    const os = await prisma.$transaction(async (tx) => {
-      const createdOs = await tx.ordemServico.create({
-        data: {
-          ...sanitizedData,
-          codigo,
+    // BUG FIX #5+#12: Generate code INSIDE transaction + retry on collision
+    const MAX_RETRIES = 3;
+    let lastError: any = null;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        const os = await prisma.$transaction(async (tx) => {
+          // Generate code inside tx to avoid race conditions
+          const codigo = await gerarCodigoOS(tx);
+          const createdOs = await tx.ordemServico.create({
+            data: {
+              ...sanitizedData,
+              codigo,
           clienteId: proposta.clienteId || sanitizedData.clienteId,
           diasSemana: diasSemanaStr,
           propostaId: propostaId || undefined,
@@ -276,7 +282,20 @@ export const createOS = async (req: AuthRequest, res: Response) => {
       usuarioNome: req.user?.userId,
     });
 
-    res.status(201).json(os);
+    return res.status(201).json(os);
+      } catch (txError: any) {
+        // P2002 = Prisma unique constraint violation — retry with new code
+        if (txError.code === 'P2002' && attempt < MAX_RETRIES - 1) {
+          console.warn(`⚠️ Código OS duplicado (tentativa ${attempt + 1}/${MAX_RETRIES}), gerando novo...`);
+          lastError = txError;
+          continue;
+        }
+        throw txError;
+      }
+    }
+
+    // Should not reach here, but safety net
+    throw lastError || new Error('Falha ao gerar código OS após múltiplas tentativas');
   } catch (error: any) {
     console.error('Create OS Error:', error);
     res.status(500).json({ error: 'Failed to create service order', details: error.message });
@@ -1039,9 +1058,8 @@ export const duplicateOS = async (req: AuthRequest, res: Response) => {
     });
     if (!original) return res.status(404).json({ error: 'OS não encontrada' });
 
-    const codigo = await gerarCodigoOS();
-
     const nova = await prisma.$transaction(async (tx) => {
+      const codigo = await gerarCodigoOS(tx);
       const novaOS = await tx.ordemServico.create({
         data: {
           codigo,
