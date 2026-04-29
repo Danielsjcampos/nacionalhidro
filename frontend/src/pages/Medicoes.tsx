@@ -347,6 +347,21 @@ export default function Medicoes() {
             return;
         }
 
+        if (next === 'ENVIAR_COBRANCA') {
+            try {
+                if (!window.confirm("Deseja disparar o e-mail de faturamento e notas fiscais para o cliente?")) return;
+                setSubmitting(true);
+                await api.post(`/medicoes/${id}/enviar-documentacao`);
+                showToast('E-mail de cobrança enviado com sucesso!', 'success');
+                fetchData();
+            } catch (err: any) { 
+                showToast(err.response?.data?.error || 'Erro ao enviar e-mail', 'error'); 
+            } finally {
+                setSubmitting(false);
+            }
+            return;
+        }
+
         if (next === 'CONTESTADA') {
             const motivo = window.prompt('Por favor, informe o motivo da contestação:');
             if (motivo === null) return;
@@ -703,6 +718,9 @@ export default function Medicoes() {
                                                     <button title="Gerar Faturamento" className="hover:text-emerald-600 transition-colors" onClick={e => { e.stopPropagation(); setFaturarMedicao(item); }}>
                                                         <Receipt className="w-4 h-4" />
                                                     </button>
+                                                    <button title="Disparar Cobrança (E-mail)" className="hover:text-blue-600 transition-colors" onClick={e => { e.stopPropagation(); handleMedicaoAction(item.id, 'ENVIAR_COBRANCA'); }}>
+                                                        <Send className="w-4 h-4" />
+                                                    </button>
                                                     <button title="Cancelar / Retornar" className="hover:text-red-600 transition-colors" onClick={e => { e.stopPropagation(); handleCorrigirMedicao(item.id); }}>
                                                         <XCircle className="w-4 h-4" />
                                                     </button>
@@ -901,8 +919,13 @@ export default function Medicoes() {
                                 </div>
                             )}
                             {selectedMedicao.status === 'APROVADA' && (
-                                <div className="flex gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-200">
-                                    <button onClick={() => setFaturarMedicao(selectedMedicao)} title="Gerar Faturamento" className="flex-1 bg-emerald-600 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-emerald-700 text-[10px] font-black uppercase"><FileText className="w-3.5 h-3.5" /> Gerar Faturamento</button>
+                                                        <div className="flex gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-200">
+                                                            <button onClick={() => setFaturarMedicao(selectedMedicao)} title="Gerar Faturamento" className="flex-1 bg-emerald-600 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-emerald-700 text-[10px] font-black uppercase"><FileText className="w-3.5 h-3.5" /> Gerar Faturamento</button>
+                                                        </div>
+                                                    )}
+                            {selectedMedicao.status === 'FINALIZADA' && (
+                                <div className="flex gap-2 p-3 bg-blue-50 rounded-xl border border-blue-200">
+                                    <button onClick={() => handleMedicaoAction(selectedMedicao.id, 'ENVIAR_COBRANCA')} title="Disparar Cobrança (E-mail)" className="flex-1 bg-blue-600 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-blue-700 text-[10px] font-black uppercase"><Send className="w-3.5 h-3.5" /> Disparar Cobrança</button>
                                 </div>
                             )}
 
