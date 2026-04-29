@@ -158,6 +158,14 @@ export default function Medicoes() {
     const [showPricingLoteModal, setShowPricingLoteModal] = useState(false);
 
     const [submitting, setSubmitting] = useState(false);
+
+    // --- ACAO MODAL STATE ---
+    const [acaoMedicaoItem, setAcaoMedicaoItem] = useState<any>(null);
+    const [acaoObs, setAcaoObs] = useState('');
+    const [acaoEmailCC, setAcaoEmailCC] = useState('');
+    const [acaoPercentual, setAcaoPercentual] = useState<string>('100');
+    const [acaoEmailComercial, setAcaoEmailComercial] = useState('');
+    const [acaoResponsavel, setAcaoResponsavel] = useState('');
     const [centrosCusto, setCentrosCusto] = useState<any[]>([]);
 
     // ─── FETCH LOGIC ───
@@ -247,6 +255,45 @@ export default function Medicoes() {
         setEditMedicaoId(m.id);
     };
 
+    const openAcaoModal = (m: any) => {
+        setAcaoMedicaoItem(m);
+        setAcaoObs(m.observacoes || '');
+        setAcaoEmailCC(m.emailCobrancaCC || '');
+        setAcaoPercentual('100');
+        setAcaoEmailComercial(m.vendedor?.email || '');
+        setAcaoResponsavel('');
+    };
+
+    const handleAcaoSubmit = async (status: 'APROVADA' | 'APROVADA_PARCIAL' | 'REPROVADA') => {
+        if (!acaoMedicaoItem) return;
+        setSubmitting(true);
+        const valorAprovado = (Number(acaoMedicaoItem.valorTotal) * Number(acaoPercentual)) / 100;
+        
+        try {
+            await api.patch(`/medicoes/${acaoMedicaoItem.id}/status`, { 
+                status,
+                observacoes: acaoObs,
+                motivoContestacao: status === 'REPROVADA' ? acaoObs : undefined,
+                percentualAprovado: Number(acaoPercentual),
+                valorAprovado,
+                emailCobrancaCC: acaoEmailCC,
+                emailVendedor: acaoEmailComercial,
+                aprovadaPor: acaoResponsavel
+            });
+            showToast(status === 'REPROVADA' ? 'Medição reprovada' : 'Medição aprovada com sucesso!');
+            setAcaoMedicaoItem(null);
+            fetchData();
+            if (selectedMedicao?.id === acaoMedicaoItem.id) {
+                if (status === 'REPROVADA') setSelectedMedicao(null);
+                else openMedicao({ id: acaoMedicaoItem.id });
+            }
+        } catch (err: any) {
+            showToast(err.response?.data?.error || 'Erro na operação', 'error');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     const handleVerPDF = (m: any) => {
         const token = localStorage.getItem('accessToken');
         const url = `${api.defaults.baseURL}/medicoes/${m.id}/pdf?token=${token}`;
@@ -277,10 +324,10 @@ export default function Medicoes() {
             extra.justificativaCancelamento = motivo;
         }
 
-        if (next === 'REPROVADA') {
-            const motivo = window.prompt('Motivo da reprovação (será criada uma nova revisão):');
-            if (motivo === null) return;
-            extra.motivoContestacao = motivo;
+        if (next === 'REPROVADA' || next === 'APROVADA' || next === 'APROVADA_PARCIAL') {
+            const med = fullList.find(x => x.id === id) || selectedMedicao;
+            if (med) openAcaoModal(med);
+            return;
         }
 
         try {
@@ -576,6 +623,9 @@ export default function Medicoes() {
                                                     <button title="Cancelar / Retornar" className="hover:text-red-600 transition-colors" onClick={e => { e.stopPropagation(); handleCorrigirMedicao(item.id); }}>
                                                         <XCircle className="w-4 h-4" />
                                                     </button>
+                                                    <button title="Ações (Aprovar/Reprovar)" className="hover:text-emerald-600 transition-colors" onClick={e => { e.stopPropagation(); openAcaoModal(item); }}>
+                                                        <ThumbsUp className="w-4 h-4" />
+                                                    </button>
                                                     <button title="Visualizar / Editar" className="hover:text-slate-900 transition-colors" onClick={e => { e.stopPropagation(); openMedicaoModal(item); }}>
                                                         <Eye className="w-4 h-4" />
                                                     </button>
@@ -790,8 +840,7 @@ export default function Medicoes() {
                                         <button onClick={() => handleMedicaoAction(selectedMedicao.id, 'ENVIAR_CLIENTE')} title="Enviar p/ Cliente" className="flex-1 bg-blue-600 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-blue-700 text-[10px] font-black uppercase"><Mail className="w-3.5 h-3.5" /> Enviar</button>
                                     )}
                                     {selectedMedicao.status === 'AGUARDANDO_APROVACAO' && (<>
-                                        <button onClick={() => handleMedicaoAction(selectedMedicao.id, 'APROVADA')} title="Aprovar" className="flex-1 bg-emerald-600 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-emerald-700 text-[10px] font-black uppercase"><ThumbsUp className="w-3.5 h-3.5" /> Aprovar</button>
-                                        <button onClick={() => handleMedicaoAction(selectedMedicao.id, 'REPROVADA')} title="Reprovar" className="flex-1 bg-red-500 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-red-600 text-[10px] font-black uppercase"><ThumbsDown className="w-3.5 h-3.5" /> Reprovar</button>
+                                        <button onClick={() => openAcaoModal(selectedMedicao)} title="Ação" className="flex-1 bg-emerald-600 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-emerald-700 text-[10px] font-black uppercase"><ThumbsUp className="w-3.5 h-3.5" /> Ação (Aprovar / Reprovar)</button>
                                     </>)}
                                     <button onClick={() => handleMedicaoAction(selectedMedicao.id, 'CONTESTADA')} title="Contestar/Congelar" className="flex-1 bg-orange-500 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-orange-600 text-[10px] font-black uppercase"><Snowflake className="w-3.5 h-3.5" /> Congelar</button>
                                     <button onClick={() => handleMedicaoAction(selectedMedicao.id, 'CANCELADA')} title="Cancelar" className="flex-1 bg-red-600 text-white h-9 rounded-lg flex items-center justify-center gap-1.5 hover:bg-red-700 text-[10px] font-black uppercase"><Ban className="w-3.5 h-3.5" /> Cancelar</button>
@@ -964,6 +1013,90 @@ export default function Medicoes() {
                     onSuccess={fetchData} 
                 />
             )}
+            {/* MODAL DE AÇÃO DA MEDIÇÃO */}
+            {acaoMedicaoItem && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white w-full max-w-2xl rounded-lg shadow-2xl overflow-hidden flex flex-col">
+                        <div className="bg-[#1e3a5f] p-4 flex items-center justify-between text-white">
+                            <h2 className="text-sm font-bold">Ação da Medição {acaoMedicaoItem.codigo}</h2>
+                            <button onClick={() => setAcaoMedicaoItem(null)} className="hover:bg-white/10 p-1 rounded">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-6 grid grid-cols-2 gap-4">
+                            <div className="col-span-2 flex flex-col gap-1">
+                                <label className="text-xs font-bold text-slate-700">Observações de Faturamento</label>
+                                <textarea 
+                                    rows={3}
+                                    value={acaoObs}
+                                    onChange={e => setAcaoObs(e.target.value)}
+                                    className="bg-white border border-slate-300 rounded px-3 py-2 text-sm outline-none resize-none"
+                                />
+                            </div>
+                            <div className="col-span-2 flex flex-col gap-1">
+                                <label className="text-xs font-bold text-slate-700">E-mail da cópia(CC) - Separar por ';'</label>
+                                <input 
+                                    type="text"
+                                    value={acaoEmailCC}
+                                    onChange={e => setAcaoEmailCC(e.target.value)}
+                                    className="bg-white border border-slate-300 rounded px-3 py-2 text-sm outline-none"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-xs font-bold text-slate-700">Porcentagem Faturada %</label>
+                                <input 
+                                    type="number"
+                                    min="0" max="100"
+                                    value={acaoPercentual}
+                                    onChange={e => setAcaoPercentual(e.target.value)}
+                                    className="bg-white border border-slate-300 rounded px-3 py-2 text-sm outline-none"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-xs font-bold text-slate-700">Valor Aprovado</label>
+                                <div className="bg-slate-100 border border-slate-200 rounded px-3 py-2 text-sm font-bold text-slate-700">
+                                    {fmt((Number(acaoMedicaoItem?.valorTotal || 0) * Number(acaoPercentual || 100)) / 100)}
+                                </div>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-xs font-bold text-slate-700">E-mail Comercial</label>
+                                <input 
+                                    type="text"
+                                    value={acaoEmailComercial}
+                                    onChange={e => setAcaoEmailComercial(e.target.value)}
+                                    className="bg-white border border-slate-300 rounded px-3 py-2 text-sm outline-none"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-xs font-bold text-slate-700">Responsável Aprovação</label>
+                                <input 
+                                    type="text"
+                                    value={acaoResponsavel}
+                                    onChange={e => setAcaoResponsavel(e.target.value)}
+                                    className="bg-white border border-slate-300 rounded px-3 py-2 text-sm outline-none"
+                                />
+                            </div>
+                        </div>
+                        <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+                            <button 
+                                onClick={() => handleAcaoSubmit('REPROVADA')}
+                                disabled={submitting}
+                                className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded text-sm font-bold transition-all disabled:opacity-50"
+                            >
+                                Reprovar
+                            </button>
+                            <button 
+                                onClick={() => handleAcaoSubmit(Number(acaoPercentual) < 100 ? 'APROVADA_PARCIAL' : 'APROVADA')}
+                                disabled={submitting}
+                                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-bold transition-all disabled:opacity-50"
+                            >
+                                Aprovar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {showPricingLoteModal && (
                 <ModalPrecificacaoLote 
                     isOpen={showPricingLoteModal}
