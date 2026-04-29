@@ -349,9 +349,20 @@ export default function Medicoes() {
 
         if (next === 'ENVIAR_COBRANCA') {
             try {
+                const med = fullList.find(x => x.id === id) || selectedMedicao;
+                let emailOverride = null;
+                if (med && !med.cliente?.email) {
+                    emailOverride = window.prompt("⚠️ O cliente não possui e-mail cadastrado. Informe um e-mail para enviar a cobrança:");
+                    if (emailOverride === null) return;
+                    if (!emailOverride.includes('@')) {
+                        showToast('E-mail inválido.');
+                        return;
+                    }
+                }
+
                 if (!window.confirm("Deseja disparar o e-mail de faturamento e notas fiscais para o cliente?")) return;
                 setSubmitting(true);
-                await api.post(`/medicoes/${id}/enviar-documentacao`);
+                await api.post(`/medicoes/${id}/enviar-documentacao`, { emailOverride });
                 showToast('E-mail de cobrança enviado com sucesso!', 'success');
                 fetchData();
             } catch (err: any) { 
@@ -1020,6 +1031,24 @@ export default function Medicoes() {
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-1">
+                                                    {['NFSE', 'CTE', 'NFE'].includes(f.tipo) && (
+                                                        <button 
+                                                            onClick={async () => {
+                                                                try {
+                                                                    showToast('Consultando status na Focus NFe...', 'info');
+                                                                    const res = await api.get(`/faturamento/${f.id}/status`);
+                                                                    showToast(`Status: ${res.data.status || 'Processando'}`, 'success');
+                                                                    openMedicao({ id: selectedMedicao.id });
+                                                                } catch (err: any) {
+                                                                    showToast(err.response?.data?.error || 'Erro ao consultar', 'error');
+                                                                }
+                                                            }}
+                                                            className="p-1.5 hover:bg-white rounded border border-transparent hover:border-slate-200 text-slate-600 transition-all"
+                                                            title="Atualizar Status (Focus NFe)"
+                                                        >
+                                                            <RefreshCw className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    )}
                                                     {f.urlArquivoNota && (
                                                         <button 
                                                             onClick={() => window.open(f.urlArquivoNota, '_blank')}

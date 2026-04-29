@@ -785,6 +785,7 @@ export const fecharPorRDO = async (req: AuthRequest, res: Response) => {
 export const enviarDocumentacaoFinal = async (req: AuthRequest, res: Response) => {
     try {
         const id = req.params.id as string;
+        const { emailOverride } = req.body;
         const medicao = await prisma.medicao.findUnique({
             where: { id },
             include: {
@@ -794,7 +795,9 @@ export const enviarDocumentacaoFinal = async (req: AuthRequest, res: Response) =
         });
 
         if (!medicao) return res.status(404).json({ error: 'Medição não encontrada' });
-        if (!medicao.cliente.email) return res.status(400).json({ error: 'Cliente sem e-mail cadastrado.' });
+        
+        const destinatario = emailOverride || medicao.cliente.email;
+        if (!destinatario) return res.status(400).json({ error: 'E-mail não encontrado. O cliente não possui e-mail cadastrado e nenhum e-mail alternativo foi informado.' });
 
         const empresa = await prisma.configuracao.findFirst() || {} as any;
         
@@ -859,7 +862,7 @@ export const enviarDocumentacaoFinal = async (req: AuthRequest, res: Response) =
 
         // 5. Envia E-mail
         const resp = await sendEmail({
-            to: medicao.cliente.email,
+            to: destinatario,
             cc: [CC_FINANCEIRO],
             subject: `Documentação: Medição ${medicao.codigo} (${docLabel}) - Nacional Hidro`,
             html: htmlRendered,
@@ -872,7 +875,7 @@ export const enviarDocumentacaoFinal = async (req: AuthRequest, res: Response) =
         await prisma.cobrancaEmail.create({
             data: {
                 medicaoId: id,
-                destinatario: medicao.cliente.email,
+                destinatario: destinatario,
                 assunto: `[FINAL] Documentação Medição ${medicao.codigo} enviada ao cliente`,
                 corpo: htmlRendered,
                 statusEnvio: 'ENVIADO'

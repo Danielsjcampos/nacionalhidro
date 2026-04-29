@@ -44,21 +44,32 @@ export default function ModalFaturamentoMedicao({ medicao, onClose, onSuccess }:
         fetchDependencies();
     }, []);
 
+    const [statusStep, setStatusStep] = useState('');
+
     const handleGerar = async (overrideTeto = false) => {
         setLoading(true);
+        setStatusStep('Calculando valores e criando faturas...');
         try {
             const res = await api.post(`/faturamento/gerar-rl${overrideTeto ? '?overrideTeto=true' : ''}`, form);
             
+            if (res.data.nfse?.id) {
+                setStatusStep('Solicitando emissão fiscal na Focus NFe...');
+                // O backend já dispara em background, mas vamos consultar o status se quiseremos ser precisos
+                // Para manter paridade com o legado, vamos esperar um pouco ou informar que foi enviado
+                showToast('Solicitação enviada para Focus NFe!', 'info');
+            }
+
             if (dispararEmail) {
+                setStatusStep('Enviando e-mail para o cliente...');
                 if (res.data.rl?.id) {
-                    await api.post(`/faturamento/${res.data.rl.id}/enviar-cliente`).catch(e => console.error(e));
+                    await api.post(`/faturamento/${res.data.rl.id}/enviar`).catch(e => console.error(e));
                 }
                 if (res.data.nfse?.id) {
-                    await api.post(`/faturamento/${res.data.nfse.id}/enviar-cliente`).catch(e => console.error(e));
+                    await api.post(`/faturamento/${res.data.nfse.id}/enviar`).catch(e => console.error(e));
                 }
-                showToast('Faturamento gerado e e-mail disparado!');
+                showToast('Faturamento gerado e e-mail disparado!', 'success');
             } else {
-                showToast('Faturamento gerado com sucesso!');
+                showToast('Faturamento gerado com sucesso!', 'success');
             }
             
             onSuccess();
@@ -69,10 +80,11 @@ export default function ModalFaturamentoMedicao({ medicao, onClose, onSuccess }:
                     handleGerar(true);
                 }
             } else {
-                showToast(err.response?.data?.error || 'Erro ao gerar faturamento');
+                showToast(err.response?.data?.error || 'Erro ao gerar faturamento', 'error');
             }
         } finally {
             setLoading(false);
+            setStatusStep('');
         }
     };
 
@@ -180,8 +192,13 @@ export default function ModalFaturamentoMedicao({ medicao, onClose, onSuccess }:
                     </div>
 
                     <button onClick={() => handleGerar()} disabled={loading}
-                        className="w-full bg-[#1e3a5f] hover:bg-slate-800 text-white py-3 rounded-xl font-black uppercase text-xs tracking-widest transition-all mt-4">
-                        {loading ? 'Gerando...' : 'Confirmar Faturamento'}
+                        className="w-full bg-[#1e3a5f] hover:bg-slate-800 text-white py-3 rounded-xl font-black uppercase text-xs tracking-widest transition-all mt-4 flex items-center justify-center gap-2">
+                        {loading ? (
+                            <>
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                                {statusStep || 'Processando...'}
+                            </>
+                        ) : 'Confirmar Faturamento'}
                     </button>
                 </div>
             </div>
