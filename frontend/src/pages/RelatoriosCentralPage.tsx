@@ -21,7 +21,7 @@ interface ReportOption {
 const REPORT_OPTIONS: ReportOption[] = [
   {
     id: 'escala-diaria',
-    name: 'Escala Diária / Instograma',
+    name: 'Escala Diária / Histograma',
     description: 'Relatório logístico de alocação de veículos e equipes por data.',
     category: 'OPERACIONAL',
     icon: Truck,

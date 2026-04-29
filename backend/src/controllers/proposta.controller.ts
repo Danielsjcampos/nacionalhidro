@@ -275,6 +275,8 @@ export const createProposta = async (req: AuthRequest, res: Response) => {
           cTe: rest.cTe === true || rest.cTe === 'true' || rest.cTe === '1' ? 'true' : (rest.cTe === false || rest.cTe === 'false' || rest.cTe === '0' ? 'false' : null),
           pagamentoAntecipado: rest.pagamentoAntecipado === true || rest.pagamentoAntecipado === 'true' || rest.pagamentoAntecipado === '1' ? 'true' : (rest.pagamentoAntecipado === false || rest.pagamentoAntecipado === 'false' || rest.pagamentoAntecipado === '0' ? 'false' : null),
           valorTotal: !isNaN(Number(rest.valorTotal)) ? Number(rest.valorTotal) : 0,
+          tipoContrato: rest.tipoContrato || null,
+          vigenciaMeses: !isNaN(Number(rest.vigenciaMeses)) ? Number(rest.vigenciaMeses) : null,
           vendedor: rest.vendedor,
           empresa: rest.empresa,
           contato: rest.contato,
@@ -352,6 +354,8 @@ export const createProposta = async (req: AuthRequest, res: Response) => {
               objetivo: novaProposta.objetivo,
               descricaoGarantia: novaProposta.descricaoGarantia,
               condicoesPagamento: novaProposta.condicoesPagamento,
+              tipoContrato: novaProposta.tipoContrato,
+              vigenciaMeses: novaProposta.vigenciaMeses,
             }
           });
         }
@@ -511,6 +515,8 @@ export const updateProposta = async (req: AuthRequest, res: Response) => {
           cTe: rest.cTe === true || rest.cTe === 'true' || rest.cTe === '1' ? 'true' : (rest.cTe === false || rest.cTe === 'false' || rest.cTe === '0' ? 'false' : null),
           pagamentoAntecipado: rest.pagamentoAntecipado === true || rest.pagamentoAntecipado === 'true' || rest.pagamentoAntecipado === '1' ? 'true' : (rest.pagamentoAntecipado === false || rest.pagamentoAntecipado === 'false' || rest.pagamentoAntecipado === '0' ? 'false' : null),
           valorTotal: !isNaN(Number(rest.valorTotal)) ? Number(rest.valorTotal) : 0,
+          tipoContrato: rest.tipoContrato !== undefined ? rest.tipoContrato : undefined,
+          vigenciaMeses: rest.vigenciaMeses !== undefined && !isNaN(Number(rest.vigenciaMeses)) ? Number(rest.vigenciaMeses) : undefined,
           vendedor: rest.vendedor,
           empresa: rest.empresa,
           contato: rest.contato,
@@ -596,6 +602,8 @@ export const updateProposta = async (req: AuthRequest, res: Response) => {
               objetivo: updated.objetivo,
               descricaoGarantia: updated.descricaoGarantia,
               condicoesPagamento: updated.condicoesPagamento,
+              tipoContrato: updated.tipoContrato,
+              vigenciaMeses: updated.vigenciaMeses,
             }
           });
         }

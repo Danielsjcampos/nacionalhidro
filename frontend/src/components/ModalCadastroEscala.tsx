@@ -280,8 +280,8 @@ export default function ModalCadastroEscala({
 
                             {/* Accões de Contexto (view mode) */}
                             {formData.tipoAgendamento === 'PRE_AGENDADO' && (
-                                <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-5 space-y-3">
-                                    <h3 className="text-[10px] font-black uppercase tracking-widest text-blue-900 italic">📌 Dados da Pré-Reserva</h3>
+                                <div className="bg-orange-50 border-2 border-orange-200 rounded-2xl p-5 space-y-3">
+                                    <h3 className="text-[10px] font-black uppercase tracking-widest text-orange-900 italic">📌 Dados da Pré-Reserva</h3>
                                     <div className="grid grid-cols-2 gap-4">
                                         <InfoRow label="Solicitante" value={formData.solicitanteNome || '—'} />
                                         <InfoRow label="Telefone" value={formData.solicitanteTelefone || '—'} />
@@ -298,7 +298,7 @@ export default function ModalCadastroEscala({
                                             if (formData.veiculoId) params.set('veiculoId', formData.veiculoId);
                                             window.location.href = `/propostas?${params.toString()}`;
                                         }}
-                                        className="w-full py-3 bg-blue-900 hover:bg-slate-800 text-white font-black uppercase tracking-widest text-xs rounded-xl shadow-lg transition-all"
+                                        className="w-full py-3 bg-orange-600 hover:bg-orange-700 text-white font-black uppercase tracking-widest text-xs rounded-xl shadow-lg transition-all"
                                     >
                                         🚀 Gerar Proposta
                                     </button>
@@ -443,7 +443,7 @@ export default function ModalCadastroEscala({
                                                 type="button"
                                                 onClick={() => setFormData({ ...formData, tipoAgendamento: tipo })}
                                                 className={`py-2.5 rounded-xl text-[10px] font-black uppercase italic border-2 transition-all ${formData.tipoAgendamento === tipo
-                                                    ? tipo === 'PRE_AGENDADO' ? 'bg-sky-500 border-sky-500 text-white shadow-lg' : 'bg-emerald-500 border-emerald-500 text-white shadow-lg'
+                                                    ? tipo === 'PRE_AGENDADO' ? 'bg-orange-500 border-orange-500 text-white shadow-lg' : 'bg-emerald-500 border-emerald-500 text-white shadow-lg'
                                                     : 'bg-white border-slate-100 text-slate-400 hover:border-slate-300'
                                                 }`}
                                             >

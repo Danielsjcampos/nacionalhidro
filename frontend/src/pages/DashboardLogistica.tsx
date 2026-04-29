@@ -314,11 +314,11 @@ export default function DashboardLogistica() {
                     </div>
                 </div>
 
-                {/* Instograma Visual (7 Dias) */}
+                {/* Histograma Visual (7 Dias) */}
                 {instogramaData && (
                     <div className="bg-white rounded-xl border border-slate-200 p-4 col-span-full">
                         <h2 className="text-xs font-black text-slate-400 uppercase mb-4 flex items-center gap-2">
-                            <Calendar className="w-3.5 h-3.5 text-blue-500" /> Instograma da Frota (Próximos 7 Dias)
+                            <Calendar className="w-3.5 h-3.5 text-blue-500" /> Histograma da Frota (Próximos 7 Dias)
                         </h2>
                         <div className="overflow-x-auto overflow-y-auto max-h-96">
                             <table className="w-full text-left whitespace-nowrap table-fixed">

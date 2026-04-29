@@ -78,7 +78,7 @@ interface FormState {
   pagamentoAntecipado: boolean;
   valor: number;
   // melhorias
-  tipoContrato: 'Individual' | 'Contrato';
+  tipoContrato: string;
   vigenciaMeses: number;
 }
 
@@ -256,7 +256,7 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
     condicaoPagamento: gerarCondicaoPagamento({ pagamentoAntecipado: false, cte: false, porcentagemRL: 90, valor: 0 }),
     validadeProposta: gerarValidadeProposta(moment().add(30,'days').format('YYYY-MM-DD')),
     porcentagemRL: 90, cte: false, pagamentoAntecipado: false, valor: 0,
-    tipoContrato: 'Individual', vigenciaMeses: 12,
+    tipoContrato: 'SPOT', vigenciaMeses: 12,
   });
 
   const [form, setForm] = useState<FormState>(initForm);
@@ -309,7 +309,7 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
         validadeProposta: d.validadeProposta || '',
         porcentagemRL: d.pRL || 90, cte: !!d.cTe, pagamentoAntecipado: !!d.pagamentoAntecipado,
         valor: parseFloat(d.valorTotal) || 0,
-        tipoContrato: d.tipoContrato || 'Individual',
+        tipoContrato: d.tipoContrato || 'SPOT',
         vigenciaMeses: d.vigenciaMeses || 12,
       });
     } else {
@@ -471,6 +471,8 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
         equipamentoId: e.equipamentoId || undefined,
       })),
       condicoesPagamento: form.condicaoPagamento,
+      tipoContrato: form.tipoContrato,
+      vigenciaMeses: form.vigenciaMeses,
     };
     try { await onSave(payload); } finally { setSaving(false); }
   };
@@ -523,6 +525,21 @@ export default function ModalCadastroProposta({ isOpen, onClose, onSave, initial
                 placeholder="Selecione..."
               />
             </div>
+          </div>
+          <div className="grid grid-cols-12 gap-3">
+            <div className="col-span-3"><label className={lbl}>Tipo de Contrato</label>
+              <select value={form.tipoContrato} onChange={e => set('tipoContrato', e.target.value)} className={inp}>
+                <option value="SPOT">SPOT (Atividade Esporádica)</option>
+                <option value="Base Fixa">Base Fixa (Mensal)</option>
+                <option value="Contrato">Contrato Longo Prazo</option>
+              </select>
+            </div>
+            {form.tipoContrato === 'Contrato' && (
+              <div className="col-span-2">
+                <label className={lbl}>Vigência (Meses)</label>
+                <input type="number" min={1} value={form.vigenciaMeses} onChange={e => set('vigenciaMeses', +e.target.value)} className={inp} />
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-12 gap-3">
             <div className="col-span-4"><label className={lbl}>Cliente</label>

@@ -61,7 +61,7 @@ interface ManutencaoAtiva {
     prioridade: string;
 }
 
-type ViewMode = 'semana' | 'mes' | 'ano';
+type ViewMode = 'semana' | 'mes' | 'ano' | 'personalizado';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -105,7 +105,7 @@ const STATUS_CONFIG: Record<string, { bg: string; text: string; border: string; 
 };
 
 const TIPO_CONFIG: Record<string, { dot: string; label: string }> = {
-    PRE_AGENDADO: { dot: 'bg-sky-400', label: 'Pré-agendado' },
+    PRE_AGENDADO: { dot: 'bg-orange-500', label: 'Pré-reserva' },
     CONFIRMADO: { dot: 'bg-emerald-500', label: 'Confirmado' },
 };
 
@@ -125,6 +125,18 @@ export default function Histograma() {
 
     const [viewMode, setViewMode] = useState<ViewMode>('mes');
     const [currentDate, setCurrentDate] = useState(new Date());
+
+    const [customStartDate, setCustomStartDate] = useState<string>(() => {
+        const d = new Date();
+        d.setDate(1);
+        return d.toISOString().split('T')[0];
+    });
+    const [customEndDate, setCustomEndDate] = useState<string>(() => {
+        const d = new Date();
+        d.setMonth(d.getMonth() + 1);
+        d.setDate(0);
+        return d.toISOString().split('T')[0];
+    });
 
     const [selectedTipo, setSelectedTipo] = useState<'Abertas' | 'Executadas' | 'Canceladas'>('Abertas');
 
@@ -210,6 +222,23 @@ export default function Histograma() {
                 endDate: result[result.length - 1],
                 headerLabel: `${MESES[month]} ${year}`,
             };
+        } else if (viewMode === 'personalizado') {
+            const start = new Date(customStartDate + 'T00:00:00');
+            const end = new Date(customEndDate + 'T00:00:00');
+            const totalDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+            const safeDays = Math.min(totalDays, 90); // max 90 days
+            
+            for (let i = 0; i < safeDays; i++) {
+                const d = new Date(start);
+                d.setDate(d.getDate() + i);
+                result.push(d);
+            }
+            return {
+                days: result,
+                startDate: result[0] || start,
+                endDate: result[result.length - 1] || end,
+                headerLabel: `Personalizado`,
+            };
         } else {
             // mode = ano
             const year = currentDate.getFullYear();
@@ -226,7 +255,7 @@ export default function Histograma() {
                 headerLabel: `Ano ${year}`,
             };
         }
-    }, [viewMode, currentDate]);
+    }, [viewMode, currentDate, customStartDate, customEndDate]);
 
     // ── Fetch Data ─────────────────────────────────────────────────────────────
 
@@ -484,7 +513,7 @@ export default function Histograma() {
                 <div className="flex items-center gap-2">
                     {/* View Mode Toggle */}
                     <div className="bg-white rounded-xl border border-slate-200 p-1 flex gap-1 shadow-sm">
-                        {(['semana', 'mes', 'ano'] as ViewMode[]).map((mode) => (
+                        {(['semana', 'mes', 'ano', 'personalizado'] as ViewMode[]).map((mode) => (
                             <button
                                 key={mode}
                                 onClick={() => setViewMode(mode)}
@@ -493,34 +522,42 @@ export default function Histograma() {
                                     : 'text-slate-400 hover:text-slate-600'
                                     }`}
                             >
-                                {mode === 'semana' ? 'Semana' : mode === 'mes' ? 'Mês' : 'Ano'}
+                                {mode === 'personalizado' ? 'Filtro' : mode === 'semana' ? 'Semana' : mode === 'mes' ? 'Mês' : 'Ano'}
                             </button>
                         ))}
                     </div>
 
                     {/* Navigation */}
-                    <div className="bg-white rounded-xl border border-slate-200 flex items-center shadow-sm">
-                        <button
-                            onClick={navigatePrev}
-                            className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
-                            aria-label="Período anterior"
-                        >
-                            <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <button
-                            onClick={goToToday}
-                            className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-blue-600 transition-colors"
-                        >
-                            Hoje
-                        </button>
-                        <button
-                            onClick={navigateNext}
-                            className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
-                            aria-label="Próximo período"
-                        >
-                            <ChevronRight className="w-4 h-4" />
-                        </button>
-                    </div>
+                    {viewMode === 'personalizado' ? (
+                        <div className="flex items-center gap-2 bg-white rounded-xl border border-slate-200 shadow-sm p-1">
+                            <input type="date" value={customStartDate} onChange={e => setCustomStartDate(e.target.value)} className="text-xs bg-transparent outline-none px-2 text-slate-600 font-bold" />
+                            <span className="text-[10px] font-black text-slate-300 uppercase">até</span>
+                            <input type="date" value={customEndDate} onChange={e => setCustomEndDate(e.target.value)} className="text-xs bg-transparent outline-none px-2 text-slate-600 font-bold" />
+                        </div>
+                    ) : (
+                        <div className="bg-white rounded-xl border border-slate-200 flex items-center shadow-sm">
+                            <button
+                                onClick={navigatePrev}
+                                className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
+                                aria-label="Período anterior"
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={goToToday}
+                                className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-blue-600 transition-colors"
+                            >
+                                Hoje
+                            </button>
+                            <button
+                                onClick={navigateNext}
+                                className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
+                                aria-label="Próximo período"
+                            >
+                                <ChevronRight className="w-4 h-4" />
+                            </button>
+                        </div>
+                    )}
 
                     <span className="text-sm font-black text-slate-700 italic min-w-[180px] text-center">
                         {headerLabel}
@@ -541,8 +578,8 @@ export default function Histograma() {
             {selectedTipo === 'Abertas' && (
             <nav className="flex items-center gap-4 flex-wrap text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 <span className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded-sm bg-sky-200 border border-sky-300" />
-                    Pré-agendado
+                    <span className="w-3 h-3 rounded-sm bg-orange-200 border border-orange-300" />
+                    Pré-reserva
                 </span>
                 <span className="flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded-sm bg-emerald-200 border border-emerald-300" />
@@ -771,7 +808,7 @@ export default function Histograma() {
 
                                                         // Use different background for pre-agendado
                                                         const cellBg = esc.tipoAgendamento === 'PRE_AGENDADO'
-                                                            ? 'bg-sky-100 border-sky-200 border-dashed'
+                                                            ? 'bg-orange-100 border-orange-200 border-dashed'
                                                             : `${statusCfg.bg} ${statusCfg.border}`;
 
                                                         return (
@@ -847,7 +884,7 @@ export default function Histograma() {
                         <div className="flex items-center gap-3 mt-1 text-[10px] text-slate-300">
                             <span>{tooltip.escala.equipamento || '—'}</span>
                             <span>•</span>
-                            <span className={TIPO_CONFIG[tooltip.escala.tipoAgendamento]?.dot === 'bg-sky-400' ? 'text-sky-400' : 'text-emerald-400'}>
+                            <span className={TIPO_CONFIG[tooltip.escala.tipoAgendamento]?.dot === 'bg-orange-500' ? 'text-orange-400' : 'text-emerald-400'}>
                                 {TIPO_CONFIG[tooltip.escala.tipoAgendamento]?.label}
                             </span>
                         </div>

@@ -91,6 +91,12 @@ export const TIPO_COBRANCA = [
   { value: 4, label: 'Fechada' },
 ] as const;
 
+export const TIPO_CONTRATO = [
+  { value: 1, label: 'Base Fixa' },
+  { value: 2, label: 'Contrato' },
+  { value: 3, label: 'SPOT' },
+] as const;
+
 export const STATUS_OPERACIONAL = [
   { value: 0, label: 'Nenhum' },
   { value: 1, label: 'Férias' },

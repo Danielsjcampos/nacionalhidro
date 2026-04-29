@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, ChevronDown, ChevronUp, Plus, ArrowDownToLine, Save, Clock, Users, Truck, Info, ExternalLink, AlertTriangle, Copy } from 'lucide-react';
 import {
-  TIPO_COBRANCA, STATUS_OPERACIONAL, DIAS_SEMANA_OPTIONS,
+  TIPO_COBRANCA, TIPO_CONTRATO, STATUS_OPERACIONAL, DIAS_SEMANA_OPTIONS,
   calcularTempoTotal, horaParaMinutos, formatarHoraParaTime
 } from '../utils/logistica';
 import ModalQuadroVeiculosLogistica from './ModalQuadroVeiculosLogistica';
@@ -207,7 +207,7 @@ export default function ModalCadastroOrdem({
             </Field>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Field label="Tipo Cobrança *">
               <select
                 className={!ordem.TipoCobranca ? inpErr : inp}
@@ -217,6 +217,19 @@ export default function ModalCadastroOrdem({
               >
                 <option value="">Selecione...</option>
                 {TIPO_COBRANCA.map(t => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Tipo Contrato">
+              <select
+                className={inp}
+                value={ordem.TipoContrato || ''}
+                disabled={onlyView}
+                onChange={e => set('TipoContrato', Number(e.target.value))}
+              >
+                <option value="">Selecione...</option>
+                {TIPO_CONTRATO.map(t => (
                   <option key={t.value} value={t.value}>{t.label}</option>
                 ))}
               </select>
