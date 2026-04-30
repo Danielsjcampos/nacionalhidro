@@ -115,7 +115,7 @@ export const focusNfeService = {
             };
 
             // Natureza de Operação e ISS Retido (Sync com Legado)
-            payload.natureza_operacao = faturamento.cliente.codigoMunicipio === empresa.codigoMunicipio ? '1' : '2';
+            payload.natureza_operacao = "1"; // 1 = Exigível (Sempre 1 no legado Campinas)
             payload.servico.iss_retido = 1; // Sempre 1 (Sim) no nível do serviço para o layout Focus
             payload.iss_retido = faturamento.cliente.codigoMunicipio === empresa.codigoMunicipio ? 1 : 2;
 
