@@ -41,12 +41,21 @@ export const focusNfeService = {
             if (faturamento.tipo !== 'NFSE') throw new Error('Tipo de faturamento inválido para NFS-e.');
 
             // Busca empresa para obter o token e dados cadastrais
-            const empresa = await (prisma as any).empresaCNPJ.findUnique({
-                where: { cnpj: faturamento.cnpjFaturamento }
-            });
+            let empresa: any = null;
+            if (faturamento.cnpjFaturamento) {
+                empresa = await (prisma as any).empresaCNPJ.findUnique({
+                    where: { cnpj: faturamento.cnpjFaturamento }
+                });
+            }
+            if (!empresa?.focusToken) {
+                // Fallback: busca primeira empresa com token configurado
+                empresa = await (prisma as any).empresaCNPJ.findFirst({
+                    where: { focusToken: { not: null } }
+                });
+            }
 
             if (!empresa?.focusToken) {
-                throw new Error(`Token Focus NFe não encontrado para a empresa ${faturamento.cnpjFaturamento}`);
+                throw new Error(`Token Focus NFe não encontrado. Configure o CNPJ de faturamento ou cadastre um token Focus.`);
             }
 
             const api = getApiClient(empresa.focusToken);
@@ -132,12 +141,20 @@ export const focusNfeService = {
 
             if (!faturamento) throw new Error('Faturamento não encontrado.');
 
-            const empresa = await (prisma as any).empresaCNPJ.findUnique({
-                where: { cnpj: faturamento.cnpjFaturamento }
-            });
+            let empresa: any = null;
+            if (faturamento.cnpjFaturamento) {
+                empresa = await (prisma as any).empresaCNPJ.findUnique({
+                    where: { cnpj: faturamento.cnpjFaturamento }
+                });
+            }
+            if (!empresa?.focusToken) {
+                empresa = await (prisma as any).empresaCNPJ.findFirst({
+                    where: { focusToken: { not: null } }
+                });
+            }
 
             if (!empresa?.focusToken) {
-                throw new Error(`Token Focus NFe não encontrado para a empresa ${faturamento.cnpjFaturamento}`);
+                throw new Error(`Token Focus NFe não encontrado. Configure o CNPJ de faturamento ou cadastre um token Focus.`);
             }
 
             const api = getApiClient(empresa.focusToken);
@@ -225,12 +242,20 @@ export const focusNfeService = {
 
             if (!faturamento) throw new Error('Faturamento não encontrado.');
 
-            const empresa = await (prisma as any).empresaCNPJ.findUnique({
-                where: { cnpj: faturamento.cnpjFaturamento }
-            });
+            let empresa: any = null;
+            if (faturamento.cnpjFaturamento) {
+                empresa = await (prisma as any).empresaCNPJ.findUnique({
+                    where: { cnpj: faturamento.cnpjFaturamento }
+                });
+            }
+            if (!empresa?.focusToken) {
+                empresa = await (prisma as any).empresaCNPJ.findFirst({
+                    where: { focusToken: { not: null } }
+                });
+            }
 
             if (!empresa?.focusToken) {
-                throw new Error(`Token Focus NFe não encontrado para a empresa ${faturamento.cnpjFaturamento}`);
+                throw new Error(`Token Focus NFe não encontrado. Configure o CNPJ de faturamento ou cadastre um token Focus.`);
             }
 
             const api = getApiClient(empresa.focusToken);
@@ -312,11 +337,19 @@ export const focusNfeService = {
         const fat = await (prisma as any).faturamento.findUnique({
             where: { id: faturamentoId }
         });
-        if (!fat?.focusRef || !fat.cnpjFaturamento) return null;
+        if (!fat?.focusRef) return null;
 
-        const empresa = await (prisma as any).empresaCNPJ.findUnique({
-            where: { cnpj: fat.cnpjFaturamento }
-        });
+        let empresa: any = null;
+        if (fat.cnpjFaturamento) {
+            empresa = await (prisma as any).empresaCNPJ.findUnique({
+                where: { cnpj: fat.cnpjFaturamento }
+            });
+        }
+        if (!empresa?.focusToken) {
+            empresa = await (prisma as any).empresaCNPJ.findFirst({
+                where: { focusToken: { not: null } }
+            });
+        }
         if (!empresa?.focusToken) return null;
 
         const api = getApiClient(empresa.focusToken);
