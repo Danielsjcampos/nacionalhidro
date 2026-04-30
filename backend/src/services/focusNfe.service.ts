@@ -161,18 +161,18 @@ export const focusNfeService = {
                     rntrc: empresa.rntrc || ""
                 },
                 emitente: {
-                    cnpj: empresa.cnpj.replace(/\D/g, ''),
-                    inscricao_estadual: empresa.inscricaoEstadual?.replace(/\D/g, '') || '',
+                    cnpj: (empresa.cnpj || '').replace(/\D/g, ''),
+                    inscricao_estadual: (empresa.inscricaoEstadual || '').replace(/\D/g, '') || '',
                     nome: empresa.nome,
                     logradouro: empresa.logradouro,
                     numero: empresa.numero,
                     bairro: empresa.bairro,
                     codigo_municipio: empresa.codigoMunicipio,
                     uf: empresa.uf,
-                    cep: empresa.cep?.replace(/\D/g, '')
+                    cep: (empresa.cep || '').replace(/\D/g, '')
                 },
                 tomador: {
-                    cnpj: faturamento.cliente.cnpj.replace(/\D/g, ''),
+                    cnpj: (faturamento.cliente.cnpj || faturamento.cliente.documento || '').replace(/\D/g, ''),
                     nome: faturamento.cliente.razaoSocial || faturamento.cliente.nome,
                     inscricao_estadual: (faturamento.cliente.inscricaoEstadual || "ISENTO").replace(/\D/g, '') || "ISENTO",
                     logradouro: faturamento.cliente.rua || faturamento.cliente.endereco || "",
@@ -180,10 +180,10 @@ export const focusNfeService = {
                     bairro: faturamento.cliente.bairro || "",
                     codigo_municipio: faturamento.cliente.codigoMunicipio,
                     uf: faturamento.cliente.estado || faturamento.cliente.uf || "SP",
-                    cep: faturamento.cliente.cep?.replace(/\D/g, '')
+                    cep: (faturamento.cliente.cep || '').replace(/\D/g, '')
                 },
                 remetente: {
-                    cnpj: faturamento.cliente.cnpj.replace(/\D/g, ''),
+                    cnpj: (faturamento.cliente.cnpj || faturamento.cliente.documento || '').replace(/\D/g, ''),
                     nome: faturamento.cliente.razaoSocial || faturamento.cliente.nome,
                     inscricao_estadual: (faturamento.cliente.inscricaoEstadual || "ISENTO").replace(/\D/g, '') || "ISENTO",
                     logradouro: faturamento.cliente.rua || faturamento.cliente.endereco || "",
@@ -191,7 +191,7 @@ export const focusNfeService = {
                     bairro: faturamento.cliente.bairro || "",
                     codigo_municipio: faturamento.cliente.codigoMunicipio,
                     uf: faturamento.cliente.estado || faturamento.cliente.uf || "SP",
-                    cep: faturamento.cliente.cep?.replace(/\D/g, '')
+                    cep: (faturamento.cliente.cep || '').replace(/\D/g, '')
                 },
                 informacoes_adicionais: `${faturamento.observacoes || 'Transporte de Cargas'}. DADOS DE PAGAMENTO Banco: ${empresa.banco || ''} Ag: ${empresa.agencia || ''} C/C: ${empresa.conta || ''}`
             };
@@ -247,18 +247,18 @@ export const focusNfeService = {
                 valor_total: Number(faturamento.valorBruto),
                 valor_produtos: Number(faturamento.valorBruto),
                 emitente: {
-                    cnpj: empresa.cnpj.replace(/\D/g, ''),
-                    inscricao_estadual: empresa.inscricaoEstadual?.replace(/\D/g, '') || '',
+                    cnpj: (empresa.cnpj || '').replace(/\D/g, ''),
+                    inscricao_estadual: (empresa.inscricaoEstadual || '').replace(/\D/g, '') || '',
                     nome: empresa.nome,
                     logradouro: empresa.logradouro,
                     numero: empresa.numero,
                     bairro: empresa.bairro,
                     codigo_municipio: empresa.codigoMunicipio,
                     uf: empresa.uf,
-                    cep: empresa.cep?.replace(/\D/g, '')
+                    cep: (empresa.cep || '').replace(/\D/g, '')
                 },
                 destinatario: {
-                    cnpj: faturamento.cliente.cnpj.replace(/\D/g, ''),
+                    cnpj: (faturamento.cliente.cnpj || faturamento.cliente.documento || '').replace(/\D/g, ''),
                     razao_social: faturamento.cliente.razaoSocial || faturamento.cliente.nome,
                     inscricao_estadual: (faturamento.cliente.inscricaoEstadual || "ISENTO").replace(/\D/g, '') || "ISENTO",
                     logradouro: faturamento.cliente.rua,
@@ -266,7 +266,7 @@ export const focusNfeService = {
                     bairro: faturamento.cliente.bairro,
                     codigo_municipio: faturamento.cliente.codigoMunicipio,
                     uf: faturamento.cliente.estado,
-                    cep: faturamento.cliente.cep?.replace(/\D/g, '')
+                    cep: (faturamento.cliente.cep || '').replace(/\D/g, '')
                 },
                 items: [
                     {
