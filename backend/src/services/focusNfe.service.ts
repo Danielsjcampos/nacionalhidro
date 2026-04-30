@@ -48,6 +48,16 @@ export const focusNfeService = {
                 });
             }
             if (!empresa?.focusToken) {
+                empresa = await (prisma as any).empresaCNPJ.findUnique({
+                    where: { cnpj: '04.315.038/0001-04' } // Nacional Hidrosaneamento
+                });
+            }
+            if (!empresa?.focusToken) {
+                empresa = await (prisma as any).empresaCNPJ.findUnique({
+                    where: { cnpj: '24.840.094/0001-75' } // Nacionalhidro Locacao
+                });
+            }
+            if (!empresa?.focusToken) {
                 // Fallback: busca primeira empresa com token configurado
                 empresa = await (prisma as any).empresaCNPJ.findFirst({
                     where: { focusToken: { not: null } }
@@ -343,6 +353,16 @@ export const focusNfeService = {
         if (fat.cnpjFaturamento) {
             empresa = await (prisma as any).empresaCNPJ.findUnique({
                 where: { cnpj: fat.cnpjFaturamento }
+            });
+        }
+        if (!empresa?.focusToken) {
+            empresa = await (prisma as any).empresaCNPJ.findUnique({
+                where: { cnpj: '04.315.038/0001-04' } // Nacional Hidrosaneamento
+            });
+        }
+        if (!empresa?.focusToken) {
+            empresa = await (prisma as any).empresaCNPJ.findUnique({
+                where: { cnpj: '24.840.094/0001-75' } // Nacionalhidro Locacao
             });
         }
         if (!empresa?.focusToken) {
