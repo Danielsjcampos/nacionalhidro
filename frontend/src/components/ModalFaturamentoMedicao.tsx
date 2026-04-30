@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Shield, Receipt } from 'lucide-react';
+import { X, Shield, Receipt, RefreshCw } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 
