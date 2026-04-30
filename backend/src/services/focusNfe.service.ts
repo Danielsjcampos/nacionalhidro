@@ -57,20 +57,20 @@ export const focusNfeService = {
                 data_emissao: faturamento.dataEmissao.toISOString(),
                 natureza_operacao: faturamento.cliente.codigoMunicipio === empresa.codigoMunicipio ? '1' : '2',
                 prestador: {
-                    cnpj: empresa.cnpj.replace(/\D/g, ''),
-                    inscricao_municipal: empresa.inscricaoMunicipal?.replace(/\D/g, '') || '',
+                    cnpj: (empresa.cnpj || '').replace(/\D/g, ''),
+                    inscricao_municipal: (empresa.inscricaoMunicipal || '').replace(/\D/g, ''),
                     codigo_municipio: empresa.codigoMunicipio
                 },
                 tomador: {
-                    cnpj_cpf: faturamento.cliente.cnpj.replace(/\D/g, ''),
+                    cnpj_cpf: (faturamento.cliente.cnpj || faturamento.cliente.documento || '').replace(/\D/g, ''),
                     razao_social: faturamento.cliente.razaoSocial || faturamento.cliente.nome,
                     email: faturamento.cliente.email || "",
-                    telefone: faturamento.cliente.telefone?.replace(/\D/g, '') || "",
+                    telefone: (faturamento.cliente.telefone || '').replace(/\D/g, ''),
                     endereco: {
                         logradouro: faturamento.cliente.rua || "",
                         numero: faturamento.cliente.numero || "S/N",
                         bairro: faturamento.cliente.bairro || "",
-                        cep: faturamento.cliente.cep?.replace(/\D/g, '') || "",
+                        cep: (faturamento.cliente.cep || '').replace(/\D/g, ''),
                         uf: faturamento.cliente.estado || "SP",
                         codigo_municipio: faturamento.cliente.codigoMunicipio
                     }

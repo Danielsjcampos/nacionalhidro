@@ -1051,7 +1051,9 @@ export default function Medicoes() {
                                                     )}
                                                     <button 
                                                         onClick={() => {
-                                                            let token = localStorage.getItem('token') || '';
+                                                            let token = localStorage.getItem('accessToken') || '';
+                                                            // Remove quotes if the token was stored as a JSON string
+                                                            if (token.startsWith('"') && token.endsWith('"')) token = token.slice(1, -1);
                                                             if (token.startsWith('Bearer ')) token = token.split(' ')[1];
                                                             const url = `${api.defaults.baseURL}/faturamento/${f.id}/pdf?token=${encodeURIComponent(token)}`;
                                                             window.open(url, '_blank');
