@@ -1051,8 +1051,9 @@ export default function Medicoes() {
                                                     )}
                                                     <button 
                                                         onClick={() => {
-                                                            const token = localStorage.getItem('token');
-                                                            const url = `${api.defaults.baseURL}/faturamento/${f.id}/pdf?token=${token}`;
+                                                            let token = localStorage.getItem('token') || '';
+                                                            if (token.startsWith('Bearer ')) token = token.split(' ')[1];
+                                                            const url = `${api.defaults.baseURL}/faturamento/${f.id}/pdf?token=${encodeURIComponent(token)}`;
                                                             window.open(url, '_blank');
                                                         }}
                                                         className="p-1.5 hover:bg-white rounded border border-transparent hover:border-slate-200 text-blue-600 transition-all"
