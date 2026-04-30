@@ -1063,6 +1063,26 @@ export default function Medicoes() {
                                                     >
                                                         <Eye className="w-3.5 h-3.5" />
                                                     </button>
+                                                    {f.status === 'EMITIDA' && (
+                                                        <button 
+                                                            onClick={async () => {
+                                                                const justificativa = window.prompt("Digite o motivo do cancelamento:");
+                                                                if (!justificativa) return;
+                                                                try {
+                                                                    showToast('Solicitando cancelamento...', 'info');
+                                                                    await api.post(`/faturamento/${f.id}/cancelar`, { justificativa });
+                                                                    showToast('Cancelamento solicitado com sucesso!', 'success');
+                                                                    openMedicao({ id: selectedMedicao.id });
+                                                                } catch (err: any) {
+                                                                    showToast(err.response?.data?.error || 'Erro ao cancelar', 'error');
+                                                                }
+                                                            }}
+                                                            className="p-1.5 hover:bg-red-50 rounded border border-transparent hover:border-red-200 text-red-500 transition-all ml-1"
+                                                            title="Cancelar Faturamento"
+                                                        >
+                                                            <Ban className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
