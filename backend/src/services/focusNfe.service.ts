@@ -106,6 +106,10 @@ export const focusNfeService = {
                     valor_ir: Number(faturamento.valorIR || 0),
                     valor_csll: Number(faturamento.valorCSLL || 0),
                     valor_iss: Number(faturamento.valorISS || 0),
+                    codigo_tributacao_municipio: empresa.tributacaoMunicipio || empresa.itemListaServico || '14.01',
+                    codigo_municipio: empresa.codigoMunicipio || '3509502', // Município de incidência
+                    exigibilidade_iss: 1, // 1 = Exigível
+                    issqn_exigibilidade: 1, // Focus mapping alias
                     discriminacao: `${faturamento.observacoes || 'Serviços Prestados'}.\nVENCIMENTO: ${faturamento.dataVencimento ? new Date(faturamento.dataVencimento).toLocaleDateString('pt-BR') : ''}.\nDADOS BANCÁRIOS: Banco: ${empresa.banco || ''} Ag: ${empresa.agencia || ''} C/C: ${empresa.conta || ''}`
                 }
             };
