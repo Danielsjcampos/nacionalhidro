@@ -67,12 +67,12 @@ export const focusNfeService = {
                     email: faturamento.cliente.email || "",
                     telefone: (faturamento.cliente.telefone || '').replace(/\D/g, ''),
                     endereco: {
-                        logradouro: faturamento.cliente.rua || "",
+                        logradouro: faturamento.cliente.rua || faturamento.cliente.endereco || "Não Informado",
                         numero: faturamento.cliente.numero || "S/N",
-                        bairro: faturamento.cliente.bairro || "",
-                        cep: (faturamento.cliente.cep || '').replace(/\D/g, ''),
-                        uf: faturamento.cliente.estado || "SP",
-                        codigo_municipio: faturamento.cliente.codigoMunicipio
+                        bairro: faturamento.cliente.bairro || "Não Informado",
+                        cep: (faturamento.cliente.cep || '').replace(/\D/g, '') || "00000000",
+                        uf: faturamento.cliente.estado || faturamento.cliente.uf || "SP",
+                        codigo_municipio: faturamento.cliente.codigoMunicipio || "3509502"
                     }
                 },
                 servico: {
@@ -261,12 +261,12 @@ export const focusNfeService = {
                     cnpj: (faturamento.cliente.cnpj || faturamento.cliente.documento || '').replace(/\D/g, ''),
                     razao_social: faturamento.cliente.razaoSocial || faturamento.cliente.nome,
                     inscricao_estadual: (faturamento.cliente.inscricaoEstadual || "ISENTO").replace(/\D/g, '') || "ISENTO",
-                    logradouro: faturamento.cliente.rua,
-                    numero: faturamento.cliente.numero,
-                    bairro: faturamento.cliente.bairro,
-                    codigo_municipio: faturamento.cliente.codigoMunicipio,
-                    uf: faturamento.cliente.estado,
-                    cep: (faturamento.cliente.cep || '').replace(/\D/g, '')
+                    logradouro: faturamento.cliente.rua || faturamento.cliente.endereco || "Não Informado",
+                    numero: faturamento.cliente.numero || "S/N",
+                    bairro: faturamento.cliente.bairro || "Não Informado",
+                    codigo_municipio: faturamento.cliente.codigoMunicipio || "3509502",
+                    uf: faturamento.cliente.estado || faturamento.cliente.uf || "SP",
+                    cep: (faturamento.cliente.cep || '').replace(/\D/g, '') || "00000000"
                 },
                 items: [
                     {
