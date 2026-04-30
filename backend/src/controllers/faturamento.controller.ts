@@ -555,14 +555,24 @@ export const consultarStatusManual = async (req: AuthRequest, res: Response) => 
         const fat = await (prisma as any).faturamento.findUnique({ where: { id }, include: { cliente: true } });
         if (!fat) return res.status(404).json({ error: 'Faturamento não encontrado' });
 
-        let result;
-        if (fat.tipo === 'NFSE') {
-            result = await focusNfeService.consultarStatus(id);
-        } else {
-            result = await focusNfeService.consultarStatus(id);
+        // Se for NFSE/CTE e não tiver focusRef, tenta emitir agora!
+        if (!fat.focusRef && ['NFSE', 'CTE', 'NFE'].includes(fat.tipo)) {
+            try {
+                let emission;
+                if (fat.tipo === 'NFSE') emission = await focusNfeService.emitirNFSe(id);
+                else if (fat.tipo === 'CTE') emission = await focusNfeService.emitirCTE(id);
+                else if (fat.tipo === 'NFE') emission = await focusNfeService.emitirNFe(id);
+                
+                if (emission?.success) {
+                    return res.json({ status: 'PROCESSANDO', message: 'Emissão disparada agora. Aguarde alguns instantes e consulte novamente.' });
+                }
+            } catch (err: any) {
+                return res.status(400).json({ error: 'Falha ao disparar emissão: ' + (err.response?.data?.mensagem || err.message) });
+            }
         }
-        
-        if (!result) return res.status(400).json({ error: 'Faturamento sem referência para consulta.' });
+
+        const result = await focusNfeService.consultarStatus(id);
+        if (!result) return res.status(400).json({ error: 'Faturamento sem referência para consulta. Verifique as configurações da Focus NFe.' });
 
         res.json(result);
     } catch (error: any) {
@@ -744,5 +754,48 @@ export const enviarFaturamentoAoCliente = async (req: AuthRequest, res: Response
     } catch (e: any) {
         console.error('Falha enviar faturamento:', e);
         res.status(500).json({ error: 'Falha enviar', details: e.message });
+    }
+};
+
+// ─── DOWNLOAD PDF (RL / ND / Fiscal) ───────────────────────────
+export const downloadPdf = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string;
+        const fat = await (prisma as any).faturamento.findUnique({
+            where: { id },
+            include: { cliente: true }
+        });
+
+        if (!fat) return res.status(404).json({ error: 'Faturamento não encontrado' });
+
+        // Se tiver URL de nota (Focus), redireciona
+        if (fat.urlArquivoNota) {
+            return res.redirect(fat.urlArquivoNota);
+        }
+
+        // Se for RL ou ND, gera o PDF na hora
+        if (fat.tipo === 'RL' || fat.tipo === 'ND') {
+            const config = await (prisma as any).configuracao.findFirst() || {};
+            const pdfBuffer = await gerarPdfReciboLocacao(fat, fat.cliente, config);
+            
+            res.setHeader('Content-Type', 'application/pdf');
+            const prefix = fat.tipo === 'ND' ? 'Nota_Debito' : 'Recibo_Locacao';
+            res.setHeader('Content-Disposition', `inline; filename="${prefix}_${fat.numero || fat.id.substring(0,6)}.pdf"`);
+            return res.send(pdfBuffer);
+        }
+
+        // Se for NFSE sem URL, tenta buscar na Focus
+        if (['NFSE', 'CTE', 'NFE'].includes(fat.tipo)) {
+            const result = await focusNfeService.consultarStatus(id);
+            if (result?.status === 'autorizado' && result.url) {
+                return res.redirect(result.url);
+            }
+            return res.status(400).json({ error: 'Documento fiscal ainda não autorizado ou URL indisponível na Focus NFe.' });
+        }
+
+        res.status(400).json({ error: 'Tipo de documento não suporta visualização direta.' });
+    } catch (error: any) {
+        console.error('Download PDF error:', error);
+        res.status(500).json({ error: 'Falha ao gerar/recuperar PDF', details: error.message });
     }
 };

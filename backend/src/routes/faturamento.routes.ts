@@ -3,7 +3,7 @@ import {
     listFaturamentos, getFaturamento, createFaturamento,
     updateFaturamento, deleteFaturamento, gerarFaturamentoRL,
     getFaturamentoStats, emitirManual, consultarStatusManual,
-    cancelarManual, emitirCartaCorrecao, enviarFaturamentoAoCliente
+    cancelarManual, emitirCartaCorrecao, enviarFaturamentoAoCliente, downloadPdf
 } from '../controllers/faturamento.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 
@@ -13,6 +13,7 @@ router.use(authenticate);
 router.get('/stats', authorize('financeiro.faturamento.listar'), getFaturamentoStats);
 router.get('/', authorize('financeiro.faturamento.listar'), listFaturamentos);
 router.get('/:id', authorize('financeiro.faturamento.listar'), getFaturamento);
+router.get('/:id/pdf', authorize('financeiro.faturamento.listar'), downloadPdf);
 router.post('/', authorize('financeiro.faturamento.criar'), createFaturamento);
 router.post('/gerar-rl', authorize('financeiro.faturamento.criar'), gerarFaturamentoRL);
 router.post('/:id/enviar', authorize('financeiro.faturamento.criar'), enviarFaturamentoAoCliente);

@@ -1049,15 +1049,17 @@ export default function Medicoes() {
                                                             <RefreshCw className="w-3.5 h-3.5" />
                                                         </button>
                                                     )}
-                                                    {f.urlArquivoNota && (
-                                                        <button 
-                                                            onClick={() => window.open(f.urlArquivoNota, '_blank')}
-                                                            className="p-1.5 hover:bg-white rounded border border-transparent hover:border-slate-200 text-blue-600 transition-all"
-                                                            title="Ver PDF"
-                                                        >
-                                                            <Eye className="w-3.5 h-3.5" />
-                                                        </button>
-                                                    )}
+                                                    <button 
+                                                        onClick={() => {
+                                                            const token = localStorage.getItem('token');
+                                                            const url = `${api.defaults.baseURL}/faturamento/${f.id}/pdf?token=${token}`;
+                                                            window.open(url, '_blank');
+                                                        }}
+                                                        className="p-1.5 hover:bg-white rounded border border-transparent hover:border-slate-200 text-blue-600 transition-all"
+                                                        title="Ver PDF"
+                                                    >
+                                                        <Eye className="w-3.5 h-3.5" />
+                                                    </button>
                                                 </div>
                                             </div>
                                         ))}
