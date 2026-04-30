@@ -96,7 +96,7 @@ export const focusNfeService = {
                 },
                 servico: {
                     aliquota: Number(empresa.aliquotaIss || 2.0),
-                    iss_retido: faturamento.cliente.codigoMunicipio === empresa.codigoMunicipio ? 1 : 2,
+                    iss_retido: "2", // 2 = Não Retido
                     item_lista_servico: empresa.itemListaServico || '0710',
                     codigo_cnae: empresa.cnae || '8129000',
                     valor_servicos: Number(faturamento.valorBruto),
@@ -116,8 +116,8 @@ export const focusNfeService = {
 
             // Natureza de Operação e ISS Retido (Sync com Legado)
             payload.natureza_operacao = "1"; // 1 = Exigível (Sempre 1 no legado Campinas)
-            payload.servico.iss_retido = 1; // Sempre 1 (Sim) no nível do serviço para o layout Focus
-            payload.iss_retido = faturamento.cliente.codigoMunicipio === empresa.codigoMunicipio ? 1 : 2;
+            payload.servico.iss_retido = "2"; // 2 = Não Retido
+            payload.iss_retido = "2"; // Root e servico devem bater no padrão Focus ABRASF
 
             const response = await api.post(`/nfse?ref=${ref}`, payload);
 
